@@ -4,6 +4,7 @@
   import Card from "#lib/components/ui/Card.svelte";
   import Dialog from "#lib/components/ui/Dialog.svelte";
   import IconButton from "#lib/components/ui/IconButton.svelte";
+  import Select from "#lib/components/ui/Select.svelte";
   import Sheet from "#lib/components/ui/Sheet.svelte";
   import TextField from "#lib/components/ui/TextField.svelte";
   import SetRow from "#lib/components/workout/SetRow.svelte";
@@ -18,6 +19,8 @@
     onremove,
     onmove,
     onnotes,
+    defaultRestSeconds,
+    onrest,
     unit,
     previousSets = [],
     onaddset,
@@ -34,6 +37,10 @@
     /** `-1` moves up, `1` moves down. */
     onmove: (direction: -1 | 1) => void;
     onnotes: (notes: string) => void;
+    /** From settings; what "Default" means in the Rest time dialog. */
+    defaultRestSeconds: number;
+    /** `undefined` clears the override (back to the default). */
+    onrest: (seconds: number | undefined) => void;
     unit: WeightUnit;
     /** Sets of this exercise from the last completed session (`loadPreviousSets`). */
     previousSets?: LoggedSet[];
@@ -80,6 +87,32 @@
     notesOpen = false;
     const notes = draft.trim();
     if (notes !== (exercise.notes ?? "")) onnotes(notes);
+  }
+
+  let restOpen = $state(false);
+  let restDraft = $state("");
+  const restChoices = $derived.by(() => {
+    const seconds = [...new Set([30, 45, 60, 90, 120, 150, 180, 240, 300, ...(exercise.restSeconds ? [exercise.restSeconds] : [])])];
+    return [
+      { value: "", label: `Default (${fmtRest(defaultRestSeconds)})` },
+      ...seconds.sort((a, b) => a - b).map((n) => ({ value: String(n), label: fmtRest(n) })),
+    ];
+  });
+
+  function fmtRest(n: number) {
+    return n % 60 === 0 ? `${n / 60} min` : n < 60 ? `${n} s` : `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`;
+  }
+
+  function openRest() {
+    menuOpen = false;
+    restDraft = exercise.restSeconds === undefined ? "" : String(exercise.restSeconds);
+    restOpen = true;
+  }
+
+  function saveRest() {
+    restOpen = false;
+    const next = restDraft === "" ? undefined : Number(restDraft);
+    if (next !== exercise.restSeconds) onrest(next);
   }
 
   function act(fn: () => void) {
@@ -141,10 +174,19 @@
   <div class="menu">
     <Button block icon="chevron-up" disabled={index === 0} onclick={() => act(() => onmove(-1))}>Move up</Button>
     <Button block icon="chevron-down" disabled={index === count - 1} onclick={() => act(() => onmove(1))}>Move down</Button>
+    <Button block icon="timer" onclick={openRest}>Rest time</Button>
     <Button block icon="edit" onclick={openNotes}>Notes</Button>
     <Button block variant="danger" icon="trash" onclick={() => act(onremove)}>Remove exercise</Button>
   </div>
 </Sheet>
+
+<Dialog bind:open={restOpen} title="Rest time">
+  <Select label="Rest after each set" bind:value={restDraft} options={restChoices} />
+  {#snippet actions()}
+    <Button variant="ghost" onclick={() => (restOpen = false)}>Cancel</Button>
+    <Button variant="primary" onclick={saveRest}>Save</Button>
+  {/snippet}
+</Dialog>
 
 <Dialog bind:open={notesOpen} title="Exercise notes">
   <TextField label="Notes" bind:value={draft} multiline />

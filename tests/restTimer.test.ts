@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { adjustRestTimer, pauseRestTimer, remainingSeconds, resumeRestTimer, startRestTimer } from "#lib/restTimer";
+import {
+  adjustRestTimer,
+  pauseRestTimer,
+  remainingSeconds,
+  restDurationFor,
+  resumeRestTimer,
+  startRestTimer,
+} from "#lib/restTimer";
 
 const t0 = Date.parse("2026-01-01T10:00:00.000Z");
 
@@ -32,9 +39,25 @@ describe("rest timer", () => {
     expect(JSON.parse(JSON.stringify(paused))).toEqual(paused);
   });
   it("adjusts running and paused timers", () => {
-    expect(remainingSeconds(adjustRestTimer(startRestTimer(60, t0), 15, t0), t0)).toBe(75);
-    expect(remainingSeconds(adjustRestTimer(startRestTimer(60, t0), -100, t0), t0)).toBe(0);
+    expect(
+      remainingSeconds(adjustRestTimer(startRestTimer(60, t0), 15, t0), t0),
+    ).toBe(75);
+    expect(
+      remainingSeconds(adjustRestTimer(startRestTimer(60, t0), -100, t0), t0),
+    ).toBe(0);
     const paused = pauseRestTimer(startRestTimer(60, t0), t0 + 10_000);
     expect(remainingSeconds(adjustRestTimer(paused, 15), 0)).toBe(65);
+  });
+});
+
+describe("restDurationFor", () => {
+  it("uses the exercise override, else the default", () => {
+    expect(
+      restDurationFor({ restSeconds: 150 }, { defaultRestSeconds: 90 }),
+    ).toBe(150);
+    expect(restDurationFor({}, { defaultRestSeconds: 90 })).toBe(90);
+    expect(
+      restDurationFor({ restSeconds: 0 }, { defaultRestSeconds: 90 }),
+    ).toBe(0);
   });
 });

@@ -142,6 +142,8 @@ export type UserSettings = {
   weightUnit: WeightUnit;
   defaultRestSeconds: number;
   autoStartRestTimer: boolean;
+  /** Beep when a rest timer finishes (only while the app is open). */
+  timerSound?: boolean;
   previousValuesMode: "exercise" | "routine";
   /** 0 = Sunday, 1 = Monday, ... 6 = Saturday. */
   weekStartsOn: 0 | 1 | 6;
