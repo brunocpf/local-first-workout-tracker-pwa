@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { version } from "$app/env";
   import { resolve } from "$app/paths";
+  import BackupSection from "#lib/components/settings/BackupSection.svelte";
   import Banner from "#lib/components/ui/Banner.svelte";
   import Button from "#lib/components/ui/Button.svelte";
   import Card from "#lib/components/ui/Card.svelte";
@@ -107,7 +108,11 @@
     />
   </Card>
 
-  <!-- Backup section goes here (T4.04, #55): export, restore, backup reminder. -->
+  <Card as="section" header={backup}>
+    <BackupSection />
+  </Card>
+
+  <!-- Backup reminder goes here (T4.05, #73). -->
 
   <Card as="section" header={storage}>
     <div class="stack">
@@ -154,6 +159,7 @@
 {#snippet workout()}Workout{/snippet}
 {#snippet appearance()}Appearance{/snippet}
 {#snippet calendar()}Calendar{/snippet}
+{#snippet backup()}Backup{/snippet}
 {#snippet storage()}Storage{/snippet}
 {#snippet about()}About{/snippet}
 

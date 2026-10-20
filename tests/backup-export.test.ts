@@ -197,4 +197,11 @@ describe("backupV1 schema", () => {
       backupV1.safeParse({ ...good, exportedAt: "yesterday" }).success,
     ).toBe(false);
   });
+
+  it("keeps lastBackupAt in the backup settings", async () => {
+    await d.settings.put({ key: SETTINGS_KEY, lastBackupAt: T } as never);
+    const backup = await buildBackup({}, d);
+    expect(backup.data.settings.lastBackupAt).toBe(T);
+    expect(backupV1.parse(JSON.parse(JSON.stringify(backup))).data.settings.lastBackupAt).toBe(T);
+  });
 });

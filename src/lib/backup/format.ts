@@ -181,6 +181,7 @@ export const settingsSchema = z.object({
   previousValuesMode: z.enum(["exercise", "routine"]),
   weekStartsOn: z.union([z.literal(0), z.literal(1), z.literal(6)]),
   theme: z.enum(["system", "light", "dark"]),
+  lastBackupAt: iso.optional(),
 });
 
 /** User state on a built-in (seed) exercise; the exercise itself comes from the app catalog. */
