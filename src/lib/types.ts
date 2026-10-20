@@ -156,4 +156,6 @@ export type UserSettings = {
   backupReminderDays?: number;
   /** Remind to back up after this many completed workouts (0 = off). */
   backupReminderSessions?: number;
+  /** Hevy `exercise_title` → exercise id, remembered from past imports so a re-import maps the same way (docs/hevy-import.md). */
+  hevyExerciseMap?: Record<string, string>;
 };
