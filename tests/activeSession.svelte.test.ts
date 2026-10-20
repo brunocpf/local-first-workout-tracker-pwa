@@ -186,6 +186,19 @@ describe("active session store", () => {
     expect(store.isActive).toBe(false);
   });
 
+  it("a write failure in an ended session doesn't leak into the next one's finish", async () => {
+    const store = await started();
+    vi.spyOn(sessions, "saveSession").mockRejectedValueOnce(new Error("disk"));
+    await store.mutate((s) => (s.name = "lost"), { persist: "now" });
+    await store.discard();
+    await store.start({ name: "Next" });
+    const finishing = store.finish();
+    await store.mutate((s) => (s.notes = "during flush"), { persist: "deferred" });
+    const done = await finishing;
+    expect(done).toMatchObject({ name: "Next", notes: "during flush", status: "completed" });
+    expect(store.isActive).toBe(false);
+  });
+
   it("a failed discard keeps pending typed changes and still saves them", async () => {
     const store = await started();
     fakeTimers();

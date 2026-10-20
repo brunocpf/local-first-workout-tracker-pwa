@@ -45,7 +45,12 @@ export class ActiveSessionStore {
     return this.session !== undefined;
   }
 
+  /** Replaces the whole session (start/load/finish/discard/cross-tab drop); per-session write state starts fresh. */
   #set(session: WorkoutSession | undefined) {
+    clearTimeout(this.#timer);
+    this.#timer = undefined;
+    this.#dirty = false;
+    this.#writeFailed = false;
     this.session = session;
     setCanUpdate(session === undefined);
   }
@@ -126,7 +131,6 @@ export class ActiveSessionStore {
       if (this.session !== current) throw e;
       if (e instanceof SessionNotActiveError) {
         // Finished/discarded elsewhere: writing would resurrect it, so drop this tab's stale copy.
-        this.#dirty = false;
         this.#set(undefined);
       } else {
         this.#writeFailed = true;
@@ -142,7 +146,7 @@ export class ActiveSessionStore {
     await this.flush();
     // A 'deferred' change made while flushing leaves it dirty without a failure: flush again.
     while (this.#dirty && !this.#writeFailed) await this.flush();
-    if (this.#dirty) throw this.error;
+    if (this.#dirty) throw this.error ?? new Error("Latest workout state could not be saved");
     if (!this.session) throw this.error ?? new Error("No active session");
     try {
       const done = await this.#enqueue(() => finishSession(id));
