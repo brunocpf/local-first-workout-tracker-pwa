@@ -125,3 +125,44 @@ test("editing a routine never changes past sessions", async ({ page }) => {
   await page.getByRole("link", { name: /Legs/ }).click();
   await expect(page.getByText("Barbell Bench Press").first()).toBeVisible();
 });
+
+test("prescription editor: sets, reps, rest, notes; 135 lb round-trips", async ({ page }) => {
+  await page.goto("/settings");
+  await page.getByRole("radio", { name: "lb" }).check({ force: true });
+  await page.getByRole("link", { name: "Routines" }).click(); // client-side: no reload racing the settings write
+  await page.getByRole("link", { name: "New routine" }).first().click();
+  await page.getByRole("textbox", { name: "Name" }).fill("Prescribed");
+  await addExercises(page, "barbell bench press", "back squat");
+  await page.getByRole("button", { name: "Save routine" }).click();
+  await expect(page).toHaveURL(/\/routines\/[^/]+$/);
+  await page.getByRole("link", { name: "Edit" }).click();
+
+  await page.getByRole("button", { name: "Edit sets for Barbell Bench Press" }).click();
+  const sheet = page.getByRole("dialog", { name: "Barbell Bench Press sets" });
+  await sheet.getByLabel("Number of sets").fill("4");
+  await sheet.getByLabel("Set 1 max reps").fill("10");
+  await sheet.getByLabel("Set 1 weight").fill("135");
+  await sheet.getByRole("combobox", { name: "Set 2 type" }).selectOption("warmup");
+  await sheet.getByLabel("Rest").fill("90");
+  await sheet.getByRole("textbox", { name: "Notes" }).fill("Pause on chest");
+  await sheet.getByLabel("Notes").blur();
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Prescribed" })).toBeVisible();
+
+  const [saved] = await readStore<{
+    exercises: { restSeconds?: number; notes?: string; prescribedSets: { type: string; repRange?: number[]; targetWeight?: number }[] }[];
+  }>(page, "routines");
+  const bench = saved.exercises[0];
+  expect(bench.prescribedSets).toHaveLength(4);
+  expect(bench.prescribedSets[0].repRange).toEqual([8, 10]);
+  expect(bench.prescribedSets[0].targetWeight).toBeCloseTo(135 * 0.45359237, 6);
+  expect(bench.prescribedSets[1].type).toBe("warmup");
+  expect(bench.restSeconds).toBe(90);
+  expect(bench.notes).toBe("Pause on chest");
+
+  await page.getByRole("link", { name: "Edit" }).click();
+  await page.getByRole("button", { name: "Edit sets for Barbell Bench Press" }).click();
+  await expect(page.getByLabel("Set 1 weight")).toHaveValue("135");
+});
