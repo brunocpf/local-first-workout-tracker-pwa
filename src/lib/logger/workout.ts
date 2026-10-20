@@ -114,6 +114,55 @@ export function uncompleteSet(set: LoggedSet): LoggedSet {
   return set;
 }
 
+// ---- Substitutions (T8.21) ----
+
+export type ReplaceResult = {
+  /** The session exercise now holding the replacement (the original one, or a new one inserted after it). */
+  replacement: SessionExercise;
+  /** True when completed sets stayed with the original and the rest moved to `replacement`. */
+  split: boolean;
+};
+
+/** How many sets are done / still to do, to decide whether a replacement needs confirming. */
+export function setProgress(se: SessionExercise): { completed: number; remaining: number } {
+  const completed = se.sets.filter((s) => s.completedAt).length;
+  return { completed, remaining: se.sets.length - completed };
+}
+
+/**
+ * Swaps the exercise for another one without losing the plan. Prescription, rest and notes are kept.
+ * With no completed sets the exercise changes in place (same row, same sets). Otherwise the completed
+ * sets stay with the original exercise (so history shows what was actually performed) and the uncompleted
+ * ones move to a new exercise right after it, in the same superset group; an exercise whose sets are all
+ * completed gets one empty set instead.
+ */
+export function replaceExercise(
+  session: WorkoutSession,
+  id: string,
+  to: Pick<Exercise, "id" | "name" | "exerciseType">,
+): ReplaceResult | undefined {
+  const index = session.exercises.findIndex((e) => e.id === id);
+  if (index < 0) return undefined;
+  const se = session.exercises[index];
+  if (!se.sets.some((s) => s.completedAt)) {
+    se.exerciseId = to.id;
+    se.exerciseNameSnapshot = to.name;
+    se.exerciseTypeSnapshot = to.exerciseType;
+    return { replacement: se, split: false };
+  }
+  const moved = se.sets.filter((s) => !s.completedAt);
+  se.sets = se.sets.filter((s) => s.completedAt);
+  const replacement = createSessionExercise(to, {
+    prescribedSets: se.prescribedSets,
+    restSeconds: se.restSeconds,
+    supersetGroupId: se.supersetGroupId,
+  });
+  // `createSessionExercise` clones the prescription; the sets are the ones the user already shaped.
+  replacement.sets = moved.length > 0 ? moved : [{ id: newId(), type: "normal" }];
+  session.exercises.splice(index + 1, 0, replacement);
+  return { replacement, split: true };
+}
+
 // ---- Supersets (T8.06): members are consecutive exercises sharing a `supersetGroupId`. ----
 
 export type SupersetInfo = {
