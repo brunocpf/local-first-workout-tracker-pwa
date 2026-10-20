@@ -1,5 +1,6 @@
 import { setCanUpdate } from "#lib/pwa/update.svelte";
 import { wakeLock } from "#lib/wakeLock";
+import { db } from "#lib/storage/db";
 import {
   discardSession,
   finishSession,
@@ -21,8 +22,9 @@ export const DEFERRED_MS = 500;
  * Dexie on every `mutate`. All DB operations run through one promise queue, so puts never land out of
  * order and a queued put can't resurrect a finished/discarded session. A failed write keeps the
  * in-memory state, sets `error` and stays dirty so the next write retries it, except `SessionNotActiveError`
- * (finished/discarded in another tab): then the stale session is dropped and `error` says why. No unload handlers:
- * `visibilitychange → hidden` and `pagehide` only flush pending deferred writes.
+ * (finished/discarded in another tab): then the stale session is dropped and `error` says why. `writeFailed` drives
+ * the "workout not saved" banner (AppStatus) until a write succeeds. No unload handlers: `visibilitychange → hidden`,
+ * `pagehide` and another tab's schema upgrade (`db.beforeClose`) only flush pending deferred writes.
  */
 export class ActiveSessionStore {
   session = $state<WorkoutSession | undefined>();
@@ -31,7 +33,7 @@ export class ActiveSessionStore {
   #queue: Promise<unknown> = Promise.resolve();
   #dirty = false;
   /** The latest write failed (distinct from `error`, which other operations also set). */
-  #writeFailed = false;
+  #writeFailed = $state(false);
   #timer: ReturnType<typeof setTimeout> | undefined;
 
   constructor() {
@@ -40,10 +42,16 @@ export class ActiveSessionStore {
       document.addEventListener("visibilitychange", flushIfHidden);
       addEventListener("pagehide", () => void this.flush());
     }
+    db.beforeClose(() => this.flush());
   }
 
   get isActive() {
     return this.session !== undefined;
+  }
+
+  /** The latest state of the active session could not be saved (e.g. device full); the next mutation or `flush` retries. */
+  get writeFailed() {
+    return this.#writeFailed;
   }
 
   /** Replaces the whole session (start/load/finish/discard/cross-tab drop); per-session write state starts fresh. */

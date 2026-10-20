@@ -2,6 +2,7 @@
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
   import UpdateBanner from "#lib/components/UpdateBanner.svelte";
+  import AppStatus, { fullscreen, storage } from "#lib/components/AppStatus.svelte";
   import Icon from "#lib/components/ui/Icon.svelte";
   import ConfirmDialog from "#lib/components/ui/ConfirmDialog.svelte";
   import Toaster from "#lib/components/ui/Toaster.svelte";
@@ -45,6 +46,10 @@
   {#if title}<title>{title} · Workouts</title>{:else}<title>Workouts</title>{/if}
 </svelte:head>
 
+{#if fullscreen(storage)}
+  <!-- Nothing works without the database: show only AppStatus, never a half-working app behind it. -->
+  <AppStatus />
+{:else}
 <div class="app" class:nav-hidden={hideNav}>
   {#if !hideNav}
     <nav class="tabbar" aria-label="Primary">
@@ -66,6 +71,7 @@
   {/if}
   <div class="column">
     <main>
+      <AppStatus />
       <UpdateBanner />
       {@render children()}
     </main>
@@ -73,6 +79,7 @@
 </div>
 <ConfirmDialog />
 <Toaster />
+{/if}
 
 <style>
   :global(:root) {

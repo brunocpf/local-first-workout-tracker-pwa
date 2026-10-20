@@ -111,6 +111,15 @@ Tables and indexes (Dexie version 1):
 
 Persistence is best-effort: the app must work and warn, not fail, when it is `false`.
 
+### Database lifecycle and storage errors (`db.ts`, `AppStatus.svelte`)
+
+`AppDB.status` is `{ openError?, versionChanged, blocked, slow }`; `onStatus(fn)` subscribes and `checkStorage()` opens the database and records the outcome without throwing. A missing global `indexedDB` is reported at once as `unsupported` (in WebKit Dexie would otherwise fall back to `webkitIndexedDB` and hang), and an open that neither settles nor reports `blocked` within `OPEN_TIMEOUT_MS` (5 s) is flagged `slow`: a full-screen neutral "Still opening your data…" without a Reload button (it may be a long migration on an old phone; reloading would abort the all-or-nothing upgrade and restart it), which clears itself when the open settles. Reload is offered only for definite open errors. The root layout's `load` races the settings/session restore against `db.untilProblem()`, so a failing, slow or blocked open never leaves the page blank; the restore keeps running and fills in its state if the database recovers. `AppStatus` (root layout) shows:
+
+- **Open failed** → full-screen "Storage unavailable" with guidance per `StorageProblem`: `unsupported` (no IndexedDB, e.g. some private modes), `quota` (device full), `unavailable` (anything else). Nothing else can work without the database, so the layout renders only this screen instead of the app (nothing behind it to focus or read).
+- **`versionchange`** (another tab opened a newer schema, or is deleting the DB) → work registered with `db.beforeClose(fn)` runs first on the still-open connection (the active-session store flushes its pending deferred edit; capped at `CLOSE_FLUSH_TIMEOUT_MS` = 2 s, while the other tab waits), then the connection closes **without auto-reopen**, so this tab's old code never writes against the new schema (ADR 0003: old and new clients coexist). Banner: "App updated in another tab — Reload"; everything is already saved. Later writes in this tab fail (`DatabaseClosedError`) and the banner says they can't be saved until reload.
+- **`blocked`** (this tab's upgrade waits for an old tab that doesn't close) → info banner until the open completes.
+- **Active workout write failed** (`active.writeFailed`, e.g. `QuotaExceededError`, detected with `isQuotaError`) → sticky danger banner: changes are kept in memory, the next mutation (or **Retry**) writes them again. For quota errors it advises freeing space, then exporting a backup; otherwise Retry, then a backup if it keeps failing. Cleared on the next successful write.
+
 ### Migrations
 
 Version 1 was edited in place only because no user data existed. From now on:

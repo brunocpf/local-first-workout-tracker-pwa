@@ -29,7 +29,7 @@ The service worker precaches the app shell with a navigation fallback. New versi
 
 ## Migrations
 
-Explicit Dexie versions in `src/lib/storage/db.ts`. Never drop user data. Test against representative old DB states and failed upgrades.
+Explicit Dexie versions in `src/lib/storage/db.ts`. Never drop user data. Test against representative old DB states and failed upgrades. A tab running old code closes its connection for good when a newer tab upgrades and asks to reload; open failures and failed workout writes are shown by `AppStatus` (see [data-model.md](data-model.md#database-lifecycle-and-storage-errors-dbts-appstatussvelte)).
 
 ## Origin
 
