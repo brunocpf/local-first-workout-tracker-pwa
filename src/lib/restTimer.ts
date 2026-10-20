@@ -29,3 +29,11 @@ export function adjustRestTimer(t: RestTimer, deltaSeconds: number, now = Date.n
   if (isPaused(t)) return { ...t, pausedRemainingMs: Math.max(0, t.pausedRemainingMs! + ms) };
   return { ...t, endsAt: new Date(Math.max(now, Date.parse(t.endsAt) + ms)).toISOString() };
 }
+
+/** Rest after completing a set of this exercise: its own override, else the default from settings. */
+export function restDurationFor(
+  exercise: { restSeconds?: number },
+  settings: { defaultRestSeconds: number },
+): number {
+  return exercise.restSeconds ?? settings.defaultRestSeconds;
+}

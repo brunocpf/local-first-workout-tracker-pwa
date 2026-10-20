@@ -212,7 +212,10 @@ describe("restoreBackup", () => {
   it("restores the frozen v1 fixture exactly", async () => {
     await restoreBackup(fixture(), d);
     const out = await buildBackup({ now: new Date("2026-03-02T09:00:00.000Z") }, d);
-    expect(out).toEqual(JSON.parse(FIXTURE_TEXT));
+    // The fixture predates `timerSound`: an old backup restores, and export fills in the default.
+    const expected = JSON.parse(FIXTURE_TEXT);
+    expected.data.settings.timerSound = true;
+    expect(out).toEqual(expected);
   });
 
   it("recomputes the exerciseIds index", async () => {

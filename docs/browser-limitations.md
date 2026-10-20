@@ -15,6 +15,7 @@ Design for the weakest platform (iOS), enhance where available. Entries marked _
 Rules that follow:
 
 - The rest timer is timestamp-based (`endsAt`) and recomputed on return; alerts are foreground-only. Do not claim locked-screen alarms until verified on device.
+- Rest-timer alerts (`src/lib/alerts.ts`, `RestTimerBar`) fire only if the timer reaches zero while the page is visible: a short beep (Web Audio, unlocked by the tap that starts the timer; `timerSound` setting, default on), `navigator.vibrate` where it exists (not iOS) and the visual "Rest done" bar. A timer that ended while the app was backgrounded, locked or reloaded just shows "Rest done" on return, with no late alert. The UI says so (first-run note above the bar).
 - Haptics are optional; always provide a visual/audio cue.
 - Screen wake lock (`src/lib/wakeLock.ts`) is held for the whole active workout: acquired when a session starts or is loaded, released on finish/discard. The browser drops it when the page is hidden, so it is re-requested on return. Missing API or a refused request is ignored, never an error.
 - Request `navigator.storage.persist()`, show the result, and keep JSON backups (reminders in-app). Storage is bound to the origin: keep one stable origin (all project sites on `brunocpf.github.io` share it, so use app-specific DB and cache names).
