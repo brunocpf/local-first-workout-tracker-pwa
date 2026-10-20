@@ -1,5 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
+// WebKit warns about the progressive-enhancement `interactive-widget` viewport key (design.md §5.5); harmless.
+const isIgnorable = (text: string) => text.includes("Viewport argument key") && text.includes("interactive-widget");
+
 const nav = (page: Page) => page.getByRole("navigation", { name: "Primary" });
 
 test("app loads and tab navigation works", async ({ page }) => {
@@ -14,7 +17,7 @@ test("app loads and tab navigation works", async ({ page }) => {
 
 test("loads without console errors or CSP violations", async ({ page }) => {
   const problems: string[] = [];
-  page.on("console", (m) => m.type() === "error" && problems.push(m.text()));
+  page.on("console", (m) => m.type() === "error" && !isIgnorable(m.text()) && problems.push(m.text()));
   page.on("pageerror", (e) => problems.push(e.message));
   await page.goto("/");
   await nav(page).getByRole("link", { name: "Progress" }).click();
@@ -52,7 +55,7 @@ test("shell renders offline after first load", async ({ page, context }) => {
 
 test("diagnostics page shows launch count that grows per reload, with no console errors", async ({ page }) => {
   const problems: string[] = [];
-  page.on("console", (m) => m.type() === "error" && problems.push(m.text()));
+  page.on("console", (m) => m.type() === "error" && !isIgnorable(m.text()) && problems.push(m.text()));
   page.on("pageerror", (e) => problems.push(e.message));
   await page.goto("/");
   await page.getByRole("link", { name: "Diagnostics" }).click();
@@ -69,7 +72,7 @@ test("diagnostics page shows launch count that grows per reload, with no console
 
 test("style guide loads without console errors and renders swatches", async ({ page }) => {
   const problems: string[] = [];
-  page.on("console", (m) => m.type() === "error" && problems.push(m.text()));
+  page.on("console", (m) => m.type() === "error" && !isIgnorable(m.text()) && problems.push(m.text()));
   page.on("pageerror", (e) => problems.push(e.message));
   await page.goto("/dev/ui");
   await expect(page.getByRole("heading", { name: "UI style guide" })).toBeVisible();
