@@ -9,7 +9,7 @@ export type ParseResult =
   | { ok: true; data: ProgramImportV1; warnings: string[] }
   | { ok: false; errors: string[]; warnings?: string[] };
 
-/** Parse untrusted text. Never evaluates anything; accepts raw JSON only (extraction of fenced blocks is a P1 explicit step). */
+/** Parse untrusted text. Never evaluates anything; accepts raw JSON only (fenced blocks are extracted first by `extractJsonCandidates`). */
 export function parseProgramImport(text: string): ParseResult {
   // UTF-16 units never exceed UTF-8 bytes, so the cheap check can reject before encoding.
   if (text.length > MAX_IMPORT_BYTES || new TextEncoder().encode(text).byteLength > MAX_IMPORT_BYTES)
