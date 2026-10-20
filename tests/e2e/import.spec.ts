@@ -227,10 +227,11 @@ test("import → quick-start → targets → log → finish → history; deletin
   await page.goto("/routines");
   await page.getByRole("button", { name: "Options for Upper A" }).click();
   await page.getByRole("button", { name: "Delete…" }).dispatchEvent("click");
-  await page
+  const confirmDelete = page
     .getByRole("dialog")
-    .getByRole("button", { name: "Delete routine" })
-    .click();
+    .getByRole("button", { name: "Delete routine" });
+  await expect(confirmDelete).toBeVisible();
+  await confirmDelete.dispatchEvent("click"); // the dialog never settles for Playwright's stability check in CI
   await expect(page.getByRole("link", { name: /Upper A/ })).toHaveCount(0);
 
   await page.goto("/history");
