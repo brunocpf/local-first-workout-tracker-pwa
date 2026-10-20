@@ -113,3 +113,87 @@ export function uncompleteSet(set: LoggedSet): LoggedSet {
   delete set.completedAt;
   return set;
 }
+
+// ---- Supersets (T8.06): members are consecutive exercises sharing a `supersetGroupId`. ----
+
+export type SupersetInfo = {
+  /** Group letter, in order of appearance: A, B, … */
+  letter: string;
+  /** 0-based position in the group; the label is `letter + (position + 1)`. */
+  position: number;
+  size: number;
+};
+
+/** A, B, … Z, AA, AB, … */
+function letterFor(n: number): string {
+  let s = "";
+  for (let i = n + 1; i > 0; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + ((i - 1) % 26)) + s;
+  return s;
+}
+
+/**
+ * Runs of two or more adjacent exercises with the same group id. Singletons and non-adjacent leftovers
+ * (after a reorder) are not supersets, so a stale id never shows a group of one.
+ */
+export function supersetRuns(exercises: readonly SessionExercise[]): number[][] {
+  const runs: number[][] = [];
+  let run: number[] = [];
+  const flush = () => {
+    if (run.length > 1) runs.push(run);
+    run = [];
+  };
+  exercises.forEach((e, i) => {
+    const prev = exercises[i - 1];
+    if (!e.supersetGroupId || prev?.supersetGroupId !== e.supersetGroupId) flush();
+    if (e.supersetGroupId) run.push(i);
+  });
+  flush();
+  return runs;
+}
+
+/** Superset membership by exercise index (absent = not in a superset). */
+export function supersetInfo(exercises: readonly SessionExercise[]): Map<number, SupersetInfo> {
+  const info = new Map<number, SupersetInfo>();
+  supersetRuns(exercises).forEach((run, g) =>
+    run.forEach((index, position) => info.set(index, { letter: letterFor(g), position, size: run.length })),
+  );
+  return info;
+}
+
+/** Drops group ids left on exercises that no longer have an adjacent partner. */
+function clearStaleGroups(session: WorkoutSession): void {
+  const grouped = new Set(supersetRuns(session.exercises).flat());
+  session.exercises.forEach((e, k) => {
+    if (e.supersetGroupId && !grouped.has(k)) delete e.supersetGroupId;
+  });
+}
+
+/**
+ * Joins the exercise with its neighbour above (`-1`) or below (`1`), reusing the neighbour's group or creating one.
+ * An exercise that was in another group leaves it (it sits at that group's edge, so the rest stays adjacent).
+ */
+export function joinSuperset(session: WorkoutSession, id: string, direction: -1 | 1): boolean {
+  const i = session.exercises.findIndex((e) => e.id === id);
+  const neighbour = session.exercises[i + direction];
+  if (i < 0 || !neighbour) return false;
+  const groupId = neighbour.supersetGroupId ?? newId();
+  neighbour.supersetGroupId = groupId;
+  session.exercises[i].supersetGroupId = groupId;
+  clearStaleGroups(session);
+  return true;
+}
+
+/** Removes the exercise from its superset; a member in the middle splits the group in two. */
+export function leaveSuperset(session: WorkoutSession, id: string): boolean {
+  const i = session.exercises.findIndex((e) => e.id === id);
+  if (i < 0 || !session.exercises[i].supersetGroupId) return false;
+  const groupId = session.exercises[i].supersetGroupId;
+  delete session.exercises[i].supersetGroupId;
+  // Members after it become their own group so the two halves never rejoin by accident.
+  const next = newId();
+  for (let k = i + 1; k < session.exercises.length && session.exercises[k].supersetGroupId === groupId; k++) {
+    session.exercises[k].supersetGroupId = next;
+  }
+  clearStaleGroups(session);
+  return true;
+}

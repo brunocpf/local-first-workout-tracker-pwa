@@ -12,7 +12,7 @@
   import ExerciseCard from "#lib/components/workout/ExerciseCard.svelte";
   import RestTimerBar from "#lib/components/workout/RestTimerBar.svelte";
   import { prepareAlerts } from "#lib/alerts";
-  import { restDurationFor, startRestTimer } from "#lib/restTimer";
+  import { restAfterSet, startRestTimer } from "#lib/restTimer";
   import ExercisePicker from "#lib/components/ExercisePicker.svelte";
   import {
     addExercise,
@@ -22,9 +22,12 @@
     duplicateSet,
     moveExercise,
     removeExercise,
+    joinSuperset,
+    leaveSuperset,
     removeSet,
     restoreExercise,
     restoreSet,
+    supersetInfo,
     uncompleteSet,
     updateSet,
     type SetPatch,
@@ -142,6 +145,12 @@
     return out;
   });
 
+  const supersets = $derived(supersetInfo(active.session?.exercises ?? []));
+  const sameGroup = (a: number, b: number) => supersets.get(a) !== undefined && supersets.get(a)?.letter === supersets.get(b)?.letter;
+
+  const join = (id: string, direction: -1 | 1) => void active.mutate((s) => joinSuperset(s, id, direction), { persist: "now" });
+  const leave = (id: string) => void active.mutate((s) => leaveSuperset(s, id), { persist: "now" });
+
   /** Runs `fn` on the exercise (if it still exists) inside one write-through mutation. */
   function withExercise(id: string, persist: "now" | "deferred", fn: (e: SessionExercise) => void) {
     void active.mutate(
@@ -171,7 +180,7 @@
           const sets = s.exercises.filter((x) => x.exerciseId === e.exerciseId).flatMap((x) => x.sets);
           if (prSetIdsOf(history, { startedAt: s.startedAt, sets }).has(set.id)) prName = e.exerciseNameSnapshot;
         }
-        const rest = restDurationFor(e, settings);
+        const rest = restAfterSet(s.exercises, s.exercises.indexOf(e), set.id, settings);
         if (settings.autoStartRestTimer && rest > 0) s.restTimer = startRestTimer(rest);
       },
       { persist: "now" },
@@ -290,6 +299,8 @@
       </EmptyState>
     {:else}
       {#each active.session.exercises as exercise, i (exercise.id)}
+        {@const group = supersets.get(i)}
+        <div class="member" class:grouped={group} class:first={group?.position === 0} class:last={group && group.position === group.size - 1}>
         <ExerciseCard
           {exercise}
           index={i}
@@ -308,7 +319,15 @@
           onduplicateset={(setId) => withExercise(exercise.id, "now", (e) => duplicateSet(e, setId))}
           ontogglewarmup={(setId) => toggleWarmup(exercise.id, setId)}
           ondeleteset={(setId) => deleteSet(exercise.id, setId)}
+          superset={group}
+          canJoin={{
+            previous: i > 0 && !sameGroup(i, i - 1),
+            next: i < active.session.exercises.length - 1 && !sameGroup(i, i + 1),
+          }}
+          onjoin={(d) => join(exercise.id, d)}
+          onleave={() => leave(exercise.id)}
         />
+        </div>
       {/each}
       <Button block icon="plus" onclick={() => (pickerOpen = true)}>Add exercise</Button>
     {/if}
@@ -326,5 +345,16 @@
     flex-direction: column;
     gap: var(--space-3);
     padding-block: var(--space-4); /* main already applies the gutter */
+  }
+  /* Superset members: an accent rail down the left edge, joined across the gap between cards. */
+  .member.grouped {
+    border-inline-start: var(--space-1) solid var(--color-accent);
+    padding-inline-start: var(--space-2);
+    border-start-start-radius: var(--radius-sm);
+    border-end-start-radius: var(--radius-sm);
+  }
+  .member.grouped:not(.last) {
+    margin-block-end: calc(var(--space-3) * -1); /* cancel the flex gap so the rail is continuous */
+    padding-block-end: var(--space-3);
   }
 </style>
