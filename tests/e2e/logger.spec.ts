@@ -1,28 +1,12 @@
-import { expect, test, type Page } from "@playwright/test";
-
-type StoredSet = { weight?: number; reps?: number; completedAt?: string };
-type StoredSession = {
-  status: string;
-  exercises: { exerciseNameSnapshot: string; sets: StoredSet[] }[];
-};
-
-/** Reads the sessions straight from IndexedDB, i.e. what survives a reload (the UI updates before the write lands). */
-const storedSessions = (page: Page) =>
-  page.evaluate(
-    () =>
-      new Promise<StoredSession[]>((resolve, reject) => {
-        const open = indexedDB.open("workout-tracker");
-        open.onerror = () => reject(open.error);
-        open.onsuccess = () => {
-          const req = open.result
-            .transaction("sessions")
-            .objectStore("sessions")
-            .getAll();
-          req.onsuccess = () => resolve(req.result);
-          req.onerror = () => reject(req.error);
-        };
-      }),
-  );
+import { expect, test } from "@playwright/test";
+import {
+  addExercise,
+  finishButton,
+  startWorkout,
+  storedSessions,
+  storedSets,
+  waitForServiceWorkerControl,
+} from "./helpers";
 
 test("start → reload → resume → discard", async ({ page }) => {
   await page.goto("/");
@@ -142,21 +126,6 @@ test("add, reorder, remove + undo exercises; all survive reload", async ({
   await page.reload();
   await expect.poll(names).toEqual([before[1], before[0]]);
 });
-
-/** Sets of the stored active session (a reload can abort a write still in flight, so tests wait for it). */
-const storedSets = async (page: Page) =>
-  (await storedSessions(page))
-    .find((s) => s.status === "active")
-    ?.exercises.flatMap((e) => e.sets) ?? [];
-
-async function addExercise(page: Page, query: string, name: RegExp) {
-  await page.getByRole("button", { name: "Add exercise" }).click();
-  const picker = page.getByRole("dialog", { name: "Add exercise" });
-  await picker.getByRole("searchbox", { name: "Search exercises" }).fill(query);
-  await picker.getByRole("button", { name }).first().click();
-  await picker.getByRole("button", { name: "Add 1 exercise" }).click();
-  await expect(picker).toBeHidden(); // WebKit: typing during the close animation goes nowhere
-}
 
 test("log a set, finish; next workout prefills it and completes in one tap; survives reload", async ({
   page,
@@ -389,4 +358,116 @@ test("finish warns about incomplete sets, shows a summary and lands in History",
   expect(
     (await storedSessions(page)).filter((s) => s.status === "completed"),
   ).toHaveLength(1);
+});
+
+test("blank workout with two exercises: log sets, finish, see it in History list and detail", async ({
+  page,
+}) => {
+  await startWorkout(page);
+  await addExercise(page, "barbell bench press", /Barbell Bench Press/);
+  await addExercise(page, "back squat", /Back Squat/);
+  await expect(page.locator("article h2")).toHaveCount(2);
+
+  const [bench, squat] = await page.locator("article").all();
+  await bench.getByLabel("Set 1 weight, kg").fill("60");
+  await bench.getByLabel("Set 1 reps").fill("10");
+  await bench.getByRole("button", { name: "Complete set 1" }).click();
+  await squat.getByLabel("Set 1 weight, kg").fill("100");
+  await squat.getByLabel("Set 1 reps").fill("5");
+  await squat.getByRole("button", { name: "Complete set 1" }).click();
+  await expect
+    .poll(
+      async () => (await storedSets(page)).filter((s) => s.completedAt).length,
+    )
+    .toBe(2);
+
+  await finishButton(page).click();
+  const summary = page.getByRole("dialog", { name: "Workout complete" });
+  await expect(summary).toContainText("1,100 kg"); // 60×10 + 100×5
+  await summary.getByRole("button", { name: "Done" }).click();
+  await expect(page).toHaveURL(/\/history$/);
+
+  const row = page.getByRole("link", {
+    name: /2 exercises · 2 sets · 1,100 kg/,
+  });
+  await expect(row).toBeVisible();
+  await row.click();
+  await expect(page).toHaveURL(/\/history\/.+/);
+  await expect(
+    page.getByRole("heading", { level: 2, name: "Barbell Bench Press" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 2, name: "Back Squat" }),
+  ).toBeVisible();
+  await expect(page.getByText("1,100 kg")).toBeVisible();
+});
+
+test("reload mid-workout restores sets and the running rest timer", async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date("2026-03-01T10:00:00Z") });
+  await startWorkout(page);
+  await addExercise(page, "barbell bench press", /Barbell Bench Press/);
+  await page.getByLabel("Set 1 weight, kg").fill("80");
+  await page.getByLabel("Set 1 reps").fill("8");
+  await page.getByRole("button", { name: "Complete set 1" }).click();
+  const timer = page.getByRole("timer", { name: "Rest remaining" });
+  await expect(timer).toHaveText("1:30");
+  await expect
+    .poll(
+      async () =>
+        (await storedSessions(page)).find((s) => s.status === "active")
+          ?.restTimer !== undefined,
+    )
+    .toBe(true);
+  await page.clock.fastForward(20_000);
+  await expect(timer).toHaveText("1:10");
+
+  await page.reload();
+  await expect(page.getByLabel("Set 1 weight, kg")).toHaveValue("80");
+  await expect(page.getByLabel("Set 1 reps")).toHaveValue("8");
+  await expect(
+    page.getByRole("button", { name: "Set 1 completed, undo" }),
+  ).toBeVisible();
+  // The stored endsAt keeps counting down: still running (not "Rest done") and below the 1:30 start.
+  await expect(timer).toHaveText(/^(0:\d\d|1:[0-2]\d)$/);
+});
+
+test("offline reload during an active workout keeps the session and keeps logging", async ({
+  page,
+  context,
+}) => {
+  await startWorkout(page);
+  await addExercise(page, "barbell bench press", /Barbell Bench Press/);
+  await waitForServiceWorkerControl(page);
+
+  await context.setOffline(true);
+  await page.reload();
+  await expect(finishButton(page)).toBeVisible();
+  await expect(page.locator("article h2")).toHaveText("Barbell Bench Press");
+
+  await page.getByLabel("Set 1 weight, kg").fill("70");
+  await page.getByLabel("Set 1 reps").fill("6");
+  await page.getByRole("button", { name: "Complete set 1" }).click();
+  await expect
+    .poll(async () => (await storedSets(page))[0])
+    .toMatchObject({ weight: 70, reps: 6, completedAt: expect.any(String) });
+  await context.setOffline(false);
+});
+
+test("discard removes the session and leaves History empty", async ({
+  page,
+}) => {
+  await startWorkout(page);
+  await addExercise(page, "barbell bench press", /Barbell Bench Press/);
+  await page.getByRole("button", { name: "Workout options" }).click();
+  await page.getByRole("button", { name: "Discard workout…" }).click();
+  await page
+    .getByRole("button", { name: "Discard workout", exact: true })
+    .click();
+  await expect(page.getByText("Workout discarded")).toBeVisible();
+  await expect.poll(async () => (await storedSessions(page)).length).toBe(0);
+
+  await page.goto("/history");
+  await expect(page.getByText("No workouts yet")).toBeVisible();
 });
