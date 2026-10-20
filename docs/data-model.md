@@ -122,6 +122,12 @@ Version 1 was edited in place only because no user data existed. From now on:
 
 `ensureCatalogSeeded()` upserts every `SEED_EXERCISES` entry into `exercises` (memoized per database; retried after a failure). Seed fields (name, muscles, type, …) are refreshed from the seed; user state on existing rows is kept: `favorite`, `archivedAt`, and aliases (result = union of seed and existing aliases), plus `createdAt`. Rows are never deleted, so custom exercises and retired seed ids survive. Queries (`listExercises({includeArchived?})`, `getExercise`, `getExercisesByIds`) call it lazily; `createCustomExercise` (UUID id, `isCustom: true`), `setFavorite` and `setArchived` write plain objects. Functions take an optional trailing `AppDB` for tests.
 
+## Previous values and prefill (`src/lib/logger/previousValues.ts`)
+
+PRD §8.4. `loadPreviousSets(exerciseId, {excludeSessionId})` takes the newest completed session (other than the excluded one) that has at least one completed set of the exercise and returns that exercise's sets, all occurrences concatenated in order. `alignPrevious(currentSets, previousSets)` returns, per current set, its previous set: set N matches previous set N within the same group (warm-up vs working, where working = normal/drop/failure); extra sets reuse the last previous set of the group; previous sets without `completedAt` are ignored; no match gives `undefined`.
+
+`prefillFor(set, previous?, prescribed?)` returns `{weight?, reps?}`: each field comes from the previous set if present, else from the prescription (`targetWeight`; reps = lower bound of `repRange`), else is left out.
+
 ## Not yet implemented
 
 Routine → session copying (the "start routine" logger slice), bodyweight measurements.
