@@ -51,8 +51,8 @@ Modules are added when there is code for them. Domain logic lives in `src/lib` (
 
 ## Deployment
 
-Any static HTTPS host (GitHub Pages, Netlify, Cloudflare Pages) serving `build/`. HTTPS is required for the service worker.
+Any static HTTPS host (HTTPS is required for the service worker).
 
-- **Use a permanent custom domain.** IndexedDB is bound to the origin; moving hosts loses data unless you export a backup and restore it.
-- Sub-path hosting (e.g. `user.github.io/repo`): set the `BASE_PATH` env var at build time.
-- A GitHub Pages deploy workflow is provided (see ADR 0003 in [docs/decisions/](docs/decisions/)).
+- Build command: `npm run build`; output directory: `build/`.
+- Configure an SPA fallback to `index.html` (many hosts do this automatically when no `404.html` exists).
+- **Use a stable origin.** IndexedDB data is bound to the origin; changing domains loses local data unless you export a backup and restore it ([backup & restore](docs/backup-restore.md)).

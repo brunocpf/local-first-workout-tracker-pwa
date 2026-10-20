@@ -25,7 +25,7 @@ The active workout is an in-memory Svelte `$state` object. Every mutation is wri
 
 ## Service worker updates
 
-The service worker precaches the app shell with a navigation fallback. New versions are installed but **activated only on user action** via an "update available" banner, which is suppressed while a workout is active, so an update never reloads the page mid-session. Sub-path hosting uses `BASE_PATH`. Details: ADR 0003 (PWA shell & updates) in [decisions/](decisions/).
+The service worker precaches the app shell with a navigation fallback. New versions are installed but **activated only on user action** via an "update available" banner, which is suppressed while a workout is active, so an update never reloads the page mid-session. Details: ADR 0003 (PWA shell & updates) in [decisions/](decisions/).
 
 ## Migrations
 
@@ -33,4 +33,4 @@ Explicit Dexie versions in `src/lib/storage/db.ts`. Never drop user data. Test a
 
 ## Origin
 
-IndexedDB is per-origin: deploy to a permanent custom domain; changing it means export/restore ([backup-restore.md](backup-restore.md)).
+IndexedDB is per-origin: use a stable production origin; changing it means export/restore ([backup-restore.md](backup-restore.md)).

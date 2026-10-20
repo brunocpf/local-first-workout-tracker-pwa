@@ -55,7 +55,7 @@ Details and verification status: [browser-limitations.md](browser-limitations.md
 | Haptics | `navigator.vibrate` works on Android, not on iOS. Haptics are an optional enhancement; every cue must also have a visual (and optional audio) form. |
 | Install flow | iOS: Safari Share → Add to Home Screen (no install prompt). Android/desktop Chromium: install prompt/menu. macOS Safari: Add to Dock. Firefox desktop: none. See [pwa-install.md](pwa-install.md). |
 | Storage | Browser storage can be evicted. Request persistent storage (`navigator.storage.persist()`) and show its status. On iOS the installed app and the Safari tab may have **separate** storage; the user must pick the installed app and keep using it. |
-| Origin | IndexedDB is bound to the origin. Production uses a **stable, permanent origin (custom domain)**; moving hosts loses data unless the user exports and restores. |
+| Origin | IndexedDB is bound to the origin. Production uses a **stable origin**; changing domains loses local data unless the user exports and restores. |
 | File save | Mobile: Web Share API with files (→ Files, iCloud, Drive), where `navigator.canShare({files})` is true. Desktop: download via anchor. Never depend on the File System Access API. |
 | Wake lock | Use Screen Wake Lock during an active workout where available; absence is not an error. |
 
@@ -339,7 +339,7 @@ Dexie with explicit schema versions; never drop user data on update; test migrat
 
 ### 14.4 PWA
 
-Valid manifest with PNG and maskable icons; HTTPS; precached app shell with navigation fallback; offline start after first load; safe-area and viewport handling; deferred service-worker updates with an "update available" banner (suppressed during an active workout); CSP; `BASE_PATH` support for sub-path hosting; GitHub Pages deploy workflow. Details in [ADR 0003](decisions/). The service worker never caches dynamic responses indiscriminately.
+Valid manifest with PNG and maskable icons; HTTPS; precached app shell with navigation fallback; offline start after first load; safe-area and viewport handling; deferred service-worker updates with an "update available" banner (suppressed during an active workout); CSP; SPA fallback to `index.html` on any static HTTPS host. Details in [ADR 0003](decisions/). The service worker never caches dynamic responses indiscriminately.
 
 ### 14.5 Backend policy
 
@@ -468,7 +468,7 @@ Full verification: `npm run check && npm run lint && npm test && npm run build &
 
 Vertical slice first: **the logger must not wait for the builder or for import.** Each phase leaves a runnable app.
 
-**Phase 0 — Validation.** Confirm install + IndexedDB persistence on a real iPhone/iPad and Android phone; pick the production custom domain; decide seed-catalog sourcing (self-written); **obtain a real Hevy export**; confirm the ADR 0003/0004 foundations.
+**Phase 0 — Validation.** Confirm install + IndexedDB persistence on a real iPhone/iPad and Android phone; fix the production origin; decide seed-catalog sourcing (self-written); **obtain a real Hevy export**; confirm the ADR 0003/0004 foundations.
 
 **Phase 1 — Shell and storage.** Navigation, theme, settings, Dexie schema/migrations, seed catalog (~100 exercises) with search, PWA shell, CI.
 
