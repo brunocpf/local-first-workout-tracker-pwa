@@ -146,4 +146,6 @@ export type UserSettings = {
   /** 0 = Sunday, 1 = Monday, ... 6 = Saturday. */
   weekStartsOn: 0 | 1 | 6;
   theme: "system" | "light" | "dark";
+  /** ISO 8601 time of the last successful backup export (not set until the first one). */
+  lastBackupAt?: string;
 };
