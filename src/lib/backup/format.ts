@@ -178,6 +178,7 @@ export const settingsSchema = z.object({
   weightUnit: z.enum(["kg", "lb"]),
   defaultRestSeconds: nonneg,
   autoStartRestTimer: z.boolean(),
+  timerSound: z.boolean().optional(),
   previousValuesMode: z.enum(["exercise", "routine"]),
   weekStartsOn: z.union([z.literal(0), z.literal(1), z.literal(6)]),
   theme: z.enum(["system", "light", "dark"]),

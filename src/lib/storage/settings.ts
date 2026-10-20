@@ -5,6 +5,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   weightUnit: "kg",
   defaultRestSeconds: 90,
   autoStartRestTimer: true,
+  timerSound: true,
   previousValuesMode: "exercise",
   weekStartsOn: 1,
   theme: "system",

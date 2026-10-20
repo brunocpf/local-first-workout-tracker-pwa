@@ -10,6 +10,9 @@
   import Button from "#lib/components/ui/Button.svelte";
   import EmptyState from "#lib/components/ui/EmptyState.svelte";
   import ExerciseCard from "#lib/components/workout/ExerciseCard.svelte";
+  import RestTimerBar from "#lib/components/workout/RestTimerBar.svelte";
+  import { prepareAlerts } from "#lib/alerts";
+  import { restDurationFor, startRestTimer } from "#lib/restTimer";
   import ExercisePicker from "#lib/components/ExercisePicker.svelte";
   import {
     addExercise,
@@ -120,12 +123,26 @@
   const changeSet = (id: string, setId: string, patch: SetPatch) =>
     withExercise(id, "deferred", (e) => updateSet(e, setId, patch));
 
-  const toggleSet = (id: string, setId: string, prefill: SetValues) =>
+  function toggleSet(id: string, setId: string, prefill: SetValues) {
+    void active.mutate(
+      (s) => {
+        const e = s.exercises.find((x) => x.id === id);
+        const set = e?.sets.find((x) => x.id === setId);
+        if (!e || !set) return;
+        if (set.completedAt) return uncompleteSet(set);
+        completeSet(set, prefill, new Date().toISOString());
+        const rest = restDurationFor(e, settings);
+        if (settings.autoStartRestTimer && rest > 0) s.restTimer = startRestTimer(rest);
+      },
+      { persist: "now" },
+    );
+    prepareAlerts(); // inside the tap, so the browser lets the done-beep play later
+  }
+
+  const setRest = (id: string, seconds: number | undefined) =>
     withExercise(id, "now", (e) => {
-      const set = e.sets.find((x) => x.id === setId);
-      if (!set) return;
-      if (set.completedAt) uncompleteSet(set);
-      else completeSet(set, prefill, new Date().toISOString());
+      if (seconds === undefined) delete e.restSeconds;
+      else e.restSeconds = seconds;
     });
 
   const toggleWarmup = (id: string, setId: string) =>
@@ -239,6 +256,8 @@
           onremove={() => remove(exercise.id)}
           onmove={(d) => move(exercise.id, d)}
           onnotes={(n) => setNotes(exercise.id, n)}
+          defaultRestSeconds={settings.defaultRestSeconds}
+          onrest={(seconds) => setRest(exercise.id, seconds)}
           unit={settings.weightUnit}
           previousSets={previous[exercise.exerciseId]}
           onaddset={() => withExercise(exercise.id, "now", (e) => addSet(e))}
@@ -252,6 +271,7 @@
       <Button block icon="plus" onclick={() => (pickerOpen = true)}>Add exercise</Button>
     {/if}
   </div>
+  <RestTimerBar />
   <ExercisePicker bind:open={pickerOpen} multiple onpick={addPicked} />
 {/if}
 {#if summary}

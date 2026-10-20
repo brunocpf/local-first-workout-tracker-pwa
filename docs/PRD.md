@@ -511,7 +511,8 @@ Also summarized in [AGENTS.md](../AGENTS.md).
 4. **Timer alerts:** are foreground-only alerts enough? Decide after real use; otherwise ADR for a native wrapper.
 5. **wger or larger catalog:** evaluated in [ADR 0009](decisions/0009-wger-catalog.md): not bundled; optional text-only pack only on demand. Owner to confirm the CC-BY-SA question.
 6. **Previous values source** (recent vs same routine): default recent; revisit after use.
-7. **Cloud backup/sync, built-in AI, native app:** deferred until a concrete need.
+7. **Cloud backup/sync, native app:** deferred until a concrete need.
+9. **Built-in AI (external API, progression suggestions):** decided in [ADR 0013](decisions/0013-built-in-ai.md): not built (key handling without a backend, CSP, privacy, cost); prompt copy/paste flow and deterministic double progression remain the paths. Owner to confirm.
 8. **Online-plan extraction:** decided in [ADR 0008](decisions/0008-url-import.md): no in-app URL fetching (CORS, JS-rendered pages, `connect-src 'self'`, no backend); paste text remains the path. Owner to confirm.
 
 ---
