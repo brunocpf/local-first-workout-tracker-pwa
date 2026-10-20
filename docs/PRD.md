@@ -307,7 +307,7 @@ Adapter: `Hevy export → normalized records → validation → preview → loca
 
 ### 12.2 Online plans and CSV
 
-URL import cannot be assumed to work (CORS, JS-rendered sites); always offer paste-text. Preserve source URL/attribution; don't bypass access controls. CSV export of history (stable ids, timestamps) and CSV import with explicit column mapping and deliberate duplicate handling come after Hevy.
+URL import cannot be assumed to work (CORS, JS-rendered sites); always offer paste-text. Decision (ADR 0008): the app does not fetch URLs; the user pastes the page text and the URL is kept only as source attribution. Preserve source URL/attribution; don't bypass access controls. CSV export of history (stable ids, timestamps) and CSV import with explicit column mapping and deliberate duplicate handling come after Hevy.
 
 ---
 
@@ -512,7 +512,7 @@ Also summarized in [AGENTS.md](../AGENTS.md).
 5. **wger or larger catalog:** evaluated in [ADR 0009](decisions/0009-wger-catalog.md): not bundled; optional text-only pack only on demand. Owner to confirm the CC-BY-SA question.
 6. **Previous values source** (recent vs same routine): default recent; revisit after use.
 7. **Cloud backup/sync, built-in AI, native app:** deferred until a concrete need.
-8. **Online-plan extraction:** paste text first, URL later.
+8. **Online-plan extraction:** decided in [ADR 0008](decisions/0008-url-import.md): no in-app URL fetching (CORS, JS-rendered pages, `connect-src 'self'`, no backend); paste text remains the path. Owner to confirm.
 
 ---
 
