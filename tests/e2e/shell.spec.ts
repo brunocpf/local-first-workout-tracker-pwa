@@ -97,8 +97,8 @@ test("diagnostics page shows launch count that grows per reload, with no console
       m.type() === "error" && !isIgnorable(m.text()) && problems.push(m.text()),
   );
   page.on("pageerror", (e) => problems.push(e.message));
-  await page.goto("/");
-  await page.getByRole("link", { name: "Diagnostics" }).click();
+  await page.goto("/settings");
+  await page.getByRole("link", { name: /Diagnostics/ }).click();
   await expect(page).toHaveURL(/\/diagnostics$/);
   await expect(page.getByText("Standalone (installed)")).toBeVisible();
   const count = async () =>
