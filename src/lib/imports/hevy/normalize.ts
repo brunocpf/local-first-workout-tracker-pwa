@@ -87,7 +87,7 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 type ParsedTime = { local: string } | { instant: string };
 
 /** `Oct 13, 2026, 9:50 PM` (English) or ISO 8601 -> wall-clock string, or an exact instant when ISO carries an offset. */
-function parseHevyTime(s: string): ParsedTime | undefined {
+export function parseHevyTime(s: string): ParsedTime | undefined {
   const m = HEVY_TIME.exec(s.trim());
   if (m) {
     const month = MONTHS.indexOf(m[1].toLowerCase());
@@ -119,7 +119,7 @@ function parseHevyTime(s: string): ParsedTime | undefined {
 }
 
 /** Wall time in `timeZone` -> UTC ISO, plus whether it hit a DST gap or fold. */
-function toInstant(
+export function toInstant(
   t: ParsedTime,
   timeZone: string,
 ): { iso: string; dst?: "gap" | "fold" } | undefined {
@@ -176,7 +176,10 @@ const hasData = (r: HevyRow) =>
   r.distanceMeters !== undefined;
 
 /** §5: type for a new custom exercise, from all rows of one title in the file. */
-export function inferExerciseType(title: string, rows: readonly HevyRow[]): ExerciseType {
+export function inferExerciseType(
+  title: string,
+  rows: readonly Pick<HevyRow, "weightKg" | "reps" | "durationSeconds" | "distanceMeters">[],
+): ExerciseType {
   const anyWeight = rows.some((r) => r.weightKg !== undefined);
   const anyReps = rows.some((r) => r.reps !== undefined);
   if (rows.some((r) => r.distanceMeters !== undefined) && !anyWeight)

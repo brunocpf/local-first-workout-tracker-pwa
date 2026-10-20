@@ -135,6 +135,7 @@
 
   <Card as="section" header={importData} padding="none">
     <ListRow title="Import from Hevy" subtitle="Bring in your workout history from a Hevy CSV export" href={resolve("/settings/import-hevy")} />
+    <ListRow title="Import from CSV" subtitle="Bring in history from this app's CSV export or any app's CSV, choosing the columns" href={resolve("/settings/import-csv")} />
   </Card>
 
   <!-- Backup reminder goes here (T4.05, #73). -->
