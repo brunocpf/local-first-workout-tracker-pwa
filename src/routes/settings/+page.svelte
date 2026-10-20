@@ -190,6 +190,7 @@
   .sections,
   .stack {
     display: grid;
+    grid-template-columns: minmax(0, 1fr); /* an implicit auto track grows to the widest child's min-content and overflows at large text sizes */
     gap: var(--space-4);
   }
   dl {
