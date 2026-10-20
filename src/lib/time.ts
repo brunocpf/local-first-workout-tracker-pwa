@@ -50,3 +50,60 @@ export function defaultWorkoutName(now = new Date()): string {
   const part = h < 5 ? "Night" : h < 12 ? "Morning" : h < 17 ? "Afternoon" : h < 21 ? "Evening" : "Night";
   return `${part} workout`;
 }
+
+const partsFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function partsFormatter(timeZone: string): Intl.DateTimeFormat {
+  let f = partsFormatters.get(timeZone);
+  if (!f) {
+    try {
+      f = new Intl.DateTimeFormat("en-US", {
+        timeZone,
+        hourCycle: "h23",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+    } catch {
+      f = partsFormatter("UTC");
+    }
+    partsFormatters.set(timeZone, f);
+  }
+  return f;
+}
+
+/** Wall-clock fields of an instant in `timeZone`, as the UTC ms of the same fields (so the difference is the zone offset). */
+function wallClockMs(ms: number, timeZone: string): number {
+  const p = Object.fromEntries(partsFormatter(timeZone).formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
+  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+}
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** An instant as `YYYY-MM-DDTHH:mm` wall-clock time in `timeZone` (the value format of `<input type="datetime-local">`). */
+export function utcToZonedLocal(iso: string, timeZone: string): string {
+  const d = new Date(wallClockMs(Date.parse(iso), timeZone));
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}T${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+}
+
+/**
+ * Inverse of `utcToZonedLocal`: the ISO instant for a `YYYY-MM-DDTHH:mm` wall-clock time in `timeZone`.
+ * An ambiguous time (clocks go back) resolves to the earlier instant; a non-existent one (clocks go forward)
+ * is shifted forward by the gap. Returns `undefined` for malformed input.
+ */
+export function zonedLocalToUtc(local: string, timeZone: string): string | undefined {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(local);
+  if (!m) return undefined;
+  const wall = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+  if (Number.isNaN(wall)) return undefined;
+  const DAY = 86_400_000;
+  const offsetAt = (ms: number) => wallClockMs(ms, timeZone) - ms;
+  const before = offsetAt(wall - DAY);
+  const after = offsetAt(wall + DAY);
+  const candidates = [...new Set([before, after])].map((o) => wall - o).filter((t) => wallClockMs(t, timeZone) === wall);
+  const instant = candidates.length > 0 ? Math.min(...candidates) : wall - before;
+  return new Date(instant).toISOString();
+}

@@ -158,3 +158,34 @@ export async function deleteCompletedSession(id: string): Promise<void> {
     await db.sessions.delete(id);
   });
 }
+
+export class InvalidSessionEditError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidSessionEditError";
+  }
+}
+
+/**
+ * Saves edits to a COMPLETED session (UI must confirm first). Requires the stored row to exist and be completed
+ * (never creates or activates a session), `endedAt ≥ startedAt`, keeps `status: "completed"`, drops any rest timer,
+ * recomputes `exerciseIds`, and bumps `updatedAt`. Accepts `$state` proxies. Touches nothing else.
+ */
+export async function updateCompletedSession(session: WorkoutSession, now = new Date()): Promise<WorkoutSession> {
+  const plain = toPlain(session);
+  const start = Date.parse(plain.startedAt);
+  const end = plain.endedAt === undefined ? NaN : Date.parse(plain.endedAt);
+  if (Number.isNaN(start) || Number.isNaN(end)) throw new InvalidSessionEditError("Start and end times must be valid");
+  if (end < start) throw new InvalidSessionEditError("A workout can't end before it starts");
+  delete plain.restTimer;
+  plain.status = "completed";
+  plain.exerciseIds = exerciseIdsOf(plain);
+  plain.updatedAt = now.toISOString();
+  return db.transaction("rw", db.sessions, async () => {
+    const stored = await db.sessions.get(plain.id);
+    if (!stored) throw new Error(`Session ${plain.id} not found`);
+    if (stored.status !== "completed") throw new Error(`Session ${plain.id} is not completed`);
+    await db.sessions.put(plain);
+    return plain;
+  });
+}

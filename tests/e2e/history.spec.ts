@@ -10,3 +10,8 @@ test("unknown session id shows a not-found state", async ({ page }) => {
   await page.goto("/history/does-not-exist");
   await expect(page.getByText("Session not found")).toBeVisible();
 });
+
+test("editing an unknown session shows a not-found state", async ({ page }) => {
+  await page.goto("/history/does-not-exist/edit");
+  await expect(page.getByText("Session not found")).toBeVisible();
+});
