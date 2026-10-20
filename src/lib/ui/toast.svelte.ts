@@ -23,18 +23,43 @@ function start(id: number, t: Timer) {
   t.handle = setTimeout(() => dismissToast(id), t.remaining);
 }
 
+// While a modal dialog is open everything outside it is inert: a toast there could be neither used nor announced.
+// So new toasts wait (their timers not started) and visible ones pause until the last modal closes.
+let suspended = 0;
+const waiting: { toast: Toast; timer: Timer }[] = [];
+
+function show(item: Toast, t: Timer) {
+  toasts.push(item);
+  timers.set(item.id, t);
+  start(item.id, t);
+  while (toasts.length > MAX_TOASTS) dismissToast(toasts[0].id);
+}
+
 /** Show a toast. Returns its id (for dismissToast). */
 export function toast(message: string, { action, durationMs }: ToastOptions = {}): number {
   const id = nextId++;
-  toasts.push({ id, message, action });
   const t: Timer = { remaining: durationMs ?? (action ? ACTION_DURATION_MS : DEFAULT_DURATION_MS), startedAt: 0, pauses: 0 };
-  timers.set(id, t);
-  start(id, t);
-  while (toasts.length > MAX_TOASTS) dismissToast(toasts[0].id);
+  if (suspended > 0) waiting.push({ toast: { id, message, action }, timer: t });
+  else show({ id, message, action }, t);
   return id;
 }
 
+/** A modal dialog opened (called by Dialog). Calls nest. */
+export function suspendToasts() {
+  if (suspended++ > 0) return;
+  for (const { id } of toasts) pauseToast(id);
+}
+
+/** A modal dialog closed: resume visible toasts, then show the ones that waited. */
+export function resumeToasts() {
+  if (suspended === 0 || --suspended > 0) return;
+  for (const { id } of toasts) resumeToast(id);
+  for (const { toast: item, timer } of waiting.splice(0)) show(item, timer);
+}
+
 export function dismissToast(id: number) {
+  const w = waiting.findIndex((x) => x.toast.id === id);
+  if (w !== -1) waiting.splice(w, 1);
   const t = timers.get(id);
   if (t) clearTimeout(t.handle);
   timers.delete(id);
@@ -69,4 +94,6 @@ export function clearToasts() {
   for (const t of timers.values()) clearTimeout(t.handle);
   timers.clear();
   toasts.length = 0;
+  waiting.length = 0;
+  suspended = 0;
 }

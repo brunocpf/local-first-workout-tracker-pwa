@@ -1,4 +1,6 @@
 <script lang="ts" module>
+  import { resumeToasts, suspendToasts } from "#lib/ui/toast.svelte";
+
   // Exit animation (design.md §6.9). Where `overlay` and discrete `display` transitions work (Chromium), close()
   // animates by itself. Elsewhere (Safari, Firefox) set `data-closing`, wait for the exit transition, then close().
   let displayTransition: boolean | undefined;
@@ -66,6 +68,7 @@
     if (dy !== 0 && !scrollsInside(e.target, dy)) e.preventDefault();
   }
   function lockScroll() {
+    suspendToasts();
     if (locks++ === 0) {
       document.addEventListener("wheel", onWheel, { passive: false, capture: true });
       document.addEventListener("touchstart", onTouchStart, { passive: true, capture: true });
@@ -75,6 +78,7 @@
     return () => {
       if (released) return;
       released = true;
+      resumeToasts();
       if (--locks === 0) {
         document.removeEventListener("wheel", onWheel, { capture: true });
         document.removeEventListener("touchstart", onTouchStart, { capture: true });

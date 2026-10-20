@@ -9,7 +9,9 @@ import {
   dismissToast,
   pauseToast,
   resumeToast,
+  resumeToasts,
   runToastAction,
+  suspendToasts,
   toast,
   toasts,
 } from "#lib/ui/toast.svelte";
@@ -140,6 +142,30 @@ describe("toast()", () => {
     expect(toasts).toHaveLength(0);
   });
 
+  it("while a modal is open, new toasts wait and visible ones pause", () => {
+    toast("Before", { durationMs: 1000 });
+    suspendToasts();
+    suspendToasts(); // nested modal
+    toast("During", { durationMs: 1000 });
+    expect(toasts.map((t) => t.message)).toEqual(["Before"]);
+    vi.advanceTimersByTime(10_000);
+    expect(toasts.map((t) => t.message)).toEqual(["Before"]);
+    resumeToasts();
+    expect(toasts.map((t) => t.message)).toEqual(["Before"]);
+    resumeToasts();
+    expect(toasts.map((t) => t.message)).toEqual(["Before", "During"]);
+    vi.advanceTimersByTime(1000);
+    expect(toasts).toHaveLength(0);
+  });
+
+  it("a toast dismissed while waiting never shows", () => {
+    suspendToasts();
+    const id = toast("Gone");
+    dismissToast(id);
+    resumeToasts();
+    expect(toasts).toHaveLength(0);
+  });
+
   it("keeps at most 3, dropping the oldest", () => {
     for (const m of ["1", "2", "3", "4"]) toast(m);
     expect(toasts.map((t) => t.message)).toEqual(["2", "3", "4"]);
@@ -166,5 +192,28 @@ describe("toast()", () => {
     await fireEvent.click(undo);
     expect(run).toHaveBeenCalledTimes(1);
     expect(toasts).toHaveLength(0);
+  });
+
+  it("Toaster: keyboard Dismiss/Undo moves focus to the next toast, then back to the previous element", async () => {
+    const outside = document.createElement("button");
+    document.body.append(outside);
+    render(Toaster);
+    toast("First", { action: { label: "Undo", run: () => {} } });
+    toast("Second");
+    await tick();
+
+    const [undo] = screen.getAllByRole("button", { name: "Undo" });
+    outside.focus();
+    undo.focus();
+    await fireEvent.focusIn(undo, { relatedTarget: outside });
+    await fireEvent.click(undo);
+    await tick();
+    // Focus went to the remaining toast's first button.
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Dismiss" }));
+
+    await fireEvent.click(document.activeElement!);
+    await tick();
+    expect(document.activeElement).toBe(outside);
+    outside.remove();
   });
 });

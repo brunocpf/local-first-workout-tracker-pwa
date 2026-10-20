@@ -1,7 +1,8 @@
 <script lang="ts">
   // The single toast host, mounted once in +layout.svelte (design.md §6.12). The region is always in the DOM so
-  // screen readers announce each toast as it is added. It is one `popover="manual"` stack in the top layer (above
-  // dialogs, never light-dismissed); without the Popover API it is a `position: fixed` region instead.
+  // screen readers announce each toast as it is added. It is one `popover="manual"` stack in the top layer (never
+  // light-dismissed); without the Popover API it is a `position: fixed` region instead. Toasts wait while a modal
+  // dialog is open (see toast.svelte.ts), so the region is never inert under one.
   import { dismissToast, pauseToast, resumeToast, runToastAction, toasts } from "#lib/ui/toast.svelte";
   import { tick } from "svelte";
   import { cubicOut } from "svelte/easing";
@@ -18,16 +19,31 @@
     void tick().then(() => region?.isConnected && !region.matches(":popover-open") && region.showPopover());
   });
 
-  // The top layer stacks in show order: re-show the region when a toast arrives over an open modal dialog.
-  let count = 0;
-  $effect(() => {
-    const n = toasts.length;
-    if (n > count && popover && region?.matches(":popover-open") && document.querySelector("dialog:modal")) {
-      region.hidePopover();
-      region.showPopover();
-    }
-    count = n;
-  });
+  // Before removing the toast that holds focus, move focus to a neighbouring toast, or back to where it was before
+  // it entered the region, so keyboard users don't land on <body>.
+  let focusBefore: HTMLElement | null = null;
+  function trackFocus(e: FocusEvent) {
+    const from = e.relatedTarget;
+    if (from instanceof HTMLElement && !region?.contains(from)) focusBefore = from;
+  }
+  function handOffFocus(id: number) {
+    const el = region?.querySelector<HTMLElement>(`[data-toast="${id}"]`);
+    if (!el?.contains(document.activeElement)) return;
+    const others = [...(region?.querySelectorAll<HTMLElement>("[data-toast]") ?? [])].filter((x) => x !== el);
+    const i = others.findIndex((x) => el.compareDocumentPosition(x) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const next = others[i === -1 ? others.length - 1 : i]?.querySelector<HTMLElement>("button");
+    const target = next ?? (focusBefore?.isConnected ? focusBefore : null);
+    target?.focus();
+    if (!next) focusBefore = null;
+  }
+  function act(id: number) {
+    handOffFocus(id);
+    runToastAction(id);
+  }
+  function dismiss(id: number) {
+    handOffFocus(id);
+    dismissToast(id);
+  }
 
   // Pause while hovered or while focus is inside (design.md §6.12).
   // Non-reactive bookkeeping: why each toast is held ("hover", "focus").
@@ -68,11 +84,13 @@
   popover={popover ? "manual" : undefined}
   aria-live="polite"
   aria-label="Notifications"
+  onfocusin={trackFocus}
 >
   {#each toasts as t (t.id)}
     <div
       class="toast"
       role="group"
+      data-toast={t.id}
       out:leave
       onpointerenter={() => hold(t.id, "hover")}
       onpointerleave={() => release(t.id, "hover")}
@@ -83,9 +101,9 @@
     >
       <p class="message">{t.message}</p>
       {#if t.action}
-        <Button variant="ghost" size="sm" onclick={() => runToastAction(t.id)}>{t.action.label}</Button>
+        <Button variant="ghost" size="sm" onclick={() => act(t.id)}>{t.action.label}</Button>
       {/if}
-      <IconButton icon="x" label="Dismiss" size="sm" onclick={() => dismissToast(t.id)} />
+      <IconButton icon="x" label="Dismiss" size="sm" onclick={() => dismiss(t.id)} />
     </div>
   {/each}
 </section>

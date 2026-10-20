@@ -147,3 +147,43 @@ test("overlays page has no horizontal scroll at 320px with a sheet open", async 
     true,
   );
 });
+
+test("toast: keyboard Undo returns focus instead of dropping it on <body>", async ({ page, browserName }) => {
+  const opener = await openWithKeyboard(page, "Delete a set");
+  const region = page.getByRole("region", { name: "Notifications" });
+  const undo = region.getByRole("button", { name: "Undo" });
+  await expect(undo).toBeVisible();
+  // Move into the toast with Tab, as a keyboard user would (WebKit needs Alt+Tab to reach buttons).
+  const tab = browserName === "webkit" ? "Alt+Tab" : "Tab";
+  await expect(opener).toBeFocused();
+  for (let i = 0; i < 30 && !(await undo.evaluate((el) => el === document.activeElement)); i++) {
+    await page.evaluate(() => document.activeElement?.setAttribute("data-was-focused", ""));
+    await page.keyboard.press(tab);
+    await page.evaluate(() => {
+      const a = document.activeElement;
+      if (a?.closest("[aria-label=Notifications]")) return;
+      document.querySelectorAll("[data-was-focused]").forEach((el) => el.removeAttribute("data-was-focused"));
+    });
+  }
+  await expect(undo).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(undo).toHaveCount(0);
+  await expect(page.getByTestId("sets")).toContainText("Undo ran 1×");
+  // Focus is back on the element focused before Tab entered the toast region, not on <body>.
+  await expect(page.locator("[data-was-focused]")).toBeFocused();
+});
+
+test("toast: a toast raised while a dialog is open waits, then is usable", async ({ page }) => {
+  await open(page, "Restore backup");
+  const dialog = page.getByRole("dialog", { name: "Replace all data?" });
+  await dialog.getByRole("button", { name: "Export a backup first" }).click();
+  const region = page.getByRole("region", { name: "Notifications" });
+  // The export finishes while the dialog is open: nothing appears under the inert modal.
+  await expect(dialog.getByRole("button", { name: "Export a backup first" })).not.toHaveAttribute("aria-busy");
+  await expect(region).not.toContainText("Backup exported");
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(region).toContainText("Backup exported");
+  await region.getByRole("button", { name: "Dismiss" }).click();
+  await expect(region).not.toContainText("Backup exported");
+});
