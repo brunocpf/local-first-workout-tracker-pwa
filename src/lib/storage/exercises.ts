@@ -1,5 +1,6 @@
 import { SEED_EXERCISES, SEED_EXERCISES_BY_ID } from "#lib/catalog/seed";
 import { newId } from "#lib/ids";
+import { exerciseIdsOf } from "#lib/storage/sessions";
 import { db as defaultDb, type AppDB } from "#lib/storage/db";
 import type { Exercise, ExerciseType } from "#lib/types";
 
@@ -227,4 +228,114 @@ export async function deleteCustomExercise(id: string, database: AppDB = default
     if (await isExerciseReferenced(id, database)) throw new ExerciseInUseError(id);
     await database.exercises.delete(id);
   });
+}
+
+export type MergePreview = { sessions: number; routines: number };
+
+/** Sessions and routines that merging `fromId` away would re-point (for the confirmation dialog). */
+export async function mergePreview(
+  fromId: string,
+  intoId: string,
+  database: AppDB = defaultDb,
+): Promise<MergePreview> {
+  await ensureCatalogSeeded(database);
+  return database.transaction(
+    "r",
+    database.exercises,
+    database.sessions,
+    database.routines,
+    async () => {
+      await checkMergeable(fromId, intoId, database);
+      return {
+        sessions: await database.sessions
+          .where("exerciseIds")
+          .equals(fromId)
+          .count(),
+        routines: await database.routines
+          .filter((r) => r.exercises.some((x) => x.exerciseId === fromId))
+          .count(),
+      };
+    },
+  );
+}
+
+async function checkMergeable(
+  fromId: string,
+  intoId: string,
+  database: AppDB,
+): Promise<{ from: Exercise; into: Exercise }> {
+  if (fromId === intoId)
+    throw new Error("Cannot merge an exercise into itself");
+  const [from, into] = await Promise.all([
+    database.exercises.get(fromId),
+    database.exercises.get(intoId),
+  ]);
+  if (!from) throw new Error(`Unknown exercise: ${fromId}`);
+  if (!into) throw new Error(`Unknown exercise: ${intoId}`);
+  if (!from.isCustom)
+    throw new Error(`Built-in exercise ${fromId} cannot be merged away`);
+  return { from, into };
+}
+
+/**
+ * Merges the custom exercise `fromId` into `intoId` in ONE transaction (all-or-nothing): re-points
+ * `SessionExercise.exerciseId` and recomputes the `exerciseIds` index of every affected session, re-points
+ * `RoutineExercise.exerciseId`, adds `from`'s name and aliases to `into.aliases`, and deletes `from`.
+ * Name/type snapshots in sessions are never rewritten. Returns what was re-pointed.
+ */
+export async function mergeExercises(
+  fromId: string,
+  intoId: string,
+  database: AppDB = defaultDb,
+): Promise<MergePreview> {
+  await ensureCatalogSeeded(database);
+  return database.transaction(
+    "rw",
+    database.exercises,
+    database.sessions,
+    database.routines,
+    async () => {
+      const { from, into } = await checkMergeable(fromId, intoId, database);
+      const now = new Date().toISOString();
+
+      const sessions = await database.sessions
+        .where("exerciseIds")
+        .equals(fromId)
+        .toArray();
+      for (const s of sessions) {
+        for (const e of s.exercises)
+          if (e.exerciseId === fromId) e.exerciseId = intoId;
+        s.exerciseIds = exerciseIdsOf(s);
+        s.updatedAt = now;
+      }
+      if (sessions.length > 0) await database.sessions.bulkPut(sessions);
+
+      const routines = await database.routines
+        .filter((r) => r.exercises.some((x) => x.exerciseId === fromId))
+        .toArray();
+      for (const r of routines) {
+        for (const x of r.exercises)
+          if (x.exerciseId === fromId) x.exerciseId = intoId;
+        r.updatedAt = now;
+      }
+      if (routines.length > 0) await database.routines.bulkPut(routines);
+
+      const known = new Set([
+        into.name.toLowerCase(),
+        ...into.aliases.map((a) => a.toLowerCase()),
+      ]);
+      const added: string[] = [];
+      for (const a of [from.name, ...from.aliases]) {
+        if (!known.has(a.toLowerCase())) {
+          known.add(a.toLowerCase());
+          added.push(a);
+        }
+      }
+      into.aliases = [...into.aliases, ...added];
+      into.updatedAt = now;
+      await database.exercises.put(into);
+      await database.exercises.delete(fromId);
+      return { sessions: sessions.length, routines: routines.length };
+    },
+  );
 }
