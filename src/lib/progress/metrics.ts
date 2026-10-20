@@ -88,52 +88,45 @@ export function prTimeline(sessionsChronological: PrSession[]): SessionPrs[] {
   const prior: LoggedSet[][] = [];
   let hasHistory = false;
   return sessionsChronological.map(({ startedAt, sets }) => {
-    const prs: PrEvent[] = [];
-    if (hasHistory) {
-      const before = personalRecords(prior);
-      const best = {
-        maxWeight: {
-          v: before.maxWeight ?? 0,
-          set: undefined as LoggedSet | undefined,
-        },
-        e1rm: {
-          v: before.bestE1RM ?? 0,
-          set: undefined as LoggedSet | undefined,
-        },
-      };
-      const rep: Record<number, { v: number; set?: LoggedSet }> = {};
-      for (const s of sets) {
-        if (!validSet(s)) continue;
-        const weight = s.weight!;
-        const reps = s.reps!;
-        if (weight > best.maxWeight.v) best.maxWeight = { v: weight, set: s };
-        if (reps <= 12 && weight > (rep[reps]?.v ?? before.repPRs[reps] ?? 0))
-          rep[reps] = { v: weight, set: s };
-        const e = estimated1RM(weight, reps);
-        if (e !== undefined && e > best.e1rm.v) best.e1rm = { v: e, set: s };
-      }
-      if (best.maxWeight.set)
-        prs.push({
-          kind: "maxWeight",
-          value: best.maxWeight.v,
-          set: best.maxWeight.set,
-        });
-      for (const [r, { v, set }] of Object.entries(rep).sort(
-        (a, b) => Number(a[0]) - Number(b[0]),
-      )) {
-        prs.push({ kind: "repMax", reps: Number(r), value: v, set });
-      }
-      if (best.e1rm.set)
-        prs.push({ kind: "e1rm", value: best.e1rm.v, set: best.e1rm.set });
-      const volume = exerciseVolume(sets);
-      if (volume > 0 && volume > (before.bestSessionVolume ?? 0))
-        prs.push({ kind: "sessionVolume", value: volume });
-    }
+    const prs = hasHistory ? prsAgainst(personalRecords(prior), sets) : [];
     prior.push(sets);
     if (sets.some(validSet)) hasHistory = true;
     return { startedAt, prs };
   });
 }
+
+/**
+ * New PRs of one session's sets against the records of everything before it (`before`); the caller has
+ * checked there is any baseline. One pass over `before` and `sets`, so the logger can ask on every change.
+ */
+export function prsAgainst(before: PersonalRecords, sets: LoggedSet[]): PrEvent[] {
+  const prs: PrEvent[] = [];
+  const best = {
+    maxWeight: { v: before.maxWeight ?? 0, set: undefined as LoggedSet | undefined },
+    e1rm: { v: before.bestE1RM ?? 0, set: undefined as LoggedSet | undefined },
+  };
+  const rep: Record<number, { v: number; set?: LoggedSet }> = {};
+  for (const s of sets) {
+    if (!validSet(s)) continue;
+    const weight = s.weight!;
+    const reps = s.reps!;
+    if (weight > best.maxWeight.v) best.maxWeight = { v: weight, set: s };
+    if (reps <= 12 && weight > (rep[reps]?.v ?? before.repPRs[reps] ?? 0)) rep[reps] = { v: weight, set: s };
+    const e = estimated1RM(weight, reps);
+    if (e !== undefined && e > best.e1rm.v) best.e1rm = { v: e, set: s };
+  }
+  if (best.maxWeight.set) prs.push({ kind: "maxWeight", value: best.maxWeight.v, set: best.maxWeight.set });
+  for (const [r, { v, set }] of Object.entries(rep).sort((a, b) => Number(a[0]) - Number(b[0]))) {
+    prs.push({ kind: "repMax", reps: Number(r), value: v, set });
+  }
+  if (best.e1rm.set) prs.push({ kind: "e1rm", value: best.e1rm.v, set: best.e1rm.set });
+  const volume = exerciseVolume(sets);
+  if (volume > 0 && volume > (before.bestSessionVolume ?? 0)) prs.push({ kind: "sessionVolume", value: volume });
+  return prs;
+}
+
+/** Whether any earlier session has a counted set, i.e. there is a baseline for `prsAgainst`. */
+export const hasPrBaseline = (sessions: readonly PrSession[]) => sessions.some((s) => s.sets.some(validSet));
 
 /** PRs from sessions that started strictly before `beforeIso`, for live "is this a PR?" checks. */
 export function prsBefore(

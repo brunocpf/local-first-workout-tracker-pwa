@@ -1,8 +1,8 @@
 import { completedSessionsWithExercise } from "#lib/storage/sessions";
-import { prTimeline, type PrEvent, type PrSession } from "#lib/progress/metrics";
+import { hasPrBaseline, personalRecords, prsAgainst, type PersonalRecords, type PrEvent, type PrSession } from "#lib/progress/metrics";
 import { formatNumber } from "#lib/numberInput";
 import { displayWeight } from "#lib/units";
-import type { WeightUnit, WorkoutSession } from "#lib/types";
+import type { LoggedSet, WeightUnit, WorkoutSession } from "#lib/types";
 
 /** One exercise's sets across a session (an exercise can appear more than once). */
 const setsOf = (s: Pick<WorkoutSession, "exercises">, exerciseId: string) =>
@@ -16,15 +16,25 @@ export function priorPrSessions(sessions: readonly WorkoutSession[], exerciseId:
     .filter((s) => s.sets.length > 0);
 }
 
+/** What a session must beat to set a PR: the records of `prior`, or undefined without history (nothing is flagged then). */
+export function prBaseline(prior: readonly PrSession[]): PersonalRecords | undefined {
+  return hasPrBaseline(prior) ? personalRecords(prior.map((s) => s.sets)) : undefined;
+}
+
 /** New PRs of `current` for one `weighted_reps` exercise (PRD §10.1: strictly beats earlier sessions; none without history). */
 export function newPrs(prior: readonly PrSession[], current: PrSession): PrEvent[] {
-  const ordered = [...prior].sort((a, b) => a.startedAt.localeCompare(b.startedAt));
-  return prTimeline([...ordered, current]).at(-1)?.prs ?? [];
+  const baseline = prBaseline(prior);
+  return baseline ? prsAgainst(baseline, current.sets) : [];
 }
 
 /** Ids of the sets in `current` that are a new PR; the logger and history badge these. Recomputed, never stored. */
 export function prSetIds(prior: readonly PrSession[], current: PrSession): Set<string> {
-  return new Set(newPrs(prior, current).flatMap((p) => (p.set ? [p.set.id] : [])));
+  return prSetIdsAgainst(prBaseline(prior), current.sets);
+}
+
+/** Like `prSetIds` with the baseline computed once, so the logger can re-ask on every change without rescanning history. */
+export function prSetIdsAgainst(baseline: PersonalRecords | undefined, sets: LoggedSet[]): Set<string> {
+  return new Set(baseline ? prsAgainst(baseline, sets).flatMap((p) => (p.set ? [p.set.id] : [])) : []);
 }
 
 export type ExercisePrs = { exerciseId: string; name: string; prs: PrEvent[] };

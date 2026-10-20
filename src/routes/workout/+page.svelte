@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { newId } from "#lib/ids";
@@ -11,7 +12,7 @@
   import EmptyState from "#lib/components/ui/EmptyState.svelte";
   import ExerciseCard from "#lib/components/workout/ExerciseCard.svelte";
   import RestTimerBar from "#lib/components/workout/RestTimerBar.svelte";
-  import { prepareAlerts } from "#lib/alerts";
+  import { prepareAlerts, warmUpAlerts } from "#lib/alerts";
   import { restAfterSet, startRestTimer } from "#lib/restTimer";
   import ExercisePicker from "#lib/components/ExercisePicker.svelte";
   import { suggestSubstitutes } from "#lib/catalog/substitutes";
@@ -37,8 +38,8 @@
     type SetPatch,
   } from "#lib/logger/workout";
   import { loadPreviousSets, type SetValues } from "#lib/logger/previousValues";
-  import type { PrSession } from "#lib/progress/metrics";
-  import { loadPriorPrSessions, prSetIds as prSetIdsOf } from "#lib/progress/sessionPrs";
+  import type { PersonalRecords } from "#lib/progress/metrics";
+  import { loadPriorPrSessions, prBaseline, prSetIdsAgainst } from "#lib/progress/sessionPrs";
   import { settings } from "#lib/settings.svelte";
   import { requestPersistentStorage } from "#lib/storage/persistence";
   import WorkoutSummary from "#lib/components/workout/WorkoutSummary.svelte";
@@ -122,6 +123,8 @@
     );
   }
 
+  onMount(warmUpAlerts);
+
   // Previous sets per exercise id, loaded once per exercise. Reads only `exerciseId`s, so typing never reruns it.
   let previous = $state<Record<string, LoggedSet[]>>({});
   // Bookkeeping only: nothing renders from it.
@@ -143,8 +146,9 @@
     }
   });
 
-  // Earlier sessions per weighted exercise id (what a set must beat to be a PR), loaded like `previous`.
-  let priors = $state<Record<string, PrSession[]>>({});
+  // What a set must beat to be a PR, per weighted exercise id, loaded like `previous`. Computed once from the earlier
+  // sessions (up to the whole history), and `$state.raw` so nothing wraps it in proxies or rescans it per change.
+  let priors = $state.raw<Record<string, PersonalRecords | undefined>>({});
   // eslint-disable-next-line svelte/prefer-svelte-reactivity
   const requestedPriors = new Set<string>();
   $effect(() => {
@@ -156,7 +160,7 @@
       requestedPriors.add(id);
       loadPriorPrSessions(id, s).then(
         (sessions) => {
-          priors[id] = sessions;
+          priors = { ...priors, [id]: prBaseline(sessions) };
         },
         () => requestedPriors.delete(id),
       );
@@ -170,7 +174,7 @@
     if (!s) return out;
     for (const id of Object.keys(priors)) {
       const sets = s.exercises.filter((e) => e.exerciseId === id).flatMap((e) => e.sets);
-      out[id] = prSetIdsOf(priors[id], { startedAt: s.startedAt, sets });
+      out[id] = prSetIdsAgainst(priors[id], sets);
     }
     return out;
   });
@@ -205,10 +209,10 @@
         if (!e || !set) return;
         if (set.completedAt) return uncompleteSet(set);
         completeSet(set, prefill, new Date().toISOString());
-        const history = priors[e.exerciseId];
-        if (history) {
+        const baseline = priors[e.exerciseId];
+        if (baseline) {
           const sets = s.exercises.filter((x) => x.exerciseId === e.exerciseId).flatMap((x) => x.sets);
-          if (prSetIdsOf(history, { startedAt: s.startedAt, sets }).has(set.id)) prName = e.exerciseNameSnapshot;
+          if (prSetIdsAgainst(baseline, sets).has(set.id)) prName = e.exerciseNameSnapshot;
         }
         const rest = restAfterSet(s.exercises, s.exercises.indexOf(e), set.id, settings);
         if (settings.autoStartRestTimer && rest > 0) s.restTimer = startRestTimer(rest);
