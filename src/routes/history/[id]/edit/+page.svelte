@@ -254,11 +254,6 @@
         onsetchange={(setId: string, patch: SetPatch) => withExercise(exercise.id, (e) => updateSet(e, setId, patch))}
         ontoggleset={(setId) => toggleSet(exercise.id, setId)}
         onduplicateset={(setId) => withExercise(exercise.id, (e) => duplicateSet(e, setId))}
-        ontogglewarmup={(setId) =>
-          withExercise(exercise.id, (e) => {
-            const set = e.sets.find((x) => x.id === setId);
-            if (set) updateSet(e, setId, { type: set.type === "warmup" ? "normal" : "warmup" });
-          })}
         ondeleteset={(setId) => withExercise(exercise.id, (e) => removeSet(e, setId))}
       />
     {/each}

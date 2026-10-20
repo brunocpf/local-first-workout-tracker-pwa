@@ -118,6 +118,18 @@ describe("SetRow", () => {
     expect(screen.getByRole("button", { name: "Complete warm-up 1" })).toBeTruthy();
   });
 
+  it("shows W, D and F badges for non-normal sets and plain numbers for normal ones", () => {
+    for (const [type, label, name] of [["warmup", "W", "Warm-up 1"], ["drop", "D", "Drop set 1"], ["failure", "F", "Failure set 1"]] as const) {
+      const { unmount } = render(SetRow, { ...base, label, name, set: { ...set, type } });
+      const button = screen.getByRole("button", { name: `${name} options` });
+      expect(button.textContent?.trim()).toBe(label);
+      expect(button.querySelector(".badge")).not.toBeNull();
+      unmount();
+    }
+    render(SetRow, { ...base, set });
+    expect(screen.getByRole("button", { name: "Set 2 options" }).querySelector(".badge")).toBeNull();
+  });
+
   it("reverts an invalid entry and announces it instead of showing an error", async () => {
     render(SetRow, { ...base, set: { ...set, weight: 80 } });
     const el = input("Set 2 weight, kg");
@@ -293,14 +305,48 @@ describe("workout page set logging", () => {
     expect(screen.getAllByLabelText<HTMLInputElement>("Set 1 weight, lb")[0].value).toBe("135");
   });
 
-  it("adds a set copying the last, duplicates, toggles warm-up, deletes with undo", async () => {
+  it("changing a set's type re-aligns previous values, relabels and persists", async () => {
+    render(WorkoutPage);
+    await fireEvent.click(benchCard().getByRole("button", { name: "Add set" }));
+    await waitFor(() => expect(benchCard().getByLabelText<HTMLInputElement>("Set 2 weight, kg").placeholder).toBe("80"));
+    const previousTexts = () => [...document.querySelectorAll("article")[0].querySelectorAll(".previous")].map((e) => e.textContent);
+    const choose = async (button: string, type: string) => {
+      await fireEvent.click(benchCard().getByRole("button", { name: button }));
+      const radio = screen.getByRole("radio", { name: type }) as HTMLInputElement;
+      await fireEvent.click(radio);
+    };
+
+    // Set 1 → warm-up: no previous warm-up, and the old set 2 becomes the first working set.
+    await choose("Set 1 options", "Warm-up");
+    expect(benchCard().getByRole("button", { name: "Warm-up 1 options" }).textContent?.trim()).toBe("W");
+    expect(benchCard().getByRole("button", { name: "Set 1 options" })).toBeTruthy();
+    expect(previousTexts()).toEqual(["Previous: –", "Previous: 80\u202f×\u202f8"]);
+
+    // Set 2 → drop set: shown as D, still matched against working sets, and no longer numbered.
+    await choose("Set 1 options", "Drop");
+    expect(benchCard().getByRole("button", { name: "Drop set 1 options" }).textContent?.trim()).toBe("D");
+    expect(benchCard().queryByRole("button", { name: "Set 1 options" })).toBeNull();
+    expect(previousTexts()).toEqual(["Previous: –", "Previous: 80\u202f×\u202f8"]);
+
+    await choose("Drop set 1 options", "Failure");
+    expect(benchCard().getByRole("button", { name: "Failure set 1 options" }).textContent?.trim()).toBe("F");
+
+    await choose("Failure set 1 options", "Normal");
+    expect(benchCard().getByRole("button", { name: "Set 1 options" })).toBeTruthy();
+
+    await choose("Set 1 options", "Failure");
+    await active.flush();
+    expect((await stored()).exercises[0].sets.map((x) => x.type)).toEqual(["warmup", "failure"]);
+  });
+
+  it("adds a set copying the last, duplicates, sets a warm-up type, deletes with undo", async () => {
     render(WorkoutPage);
     await type(screen.getAllByLabelText<HTMLInputElement>("Set 1 weight, kg")[0], "60");
     await fireEvent.click(benchCard().getByRole("button", { name: "Add set" }));
     expect(benchCard().getByLabelText<HTMLInputElement>("Set 2 weight, kg").value).toBe("60");
 
     await fireEvent.click(benchCard().getByRole("button", { name: "Set 1 options" }));
-    await fireEvent.click(screen.getByRole("button", { name: "Toggle warm-up" }));
+    await fireEvent.click(screen.getByRole("radio", { name: "Warm-up" }));
     expect(benchCard().getByRole("button", { name: "Warm-up 1 options" })).toBeTruthy();
     expect(benchCard().getByRole("button", { name: "Set 1 options" })).toBeTruthy(); // former set 2
 

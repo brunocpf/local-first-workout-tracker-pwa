@@ -79,10 +79,11 @@
   const weight = (kg: number) => displayWeight(kg, unit).toLocaleString();
   const summary = $derived(session ? sessionSummary(session) : undefined);
 
+  /** Same numbering as the logger: only normal sets are numbered (warm-up, drop and failure sets get badges). */
   function setLabel(sets: LoggedSet[], i: number) {
-    if (sets[i].type === "warmup") return "W";
-    return String(sets.slice(0, i + 1).filter((s) => s.type !== "warmup").length);
+    return String(sets.slice(0, i + 1).filter((s) => s.type === "normal").length);
   }
+  const typeBadge = { warmup: { variant: "neutral", text: "Warm-up" }, drop: { variant: "info", text: "Drop" }, failure: { variant: "danger", text: "Failure" } } as const;
 
   function setText(s: LoggedSet) {
     const parts: string[] = [];
@@ -163,7 +164,7 @@
           {#each ex.sets as s, i (s.id)}
             <tr class:muted={s.completedAt === undefined}>
               <th scope="row">
-                {#if s.type === "warmup"}<Badge>Warm-up</Badge>{:else}{setLabel(ex.sets, i)}{/if}
+                {#if s.type !== "normal"}<Badge variant={typeBadge[s.type].variant}>{typeBadge[s.type].text}</Badge>{:else}{setLabel(ex.sets, i)}{/if}
               </th>
               <td>
                 {setText(s)}

@@ -210,7 +210,7 @@ Each set row shows the previous value from the most recent *completed* session c
 
 ### 8.5 Set types
 
-The model and import format support normal, warm-up, drop and failure sets **from v1**. P0 UI logs normal sets and can mark a set as warm-up; full UI for warm-up/drop/failure and supersets comes later. Warm-ups never count toward volume or PRs.
+The model and import format support normal, warm-up, drop and failure sets **from v1**. Tapping the set label opens a menu to choose normal, warm-up, drop (D) or failure (F) in the logger and in history edit; only normal sets are numbered. Warm-ups never count toward volume or PRs.
 
 ### 8.6 Finish
 
