@@ -4,7 +4,8 @@
   import Banner from "#lib/components/ui/Banner.svelte";
   import Button from "#lib/components/ui/Button.svelte";
   import NumberField from "#lib/components/ui/NumberField.svelte";
-  import { readTextFile } from "#lib/files";
+  import { buildHistoryCsv, csvBlob, csvFileName } from "#lib/exports/csv";
+  import { readTextFile, saveFile } from "#lib/files";
   import { active } from "#lib/logger/activeSession.svelte";
   import { initSettings, settings, updateSettings } from "#lib/settings.svelte";
   import { confirm } from "#lib/ui/confirm.svelte";
@@ -42,6 +43,23 @@
       return false;
     } finally {
       exporting = false;
+    }
+  }
+
+  let exportingCsv = $state(false);
+  let csvError = $state("");
+
+  async function exportCsv() {
+    csvError = "";
+    exportingCsv = true;
+    try {
+      const blob = csvBlob(await buildHistoryCsv());
+      const result = await saveFile(blob, csvFileName());
+      if (result !== "cancelled") toast(`History saved · ${size(blob.size)}`);
+    } catch (e) {
+      csvError = `CSV export failed: ${message(e)}`;
+    } finally {
+      exportingCsv = false;
     }
   }
 
@@ -110,6 +128,9 @@
   <Button onclick={exportBackup} loading={exporting} icon="export">Export backup</Button>
   {#if exportNote}<p class="note" role="status" data-testid="export-note">{exportNote}</p>{/if}
   {#if exportError}<Banner variant="danger" urgent>{exportError}</Banner>{/if}
+  <Button onclick={exportCsv} loading={exportingCsv} icon="export">Export history (CSV)</Button>
+  <p class="muted">A spreadsheet of every logged set. It is not a backup and can't be restored.</p>
+  {#if csvError}<Banner variant="danger" urgent>{csvError}</Banner>{/if}
 
   <NumberField
     label="Remind after (days)"
