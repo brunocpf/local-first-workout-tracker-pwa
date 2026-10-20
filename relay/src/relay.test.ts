@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
-import { corsHeaders } from "./cors";
+import { corsHeaders, isAllowedOrigin } from "./cors";
 import { isAllowedPushEndpoint, MAX_DELAY_MS, parseCancel, parseSchedule } from "./validate";
 import { fromB64url, importSigningKey, toB64url, vapidAuthorization } from "./vapid";
 import { handleRequest, type Env } from "./worker";
@@ -47,6 +47,12 @@ describe("cors", () => {
     expect(corsHeaders("https://app.example", "https://app.example")["access-control-allow-origin"]).toBe("https://app.example");
     expect(corsHeaders("https://other.example", "https://app.example")).toEqual({});
     expect(corsHeaders(null, "https://app.example")).toEqual({});
+  });
+  it("supports several origins and opt-in localhost", () => {
+    expect(isAllowedOrigin("https://b.example", "https://a.example, https://b.example")).toBe(true);
+    expect(isAllowedOrigin("http://localhost:5173", "https://a.example")).toBe(false);
+    expect(isAllowedOrigin("http://localhost:5173", "https://a.example", true)).toBe(true);
+    expect(isAllowedOrigin("http://localhost.evil.example", "https://a.example", true)).toBe(false);
   });
 });
 

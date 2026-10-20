@@ -1,6 +1,6 @@
 // Minimal Web Push relay (ADR 0014). It holds a push subscription endpoint and a fire time, nothing else, and
 // sends an empty VAPID-signed push at that time. Never workout data. Free on Cloudflare Workers + Durable Objects.
-import { corsHeaders } from "./cors";
+import { corsHeaders, isAllowedOrigin } from "./cors";
 import { MAX_BODY_BYTES, parseCancel, parseSchedule } from "./validate";
 import { importSigningKey, vapidAuthorization } from "./vapid";
 
@@ -21,7 +21,10 @@ interface Stub {
 export interface Env {
   TIMERS: { idFromName(name: string): unknown; get(id: unknown): Stub };
   LIMITER?: { limit(options: { key: string }): Promise<{ success: boolean }> };
+  /** Comma-separated app origin(s); set from config, not hardcoded. */
   ALLOWED_ORIGIN: string;
+  /** "true" also allows http://localhost origins (local dev only). */
+  ALLOW_LOCALHOST?: string;
   VAPID_SUBJECT: string;
   VAPID_PUBLIC_KEY: string;
   VAPID_PRIVATE_KEY: string;
@@ -41,10 +44,10 @@ async function readJson(request: Request): Promise<unknown | undefined> {
 }
 
 export async function handleRequest(request: Request, env: Env, now = Date.now()): Promise<Response> {
-  const cors = corsHeaders(request.headers.get("origin"), env.ALLOWED_ORIGIN);
+  const cors = corsHeaders(request.headers.get("origin"), env.ALLOWED_ORIGIN, env.ALLOW_LOCALHOST === "true");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   // A request from another origin is refused outright (CORS alone only stops browsers from reading replies).
-  if (request.headers.get("origin") !== env.ALLOWED_ORIGIN) return json(403, { error: "forbidden" });
+  if (!isAllowedOrigin(request.headers.get("origin"), env.ALLOWED_ORIGIN, env.ALLOW_LOCALHOST === "true")) return json(403, { error: "forbidden" });
   if (request.method !== "POST") return json(405, { error: "method not allowed" }, cors);
 
   const ip = request.headers.get("cf-connecting-ip") ?? "unknown";

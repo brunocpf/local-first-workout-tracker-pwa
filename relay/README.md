@@ -15,7 +15,7 @@ A tiny Cloudflare Worker that sends a Web Push at the end of a rest timer, so th
    ```bash
    npm run vapid
    ```
-4. Edit `wrangler.toml`: set `ALLOWED_ORIGIN` to your app's origin (scheme and host only, e.g. `https://you.github.io`) and `VAPID_SUBJECT` to `mailto:you@example.com`.
+4. Edit `wrangler.toml`: set `ALLOWED_ORIGIN` to your app's production origin (scheme and host only; comma-separate several) and `VAPID_SUBJECT` to `mailto:you@example.com`. **The production origin is still undecided (issue #5): set `ALLOWED_ORIGIN` once it is, and redeploy (`npm run deploy`) if it ever changes.** Nothing in the repo hardcodes it. For local development, put `ALLOW_LOCALHOST=true` in `relay/.dev.vars` to also accept `http://localhost:*` (leave it off in production).
 5. Store the keys as secrets (paste the values printed in step 3 when prompted):
    ```bash
    npx wrangler secret put VAPID_PUBLIC_KEY
@@ -32,7 +32,7 @@ If you rotate the VAPID keys, turn notifications off and on again in the app so 
 
 ## API
 
-`POST /schedule` `{ id, subscription: { endpoint, keys? }, fireAt }` and `POST /cancel` `{ id }`. Same `id` replaces the pending push. Limits: 4 KB body, `fireAt` at most 2 hours ahead, https push-service endpoints only, requests only from `ALLOWED_ORIGIN`, 20 requests per minute per IP.
+`POST /schedule` `{ id, subscription: { endpoint, keys? }, fireAt }` and `POST /cancel` `{ id }`. Same `id` replaces the pending push. Limits: 4 KB body, `fireAt` at most 2 hours ahead, https push-service endpoints only, requests only from `ALLOWED_ORIGIN` (and localhost when `ALLOW_LOCALHOST=true`), 20 requests per minute per IP.
 
 ## Development
 

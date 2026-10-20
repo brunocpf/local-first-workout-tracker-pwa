@@ -20,8 +20,9 @@ namespace_id = "1001"
   period = 60
 
 [vars]
-# Set to your app's origin (scheme + host, no path), e.g. https://<you>.github.io
-ALLOWED_ORIGIN = "https://CHANGE-ME.github.io"
+# The app's production origin (scheme + host, no path; comma-separate several). The origin is not decided yet
+# (issue #5): leave it unset-looking until it is, and set it before deploying. Never commit a guess.
+ALLOWED_ORIGIN = "https://CHANGE-ME.invalid"
 # Contact for push services (VAPID "sub" claim): mailto: or https: URL.
 VAPID_SUBJECT = "mailto:CHANGE-ME@example.com"
 # Secrets (never in this file): VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY, see README.md.
