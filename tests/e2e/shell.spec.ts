@@ -66,3 +66,13 @@ test("diagnostics page shows launch count that grows per reload, with no console
   expect(await count()).toBe(first + 1);
   expect(problems).toEqual([]);
 });
+
+test("style guide loads without console errors and renders swatches", async ({ page }) => {
+  const problems: string[] = [];
+  page.on("console", (m) => m.type() === "error" && problems.push(m.text()));
+  page.on("pageerror", (e) => problems.push(e.message));
+  await page.goto("/dev/ui");
+  await expect(page.getByRole("heading", { name: "UI style guide" })).toBeVisible();
+  await expect(page.getByText("--color-accent", { exact: true }).first()).toBeVisible();
+  expect(problems).toEqual([]);
+});
