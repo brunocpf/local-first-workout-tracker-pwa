@@ -33,3 +33,20 @@ export function localWeekStart(s: Pick<WorkoutSession, "startedAt" | "timeZone">
   day.setUTCDate(day.getUTCDate() - back);
   return day.toISOString().slice(0, 10);
 }
+
+/** Elapsed time since `startedAt` as `m:ss` or `h:mm:ss` (display only; never stored). */
+export function formatElapsed(startedAt: string, now = Date.now()): string {
+  const total = Math.max(0, Math.floor((now - Date.parse(startedAt)) / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+}
+
+/** Default name for a blank workout, by local time of day. */
+export function defaultWorkoutName(now = new Date()): string {
+  const h = now.getHours();
+  const part = h < 5 ? "Night" : h < 12 ? "Morning" : h < 17 ? "Afternoon" : h < 21 ? "Evening" : "Night";
+  return `${part} workout`;
+}
