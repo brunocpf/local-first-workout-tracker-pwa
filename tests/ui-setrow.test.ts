@@ -289,3 +289,31 @@ describe("workout page set logging", () => {
     expect(sets[0]).toMatchObject({ id: "bench-1", weight: 60 });
   });
 });
+
+describe("SetRow routine target", () => {
+  const base = { label: "1", name: "Set 1", unit: "kg" as const, onweight: vi.fn(), onreps: vi.fn(), ontoggle: vi.fn(), onmenu: vi.fn() };
+  const set: LoggedSet = { id: "s", type: "normal" };
+
+  it("shows rep range and weight compactly in the display unit", () => {
+    render(SetRow, { ...base, unit: "lb", set, prescribed: { repRange: [6, 10], targetWeight: lbToKg(135) } });
+    expect(document.querySelector(".target")!.textContent).toBe("Target: 6–10 @ 135 lb");
+  });
+
+  it("shows reps only, a single rep count, or weight only", () => {
+    const { unmount } = render(SetRow, { ...base, set, prescribed: { repRange: [8, 8] } });
+    expect(document.querySelector(".target")!.textContent).toBe("Target: 8 reps");
+    unmount();
+    render(SetRow, { ...base, set, prescribed: { targetWeight: 80 } });
+    expect(document.querySelector(".target")!.textContent).toBe("Target: @ 80 kg");
+  });
+
+  it("shows nothing without a target", () => {
+    render(SetRow, { ...base, set });
+    expect(document.querySelector(".target")).toBeNull();
+  });
+
+  it("a routine set with no history is prefilled from the target by the card", async () => {
+    const { prefillFor } = await import("#lib/logger/previousValues");
+    expect(prefillFor(set, undefined, { repRange: [6, 10], targetWeight: 80 })).toEqual({ weight: 80, reps: 6 });
+  });
+});
