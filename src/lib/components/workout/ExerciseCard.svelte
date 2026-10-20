@@ -6,7 +6,10 @@
   import IconButton from "#lib/components/ui/IconButton.svelte";
   import Sheet from "#lib/components/ui/Sheet.svelte";
   import TextField from "#lib/components/ui/TextField.svelte";
-  import type { SessionExercise } from "#lib/types";
+  import SetRow from "#lib/components/workout/SetRow.svelte";
+  import { alignPrevious, prefillFor, type SetValues } from "#lib/logger/previousValues";
+  import type { SetPatch } from "#lib/logger/workout";
+  import type { LoggedSet, SessionExercise, WeightUnit } from "#lib/types";
 
   let {
     exercise,
@@ -15,6 +18,14 @@
     onremove,
     onmove,
     onnotes,
+    unit,
+    previousSets = [],
+    onaddset,
+    onsetchange,
+    ontoggleset,
+    onduplicateset,
+    ontogglewarmup,
+    ondeleteset,
   }: {
     exercise: SessionExercise;
     index: number;
@@ -23,7 +34,37 @@
     /** `-1` moves up, `1` moves down. */
     onmove: (direction: -1 | 1) => void;
     onnotes: (notes: string) => void;
+    unit: WeightUnit;
+    /** Sets of this exercise from the last completed session (`loadPreviousSets`). */
+    previousSets?: LoggedSet[];
+    onaddset: () => void;
+    /** A typed weight (kg) or reps value; never changes completion. */
+    onsetchange: (setId: string, patch: SetPatch) => void;
+    /** Completes the set (filling empty fields from `prefill`) or un-completes it. */
+    ontoggleset: (setId: string, prefill: SetValues) => void;
+    onduplicateset: (setId: string) => void;
+    ontogglewarmup: (setId: string) => void;
+    ondeleteset: (setId: string) => void;
   } = $props();
+
+  const previous = $derived(alignPrevious(exercise.sets, previousSets));
+  /** Warm-ups are numbered apart from working sets: W, 1, 2, 3 (design.md §7.2). */
+  const labels = $derived.by(() => {
+    let working = 0;
+    let warmups = 0;
+    return exercise.sets.map((s) =>
+      s.type === "warmup" ? { label: "W", name: `Warm-up ${++warmups}` } : { label: String(++working), name: `Set ${working}` },
+    );
+  });
+  const prescribed = (set: LoggedSet) => exercise.prescribedSets?.find((p) => p.id === set.prescribedSetId);
+
+  let setMenu = $state<{ id: string; name: string } | undefined>();
+  let setMenuOpen = $state(false);
+
+  function setAct(fn: (id: string) => void) {
+    setMenuOpen = false;
+    if (setMenu) fn(setMenu.id);
+  }
 
   let menuOpen = $state(false);
   let notesOpen = $state(false);
@@ -47,7 +88,7 @@
   }
 </script>
 
-<Card as="article">
+<Card as="article" padding="none">
   {#snippet header()}
     <div class="head">
       <h2 class="name">{exercise.exerciseNameSnapshot}</h2>
@@ -56,13 +97,45 @@
   {/snippet}
 
   {#if exercise.notes}<p class="notes">Notes: {exercise.notes}</p>{/if}
-  <!-- Placeholder until set logging (T2.07). -->
-  <ol class="sets" aria-label="Sets">
-    {#each exercise.sets as set, i (set.id)}
-      <li>Set {i + 1}</li>
-    {/each}
-  </ol>
+  <div class="setlist">
+    <div class="grid">
+      <div class="colhead" aria-hidden="true">
+        <span class="h-label">Set</span>
+        <span class="h-prev">Previous</span>
+        <span class="h-weight">{unit}</span>
+        <span class="h-reps">Reps</span>
+      </div>
+      <ol class="sets" aria-label="Sets">
+        {#each exercise.sets as set, i (set.id)}
+          <SetRow
+            {set}
+            label={labels[i].label}
+            name={labels[i].name}
+            {unit}
+            previous={previous[i]}
+            prefill={prefillFor(set, previous[i], prescribed(set))}
+            onweight={(weight) => onsetchange(set.id, { weight })}
+            onreps={(reps) => onsetchange(set.id, { reps })}
+            ontoggle={() => ontoggleset(set.id, prefillFor(set, previous[i], prescribed(set)))}
+            onmenu={() => {
+              setMenu = { id: set.id, name: labels[i].name };
+              setMenuOpen = true;
+            }}
+          />
+        {/each}
+      </ol>
+      <Button variant="ghost" size="sm" block icon="plus" onclick={onaddset}>Add set</Button>
+    </div>
+  </div>
 </Card>
+
+<Sheet bind:open={setMenuOpen} title="{setMenu?.name ?? 'Set'} · {exercise.exerciseNameSnapshot}">
+  <div class="menu">
+    <Button block icon="copy" onclick={() => setAct(onduplicateset)}>Duplicate set</Button>
+    <Button block onclick={() => setAct(ontogglewarmup)}>Toggle warm-up</Button>
+    <Button block variant="danger" icon="trash" onclick={() => setAct(ondeleteset)}>Delete set</Button>
+  </div>
+</Sheet>
 
 <Sheet bind:open={menuOpen} title={exercise.exerciseNameSnapshot}>
   <div class="menu">
@@ -96,17 +169,49 @@
     overflow-wrap: anywhere;
   }
   .notes {
-    margin: 0 0 var(--space-3);
+    margin: 0 var(--space-4) var(--space-3);
     font-size: var(--text-sm);
     color: var(--color-text-muted);
     white-space: pre-wrap;
   }
+  /* One grid for the column header and every SetRow (design.md §7.2); rows read --set-cols / --set-areas. */
+  .setlist {
+    container-type: inline-size;
+    padding: 0 var(--space-1) var(--space-2);
+  }
+  .grid {
+    --set-cols: var(--tap-min) minmax(3.5rem, 1fr) 4rem 3.25rem var(--tap-min);
+    --set-areas: "label prev weight reps done";
+    display: grid;
+    gap: var(--space-1);
+  }
+  /* Narrow container or large text: label · previous · complete over weight · reps. */
+  @container (inline-size < 17.5em) {
+    .grid {
+      --set-cols: var(--tap-min) minmax(0, 1fr) minmax(0, 1fr) var(--tap-min);
+      --set-areas: "label prev prev done" "weight weight reps reps";
+    }
+  }
+  .colhead {
+    display: grid;
+    grid-template-columns: var(--set-cols);
+    grid-template-areas: var(--set-areas);
+    gap: var(--space-1);
+    font-size: var(--text-xs);
+    line-height: var(--leading-xs);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+  }
+  .h-label { grid-area: label; text-align: center; }
+  .h-prev { grid-area: prev; }
+  .h-weight { grid-area: weight; text-align: end; padding-inline-end: var(--space-2); }
+  .h-reps { grid-area: reps; text-align: end; padding-inline-end: var(--space-2); }
   .sets {
+    display: grid;
+    gap: var(--space-1);
     margin: 0;
     padding: 0;
     list-style: none;
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
   }
   .menu {
     display: flex;

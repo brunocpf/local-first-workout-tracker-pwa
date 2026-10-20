@@ -16,6 +16,7 @@
     error,
     disabled = false,
     onchange,
+    oninvalid,
   }: {
     label: string;
     labelVisible?: boolean;
@@ -30,6 +31,8 @@
     error?: string;
     disabled?: boolean;
     onchange?: (n: number | null) => void;
+    /** Set rows have no room for a message: when given, a rejected entry reverts to the last valid value and calls this instead. */
+    oninvalid?: (message: string) => void;
   } = $props();
 
   const uid = $props.id();
@@ -48,22 +51,20 @@
     [hint ? hintId : null, suffix ? suffixId : null, message ? errorId : null].filter(Boolean).join(" ") || undefined,
   );
 
+  function reject(message: string) {
+    if (oninvalid) {
+      raw = null;
+      oninvalid(message);
+    } else localError = message;
+  }
+
   function commit() {
     if (raw === null) return;
     const result = parseNumberInput(raw, mode);
-    if (!result.ok) {
-      localError = mode === "integer" ? "Enter a whole number" : "Enter a number";
-      return;
-    }
+    if (!result.ok) return reject(mode === "integer" ? "Enter a whole number" : "Enter a number");
     const n = result.value;
-    if (n !== null && n < min) {
-      localError = `Enter ${min} or more`;
-      return;
-    }
-    if (n !== null && max !== undefined && n > max) {
-      localError = `Enter ${max} or less`;
-      return;
-    }
+    if (n !== null && n < min) return reject(`Enter ${min} or more`);
+    if (n !== null && max !== undefined && n > max) return reject(`Enter ${max} or less`);
     localError = undefined;
     raw = null;
     if (n !== value) {
@@ -119,6 +120,7 @@
     align-items: center;
     gap: var(--space-2);
     min-block-size: var(--control-h);
+    min-inline-size: 0; /* shrink below the input's intrinsic width in narrow grids (set rows) */
     padding-inline: var(--space-3);
     border: var(--border-w) solid var(--color-border-strong);
     border-radius: var(--radius-md);

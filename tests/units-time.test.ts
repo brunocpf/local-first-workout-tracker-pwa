@@ -14,10 +14,27 @@ describe("units", () => {
     expect(displayWeight(toKg(225, "lb"), "lb")).toBe(225);
     expect(displayWeight(toKg(222.2, "lb"), "lb")).toBe(222.2);
   });
-  it("kg entered round-trips and rounds to 0.05", () => {
+  it("kg entered round-trips and rounds to 2 decimals", () => {
     for (let kg = 1.25; kg <= 500; kg += 1.25) expect(displayWeight(toKg(kg, "kg"), "kg")).toBe(kg);
-    expect(displayWeight(100.012, "kg")).toBe(100);
-    expect(displayWeight(100.03, "kg")).toBe(100.05);
+    expect(displayWeight(100.012, "kg")).toBe(100.01);
+    expect(displayWeight(100.03, "kg")).toBe(100.03);
+    expect(displayWeight(100.004, "kg")).toBe(100);
+  });
+  it("any value typed with up to 2 decimals shows again exactly, in kg and lb", () => {
+    for (const unit of ["kg", "lb"] as const) {
+      for (let cents = 1; cents <= 50000; cents += 7) {
+        const typed = cents / 100;
+        expect(displayWeight(toKg(typed, unit), unit)).toBe(typed);
+      }
+    }
+    expect(displayWeight(toKg(82.53, "kg"), "kg")).toBe(82.53);
+    expect(displayWeight(toKg(135.25, "lb"), "lb")).toBe(135.25);
+  });
+  it("kg -> lb -> kg: a value shown in lb, converted back, shows the same kg", () => {
+    for (let kg = 0.5; kg <= 300; kg += 0.5) {
+      const lb = displayWeight(kg, "lb");
+      expect(displayWeight(toKg(lb, "lb"), "kg")).toBeCloseTo(kg, 2);
+    }
   });
   it("stores kg input untouched", () => expect(toKg(82.5, "kg")).toBe(82.5));
 });

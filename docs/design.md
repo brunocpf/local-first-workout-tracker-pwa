@@ -334,7 +334,7 @@ Every page's content is centered at `max-inline-size: var(--content-max)` (42rem
   ```
 
   This saves space on Android. On iOS the bar is behind the keyboard anyway.
-- **iOS (ignores `interactive-widget`, the keyboard covers the layout viewport):** a single shared helper (an action used by NumberField and TextField) listens to `visualViewport` `resize`/`scroll` while a field is focused. If the field's bottom edge is below `visualViewport.offsetTop + visualViewport.height - 8px`, it calls `field.scrollIntoView({ block: 'center' })`. This keeps the active set row visible above the keyboard ([PRD §18](PRD.md)). The helper never scrolls when the field is already visible, so it doesn't fight the user.
+- **iOS (ignores `interactive-widget`, the keyboard covers the layout viewport):** a single shared helper (`keepAboveKeyboard` in `src/lib/ui/keyboard.ts`, an attachment; SetRow attaches it to the whole row, so the row and not only the field stays visible) listens to `visualViewport` `resize`/`scroll` while a field is focused. If the field's bottom edge is below `visualViewport.offsetTop + visualViewport.height - 8px`, it calls `field.scrollIntoView({ block: 'center' })`. This keeps the active set row visible above the keyboard ([PRD §18](PRD.md)). The helper never scrolls when the field is already visible, so it doesn't fight the user.
 - Dismissing the keyboard (blur, "Done") keeps the typed value. Values commit on `change`/blur, never only on Enter.
 
 ### 5.6 Reflow and text scale
@@ -414,12 +414,13 @@ Visible `<label>` above. Hint between the label and the field (so autocomplete p
 { label: string; labelVisible?: boolean = true /* false → visually hidden, still the accessible name */;
   value: number | null /* bindable; emitted parsed on change */; mode?: 'decimal' | 'integer' = 'decimal';
   placeholder?: string /* e.g. prefill "80" */; suffix?: string /* "kg", "s" */; min?: number = 0; max?: number;
-  enterkeyhint?: 'next' | 'done' = 'done'; hint?; error?; disabled?; onchange?: (n: number | null) => void }
+  enterkeyhint?: 'next' | 'done' = 'done'; hint?; error?; disabled?; onchange?: (n: number | null) => void;
+  oninvalid?: (message: string) => void /* set rows: revert instead of showing the error */ }
 ```
 - `<input type="text">`. Not `type="number"`: that rejects a decimal comma, adds spinners and changes value on wheel. Use `inputmode="decimal"` or `"numeric"`, `autocomplete="off"`, `spellcheck="false"`, `class="tabular"`, `text-align: end`.
 - **Select on focus** (the whole value is selected, so typing replaces it). While focused it keeps the raw typed string. On `change`/blur it parses with `src/lib/numberInput.ts`: `82,5` and `82.5` → 82.5, surrounding spaces ignored. Anything else is rejected.
 - **Display** when not focused: `Intl.NumberFormat(locale, { maximumFractionDigits: 2, useGrouping: false })`, so the user's decimal separator is used.
-- **Invalid input:** a standalone field shows the error state ("Enter a number"). Inside a set row there is no room for the message, so the field reverts to its last valid value and announces "Weight not changed – enter a number" through the polite live region (§6.13).
+- **Invalid input:** a standalone field shows the error state ("Enter a number"). Inside a set row there is no room for the message, so the row passes `oninvalid`: the field reverts to its last valid value and the row announces "Set 2 weight not changed – enter a number" through a polite `role="status"` region (§6.13).
 - Suffix: `--text-sm` muted, inside the field edge at the end. It is referenced by the field's `aria-describedby`. Set rows omit the suffix and put the unit in the column header instead.
 - Size in set rows: `min-block-size: --tap-min`, `--radius-sm`, padding-inline `--space-2`.
 - **Prefilled vs typed:** a prefill is the `placeholder` (`--color-text-muted`). A stored value is `--color-text`. Completing a set with only placeholders stores the placeholder values (§7.2).

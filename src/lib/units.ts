@@ -9,9 +9,10 @@ export const lbToKg = (lb: number) => lb * KG_PER_LB;
 export const toKg = (value: number, unit: WeightUnit) => (unit === "lb" ? lbToKg(value) : value);
 
 /**
- * Stored kg -> number to show. Rounded to 0.1 lb / 0.05 kg so conversion noise never
- * leaks (225 lb -> 102.0582... kg -> 225). Only for display; never write the result back.
+ * Stored kg -> number to show, rounded to 2 decimals (PRD §10.3): any value typed with up to 2 decimals
+ * shows again exactly, and conversion noise never leaks (225 lb -> 102.0582... kg -> 225).
+ * Only for display; never write the result back.
  */
 export function displayWeight(kg: number, unit: WeightUnit): number {
-  return unit === "lb" ? Math.round(kgToLb(kg) * 10) / 10 : Math.round(kg * 20) / 20;
+  return Math.round((unit === "lb" ? kgToLb(kg) : kg) * 100) / 100;
 }
