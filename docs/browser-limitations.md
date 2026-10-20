@@ -16,6 +16,7 @@ Rules that follow:
 
 - The rest timer is timestamp-based (`endsAt`) and recomputed on return; alerts are foreground-only. Do not claim locked-screen alarms until verified on device.
 - Haptics are optional; always provide a visual/audio cue.
+- Screen wake lock (`src/lib/wakeLock.ts`) is held for the whole active workout: acquired when a session starts or is loaded, released on finish/discard. The browser drops it when the page is hidden, so it is re-requested on return. Missing API or a refused request is ignored, never an error.
 - Request `navigator.storage.persist()`, show the result, and keep JSON backups (reminders in-app). Storage is bound to the origin: keep one stable origin (all project sites on `brunocpf.github.io` share it, so use app-specific DB and cache names).
 - Feature-detect `navigator.canShare({files})` and fall back to a download. Don't depend on the File System Access API.
 - Don't rely on `beforeinstallprompt` (Chromium only).

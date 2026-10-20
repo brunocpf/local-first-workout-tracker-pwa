@@ -1,4 +1,5 @@
 import { setCanUpdate } from "#lib/pwa/update.svelte";
+import { wakeLock } from "#lib/wakeLock";
 import {
   discardSession,
   finishSession,
@@ -53,6 +54,9 @@ export class ActiveSessionStore {
     this.#writeFailed = false;
     this.session = session;
     setCanUpdate(session === undefined);
+    // Screen stays on for the whole workout; any transition out of it (finish/discard/drop) lets it sleep.
+    if (session) void wakeLock.acquire();
+    else void wakeLock.release();
   }
 
   /** Runs `op` after every earlier operation; the returned promise rejects with `op`'s error, the queue never does. */
