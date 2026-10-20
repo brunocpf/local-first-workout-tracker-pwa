@@ -101,7 +101,7 @@ Tables and indexes (Dexie version 1):
 
 ### Routine and program repository (`routines.ts`)
 
-`listRoutinesGrouped` (programs with their routines sorted by `programOrder`, plus standalone routines; a routine whose program is missing is listed as standalone), `getRoutine`, `getProgram`, `saveRoutine` (plain copy, bumps `updatedAt`), `duplicateRoutine` (standalone copy with fresh routine, exercise and prescribed-set ids, name + " (copy)"), `deleteRoutine` (also removes it from its program's `schedule`), `deleteProgram(id, { deleteRoutines })` (default: routines become standalone). Multi-table writes run in one transaction. None of them read or write sessions: editing or deleting a routine or program never changes history.
+`listRoutinesGrouped` (programs with their routines sorted by `programOrder`, plus standalone routines; a routine whose program is missing is listed as standalone), `getRoutine`, `getProgram`, `saveRoutine` (plain copy, bumps `updatedAt`), `duplicateRoutine` (standalone copy with fresh routine, exercise and prescribed-set ids, name + " (copy)"), `deleteRoutine` (also removes it from its program's `schedule`), `deleteProgram(id, { deleteRoutines })` (default: routines become standalone), `createProgram`, `renameProgram`, `setRoutineProgram(routineId, programId?)` (appends at the end; leaving a program also removes the routine from that program's schedule) and `reorderProgramRoutines(programId, routineIds)` (the list must match the program's routines exactly). Multi-table writes run in one transaction. None of them read or write sessions: editing or deleting a routine or program never changes history.
 
 ### Persistence (`persistence.ts`)
 

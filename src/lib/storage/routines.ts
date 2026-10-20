@@ -127,3 +127,84 @@ export async function deleteProgram(
     await database.programs.delete(id);
   });
 }
+
+/** Creates an empty program. The name is trimmed; an empty name is rejected. */
+export async function createProgram(name: string, database: AppDB = defaultDb): Promise<Program> {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Program name is required");
+  const now = new Date().toISOString();
+  const program: Program = { id: newId(), name: trimmed, schemaVersion: 1, createdAt: now, updatedAt: now };
+  await database.programs.add(program);
+  return program;
+}
+
+export async function renameProgram(id: string, name: string, database: AppDB = defaultDb): Promise<Program> {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Program name is required");
+  return database.transaction("rw", database.programs, async () => {
+    const program = await database.programs.get(id);
+    if (!program) throw new Error(`Program ${id} not found`);
+    const renamed = { ...program, name: trimmed, updatedAt: new Date().toISOString() };
+    await database.programs.put(renamed);
+    return renamed;
+  });
+}
+
+/**
+ * Adds a routine to a program (appended at the end) or, with no `programId`, makes it standalone. Moving a
+ * routine out of its previous program also removes it from that program's weekly schedule. Re-adding to the
+ * same program is a no-op.
+ */
+export async function setRoutineProgram(
+  routineId: string,
+  programId?: string,
+  database: AppDB = defaultDb,
+): Promise<void> {
+  await database.transaction("rw", database.programs, database.routines, async () => {
+    const routine = await database.routines.get(routineId);
+    if (!routine) throw new Error(`Routine ${routineId} not found`);
+    if (routine.programId === programId) return;
+    const now = new Date().toISOString();
+    if (programId !== undefined && !(await database.programs.get(programId))) {
+      throw new Error(`Program ${programId} not found`);
+    }
+    const { programId: previous, programOrder: _programOrder, ...rest } = routine;
+    if (previous !== undefined) {
+      const old = await database.programs.get(previous);
+      if (old?.schedule) {
+        const days = old.schedule.days.filter((d) => d.routineId !== routineId);
+        if (days.length !== old.schedule.days.length) {
+          await database.programs.put({ ...old, schedule: { ...old.schedule, days }, updatedAt: now });
+        }
+      }
+    }
+    if (programId === undefined) {
+      await database.routines.put({ ...rest, updatedAt: now });
+      return;
+    }
+    const members = await database.routines.where("programId").equals(programId).toArray();
+    const next = members.reduce((max, r) => Math.max(max, r.programOrder ?? -1), -1) + 1;
+    await database.routines.put({ ...rest, programId, programOrder: next, updatedAt: now });
+  });
+}
+
+/**
+ * Sets `programOrder` to the position in `routineIds`. The list must contain exactly the program's current
+ * routines (no extras, no missing, no duplicates) so a stale view can't drop or adopt routines.
+ */
+export async function reorderProgramRoutines(
+  programId: string,
+  routineIds: string[],
+  database: AppDB = defaultDb,
+): Promise<void> {
+  await database.transaction("rw", database.routines, async () => {
+    const members = await database.routines.where("programId").equals(programId).toArray();
+    const ids = new Set(routineIds);
+    if (ids.size !== routineIds.length || ids.size !== members.length || members.some((r) => !ids.has(r.id))) {
+      throw new Error("Routine list does not match the program's routines");
+    }
+    const byId = new Map(members.map((r) => [r.id, r]));
+    const now = new Date().toISOString();
+    await database.routines.bulkPut(routineIds.map((id, i) => ({ ...byId.get(id)!, programOrder: i, updatedAt: now })));
+  });
+}
