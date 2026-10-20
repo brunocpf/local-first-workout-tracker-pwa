@@ -2,6 +2,7 @@
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
   import UpdateBanner from "#lib/components/UpdateBanner.svelte";
+  import AppStatus from "#lib/components/AppStatus.svelte";
   import Icon from "#lib/components/ui/Icon.svelte";
   import ConfirmDialog from "#lib/components/ui/ConfirmDialog.svelte";
   import Toaster from "#lib/components/ui/Toaster.svelte";
@@ -66,6 +67,7 @@
   {/if}
   <div class="column">
     <main>
+      <AppStatus />
       <UpdateBanner />
       {@render children()}
     </main>
