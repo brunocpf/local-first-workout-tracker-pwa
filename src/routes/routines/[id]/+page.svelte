@@ -8,9 +8,12 @@
   import Card from "#lib/components/ui/Card.svelte";
   import EmptyState from "#lib/components/ui/EmptyState.svelte";
   import PageHeader from "#lib/components/ui/PageHeader.svelte";
+  import Banner from "#lib/components/ui/Banner.svelte";
+  import { buildShareData, buildShareUrl, ShareLinkError } from "#lib/imports/shareLink";
   import { settings } from "#lib/settings.svelte";
   import { getExercisesByIds } from "#lib/storage/exercises";
-  import { getProgram, getRoutine } from "#lib/storage/routines";
+  import { getProgram, getRoutine, listRoutinesGrouped } from "#lib/storage/routines";
+  import { toast } from "#lib/ui/toast.svelte";
   import { displayWeight } from "#lib/units";
   import type { PrescribedSet, Program, Routine } from "#lib/types";
 
@@ -54,6 +57,43 @@
     return parts.join(" · ") || "—";
   }
 
+  let sharing = $state(false);
+  let shareError = $state<string>();
+  let longLink = $state(false);
+
+  /** Shares the whole program when the routine belongs to one, otherwise just this routine. The plan travels in the URL fragment only. */
+  async function share() {
+    if (!routine || sharing) return;
+    sharing = true;
+    shareError = undefined;
+    longLink = false;
+    try {
+      const members = program
+        ? ((await listRoutinesGrouped()).programs.find((p) => p.program.id === program!.id)?.routines ?? [routine])
+        : [routine];
+      const exercises = await getExercisesByIds(members.flatMap((r) => r.exercises.map((e) => e.exerciseId)));
+      const data = buildShareData(members, new Map(exercises.map((e) => [e.id, e])), program);
+      const importUrl = new URL(resolve("/routines/import"), location.origin).href;
+      const { url, tooLong } = await buildShareUrl(data, importUrl);
+      longLink = tooLong;
+      if (typeof navigator.share === "function") {
+        try {
+          await navigator.share({ url, title: data.program.name });
+          return;
+        } catch (err) {
+          if (err instanceof DOMException && err.name === "AbortError") return;
+          // Sharing failed for another reason; copying below still gets the link out.
+        }
+      }
+      await navigator.clipboard.writeText(url);
+      toast("Link copied");
+    } catch (err) {
+      shareError = err instanceof ShareLinkError ? err.message : "Couldn’t create a share link. Try again.";
+    } finally {
+      sharing = false;
+    }
+  }
+
   const isSuperset = (i: number) => {
     const g = routine?.exercises[i].supersetGroupId;
     return g !== undefined && routine!.exercises.some((e, j) => j !== i && e.supersetGroupId === g);
@@ -77,6 +117,18 @@
       <StartRoutineButton routine={routine!} variant="primary" size="md">Start workout</StartRoutineButton>
     {/snippet}
   </PageHeader>
+  <div class="share">
+    <Button variant="secondary" size="md" icon="share" loading={sharing} onclick={share}>
+      {program ? "Share program link" : "Share link"}
+    </Button>
+  </div>
+  {#if shareError}
+    <Banner variant="danger" title="Couldn’t share">{shareError}</Banner>
+  {:else if longLink}
+    <Banner variant="warning" title="Long link">
+      Messaging apps may cut this link short. Check that it opens before you rely on it.
+    </Banner>
+  {/if}
   {#if routine.description}<p class="desc">{routine.description}</p>{/if}
   {#if routine.exercises.length === 0}
     <EmptyState icon="list" title="No exercises" body="This routine has no exercises." />
@@ -109,6 +161,9 @@
     color: var(--color-text-muted);
     font-size: var(--text-sm);
     margin: var(--space-2) 0 0;
+  }
+  .share {
+    margin-block: var(--space-3);
   }
   .list {
     list-style: none;
