@@ -84,10 +84,12 @@ describe("active session store", () => {
     await store.mutate((s) => (s.notes = "he"), { persist: "deferred" });
     await store.mutate((s) => (s.notes = "hey"), { persist: "deferred" });
     expect(save).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(DEFERRED_MS);
-    await store.flush();
+    await vi.advanceTimersByTimeAsync(DEFERRED_MS - 50);
+    expect(save).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(50);
+    // No explicit flush: the timer alone must write it.
+    await vi.waitFor(async () => expect((await sessions.getActiveSession())!.notes).toBe("hey"));
     expect(save).toHaveBeenCalledOnce();
-    expect((await sessions.getActiveSession())!.notes).toBe("hey");
   });
 
   it("flushes pending deferred changes with the next 'now' write and on hide", async () => {
@@ -101,11 +103,28 @@ describe("active session store", () => {
     await vi.advanceTimersByTimeAsync(DEFERRED_MS * 2);
     expect(save).toHaveBeenCalledOnce(); // timer was cancelled by the 'now' write
 
-    await store.mutate((s) => (s.notes = "hidden"), { persist: "deferred" });
+    const flush = vi.spyOn(store, "flush");
+    await store.mutate((s) => (s.notes = "pagehide"), { persist: "deferred" });
     dispatchEvent(new Event("pagehide"));
-    await store.flush();
-    expect(save).toHaveBeenCalledTimes(2);
-    expect((await sessions.getActiveSession())!.notes).toBe("hidden");
+    expect(flush).toHaveBeenCalledOnce(); // synchronously, not by the deferred timer
+    // The event alone writes it (no explicit flush).
+    await vi.waitFor(async () => expect((await sessions.getActiveSession())!.notes).toBe("pagehide"));
+
+    await store.mutate((s) => (s.notes = "visible"), { persist: "deferred" });
+    document.dispatchEvent(new Event("visibilitychange"));
+    await vi.advanceTimersByTimeAsync(DEFERRED_MS / 2);
+    expect(save).toHaveBeenCalledTimes(2); // still visible and before the deferred delay: not written
+    expect(flush).toHaveBeenCalledOnce();
+
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    try {
+      await store.mutate((s) => (s.notes = "hidden"), { persist: "deferred" });
+      document.dispatchEvent(new Event("visibilitychange"));
+      expect(flush).toHaveBeenCalledTimes(2);
+      await vi.waitFor(async () => expect((await sessions.getActiveSession())!.notes).toBe("hidden"));
+    } finally {
+      delete (document as { visibilityState?: unknown }).visibilityState;
+    }
   });
 
   it("surfaces save errors, keeps in-memory state and retries on the next write", async () => {
@@ -126,6 +145,84 @@ describe("active session store", () => {
     await store.mutate((s) => addSet(s.exercises[0]), { persist: "now" });
     expect(store.error).toBeUndefined();
     expect((await sessions.getActiveSession())!.exercises[0].sets).toHaveLength(1);
+  });
+
+  it("keeps retrying when an earlier write fails while later ones are queued", async () => {
+    const store = await started();
+    const err = new Error("disk");
+    const real = sessions.saveSession;
+    const save = vi.spyOn(sessions, "saveSession").mockRejectedValueOnce(err).mockRejectedValueOnce(err);
+    const a = store.mutate((s) => (s.name = "A"), { persist: "now" });
+    const b = store.mutate((s) => (s.name = "B"), { persist: "now" });
+    await Promise.all([a, b]);
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(store.error).toBe(err);
+    expect((await sessions.getActiveSession())!.name).toBe("Push");
+
+    save.mockImplementation(real);
+    await store.flush(); // nothing new was mutated, but the failed state is still pending
+    expect(store.error).toBeUndefined();
+    expect((await sessions.getActiveSession())!.name).toBe("B");
+  });
+
+  it("an earlier failure is healed by a later queued write", async () => {
+    const store = await started();
+    const err = new Error("disk");
+    vi.spyOn(sessions, "saveSession").mockRejectedValueOnce(err);
+    const a = store.mutate((s) => (s.name = "A"), { persist: "now" });
+    const b = store.mutate((s) => (s.name = "B"), { persist: "now" });
+    await Promise.all([a, b]);
+    expect(store.error).toBeUndefined();
+    expect((await sessions.getActiveSession())!.name).toBe("B");
+  });
+
+  it("finish includes a deferred change made while it was flushing", async () => {
+    const store = await started();
+    await store.mutate((s) => (s.notes = "a"), { persist: "deferred" });
+    const finishing = store.finish();
+    await store.mutate((s) => (s.notes = "b"), { persist: "deferred" });
+    const done = await finishing;
+    expect(done.notes).toBe("b");
+    expect(store.isActive).toBe(false);
+  });
+
+  it("a failed discard keeps pending typed changes and still saves them", async () => {
+    const store = await started();
+    fakeTimers();
+    await store.mutate((s) => (s.notes = "typed"), { persist: "deferred" });
+    const err = new Error("blocked");
+    vi.spyOn(sessions, "discardSession").mockRejectedValueOnce(err);
+    await expect(store.discard()).rejects.toBe(err);
+    expect(store.isActive).toBe(true);
+    await vi.advanceTimersByTimeAsync(DEFERRED_MS);
+    await vi.waitFor(async () => expect((await sessions.getActiveSession())!.notes).toBe("typed"));
+  });
+
+  it.each(["finish", "discard"] as const)("a stale tab can't resurrect a session another tab ended (%s)", async (how) => {
+    const tabA = await started();
+    const tabB = new ActiveSessionStore();
+    await tabB.load();
+    const id = tabB.session!.id;
+    await tabB[how]();
+
+    await tabA.mutate((s) => (s.name = "stale edit"), { persist: "now" });
+    expect(tabA.error).toBeInstanceOf(sessions.SessionNotActiveError);
+    expect(tabA.isActive).toBe(false);
+    expect(await sessions.getActiveSession()).toBeUndefined();
+    const stored = await db.sessions.get(id);
+    if (how === "finish") expect(stored).toMatchObject({ status: "completed", name: "Push" });
+    else expect(stored).toBeUndefined();
+  });
+
+  it("a stale tab's finish fails instead of resurrecting the session", async () => {
+    const tabA = await started();
+    const tabB = new ActiveSessionStore();
+    await tabB.load();
+    await tabB.finish();
+    await tabA.mutate((s) => (s.notes = "x"), { persist: "deferred" });
+    await expect(tabA.finish()).rejects.toBeInstanceOf(sessions.SessionNotActiveError);
+    expect(tabA.isActive).toBe(false);
+    expect(await sessions.getActiveSession()).toBeUndefined();
   });
 
   it("surfaces ActiveSessionExistsError from another tab", async () => {

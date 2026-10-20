@@ -1,5 +1,13 @@
 import { setCanUpdate } from "#lib/pwa/update.svelte";
-import { discardSession, finishSession, getActiveSession, saveSession, startSession, type NewSession } from "#lib/storage/sessions";
+import {
+  discardSession,
+  finishSession,
+  getActiveSession,
+  saveSession,
+  SessionNotActiveError,
+  startSession,
+  type NewSession,
+} from "#lib/storage/sessions";
 import type { WorkoutSession } from "#lib/types";
 
 export type Persist = "now" | "deferred";
@@ -11,7 +19,8 @@ export const DEFERRED_MS = 500;
  * The in-progress workout (ADR 0004): `session` is the in-memory source of truth, written through to
  * Dexie on every `mutate`. All DB operations run through one promise queue, so puts never land out of
  * order and a queued put can't resurrect a finished/discarded session. A failed write keeps the
- * in-memory state, sets `error` and stays dirty so the next write retries it. No unload handlers:
+ * in-memory state, sets `error` and stays dirty so the next write retries it, except `SessionNotActiveError`
+ * (finished/discarded in another tab): then the stale session is dropped and `error` says why. No unload handlers:
  * `visibilitychange → hidden` and `pagehide` only flush pending deferred writes.
  */
 export class ActiveSessionStore {
@@ -20,6 +29,8 @@ export class ActiveSessionStore {
 
   #queue: Promise<unknown> = Promise.resolve();
   #dirty = false;
+  /** The latest write failed (distinct from `error`, which other operations also set). */
+  #writeFailed = false;
   #timer: ReturnType<typeof setTimeout> | undefined;
 
   constructor() {
@@ -103,6 +114,7 @@ export class ActiveSessionStore {
     if (this.session !== current) return; // finished or discarded meanwhile
     try {
       const saved = await saveSession(snapshot);
+      this.#writeFailed = false;
       this.error = undefined;
       // Keep memory identical to what was stored (these fields are maintained by `saveSession`).
       if (this.session === current) {
@@ -110,8 +122,16 @@ export class ActiveSessionStore {
         current.updatedAt = saved.updatedAt;
       }
     } catch (e) {
-      if (this.session === current) this.#dirty = true;
       this.error = e;
+      if (this.session !== current) throw e;
+      if (e instanceof SessionNotActiveError) {
+        // Finished/discarded elsewhere: writing would resurrect it, so drop this tab's stale copy.
+        this.#dirty = false;
+        this.#set(undefined);
+      } else {
+        this.#writeFailed = true;
+        this.#dirty = true;
+      }
       throw e;
     }
   }
@@ -120,7 +140,10 @@ export class ActiveSessionStore {
   async finish(): Promise<WorkoutSession> {
     const id = this.#requireId();
     await this.flush();
+    // A 'deferred' change made while flushing leaves it dirty without a failure: flush again.
+    while (this.#dirty && !this.#writeFailed) await this.flush();
     if (this.#dirty) throw this.error;
+    if (!this.session) throw this.error ?? new Error("No active session");
     try {
       const done = await this.#enqueue(() => finishSession(id));
       this.#set(undefined);
@@ -134,6 +157,7 @@ export class ActiveSessionStore {
   /** Deletes the active session (the UI confirms first). Pending writes are dropped, queued ones run first. */
   async discard(): Promise<void> {
     const id = this.#requireId();
+    const wasDirty = this.#dirty;
     clearTimeout(this.#timer);
     this.#timer = undefined;
     this.#dirty = false;
@@ -143,6 +167,11 @@ export class ActiveSessionStore {
       this.#set(undefined);
     } catch (e) {
       this.error = e;
+      // The session is still here: keep (and schedule) the changes the discard would have dropped.
+      if (wasDirty || this.#dirty) {
+        this.#dirty = true;
+        this.#timer ??= setTimeout(() => void this.flush(), DEFERRED_MS);
+      }
       throw e;
     }
   }

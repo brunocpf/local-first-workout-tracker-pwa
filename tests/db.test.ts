@@ -8,6 +8,7 @@ import {
   finishSession,
   getActiveSession,
   saveSession,
+  SessionNotActiveError,
   startSession,
 } from "#lib/storage/sessions";
 import { DEFAULT_SETTINGS, getSettings, saveSettings } from "#lib/storage/settings";
@@ -73,6 +74,21 @@ describe("session repository", () => {
     const now = new Date().toISOString();
     const other: WorkoutSession = { id: "x", name: "X", status: "active", startedAt: now, timeZone: "UTC", exercises: [], exerciseIds: [], createdAt: now, updatedAt: now };
     await expect(saveSession(other)).rejects.toBeInstanceOf(ActiveSessionExistsError);
+  });
+
+  it("saveSession refuses to re-activate a finished, discarded or never-started session (stale tab)", async () => {
+    const s = await startSession({ name: "A" });
+    await finishSession(s.id);
+    await expect(saveSession({ ...s, name: "stale" })).rejects.toBeInstanceOf(SessionNotActiveError);
+    expect(await db.sessions.get(s.id)).toMatchObject({ status: "completed", name: "A" });
+
+    const d = await startSession({ name: "B" });
+    await discardSession(d.id);
+    await expect(saveSession(d)).rejects.toBeInstanceOf(SessionNotActiveError);
+    expect(await db.sessions.get(d.id)).toBeUndefined();
+    // Completed sessions can still be edited.
+    const done = (await db.sessions.get(s.id))!;
+    await expect(saveSession({ ...done, name: "edited" })).resolves.toMatchObject({ status: "completed", name: "edited" });
   });
 
   it("finishSession sets endedAt, completes it, clears the rest timer", async () => {
