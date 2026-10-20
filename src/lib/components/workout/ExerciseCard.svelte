@@ -146,6 +146,7 @@
             name={labels[i].name}
             {unit}
             previous={previous[i]}
+            prescribed={prescribed(set)}
             prefill={prefillFor(set, previous[i], prescribed(set))}
             onweight={(weight) => onsetchange(set.id, { weight })}
             onreps={(reps) => onsetchange(set.id, { reps })}

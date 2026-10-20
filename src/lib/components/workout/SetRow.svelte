@@ -9,7 +9,7 @@
   import { formatNumber } from "#lib/numberInput";
   import { keepAboveKeyboard } from "#lib/ui/keyboard";
   import { displayWeight, toKg } from "#lib/units";
-  import type { LoggedSet, WeightUnit } from "#lib/types";
+  import type { LoggedSet, PrescribedSet, WeightUnit } from "#lib/types";
 
   let {
     set,
@@ -17,6 +17,7 @@
     name,
     unit,
     previous,
+    prescribed,
     prefill = {},
     onweight,
     onreps,
@@ -30,6 +31,8 @@
     name: string;
     unit: WeightUnit;
     previous?: Pick<LoggedSet, "weight" | "reps">;
+    /** The routine's prescription for this set, shown under the previous values. */
+    prescribed?: Pick<PrescribedSet, "repRange" | "targetWeight">;
     /** Shown as placeholders and stored by one-tap complete (kg). */
     prefill?: SetValues;
     /** Typed weight in kg (`undefined` when cleared). Never called with a value the user didn't type. */
@@ -50,6 +53,16 @@
     if (w !== undefined) return `${fmtWeight(w)}\u00a0${unit}`;
     if (r !== undefined) return `${r} reps`;
     return "–";
+  });
+
+  /** Compact target, e.g. `6–10 @ 80 kg`; undefined when the prescription has neither. */
+  const targetText = $derived.by(() => {
+    const range = prescribed?.repRange;
+    const w = prescribed?.targetWeight;
+    const reps = range ? (range[0] === range[1] ? `${range[0]}` : `${range[0]}–${range[1]}`) : undefined;
+    const weight = w === undefined ? undefined : `${fmtWeight(w)}\u00a0${unit}`;
+    if (reps && weight) return `${reps} @ ${weight}`;
+    return reps ? `${reps} reps` : weight ? `@ ${weight}` : undefined;
   });
 
   // Polite announcement for a reverted entry (design.md §6.5); cleared first so a repeat is read again.
@@ -79,7 +92,10 @@
   <button class="label tabular" type="button" aria-label="{name} options" onclick={onmenu}>
     {#if warmup}<Badge variant="warning">W</Badge>{:else}{label}{/if}
   </button>
-  <span class="previous tabular"><span class="vh">Previous:</span> {previousText}</span>
+  <span class="info">
+    <span class="previous tabular"><span class="vh">Previous:</span> {previousText}</span>
+    {#if targetText}<span class="target tabular"><span class="vh">Target:</span> {targetText}</span>{/if}
+  </span>
   <div class="weight">
     <NumberField
       label="{name} weight, {unit}"
@@ -130,7 +146,7 @@
   .row.completed { background: var(--color-success-subtle); }
 
   .label { grid-area: label; }
-  .previous { grid-area: prev; }
+  .info { grid-area: prev; display: flex; flex-direction: column; min-inline-size: 0; }
   .weight { grid-area: weight; min-inline-size: 0; }
   .reps { grid-area: reps; min-inline-size: 0; }
   .done { grid-area: done; }
@@ -166,6 +182,13 @@
     min-inline-size: 0;
     font-size: var(--text-sm);
     line-height: var(--leading-sm);
+    color: var(--color-text-muted);
+    overflow-wrap: anywhere;
+  }
+
+  .target {
+    font-size: var(--text-xs);
+    line-height: var(--leading-xs);
     color: var(--color-text-muted);
     overflow-wrap: anywhere;
   }
