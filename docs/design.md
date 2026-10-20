@@ -16,7 +16,7 @@ Contents: [1 Browser support](#1-browser-support-policy) · [2 Visual direction]
 |---|---|---|
 | Baseline **Widely available** | Use freely, no fallback. | `<dialog>` + `showModal()`, `inert`, `:focus-visible`, `:has()`, CSS nesting, `:user-invalid`, size container queries, `dvh`/`svh`, `env(safe-area-inset-*)`, `color-mix()`, `clamp()`, `inputmode`, `enterkeyhint`, `Intl.NumberFormat` / `DateTimeFormat` / `RelativeTimeFormat` / `PluralRules` |
 | Newly available, **supported by every minimum version** | Use freely, but only the ones listed here. Add to this list only after checking all minimum versions. | `light-dark()` (Safari 17.5, Chrome 123, Firefox 120; becomes Widely available Nov 2026) |
-| Baseline **Newly available** | Only with feature detection and a working fallback. The feature must be an enhancement: the app still works without it. | Popover API (iOS 18.3+) → toast region with `position: fixed`; `@starting-style` → no entry animation; `transition-behavior: allow-discrete` / `overlay` → `data-closing` exit fallback (§6.9); `text-wrap: balance/pretty` → normal wrapping |
+| Baseline **Newly available** | Only with feature detection and a working fallback. The feature must be an enhancement: the app still works without it. | Popover API (missing in Firefox 121–124; `popover="manual"` works from Safari 17, iOS 18.3 only fixed light dismiss, which toasts don't use) → toast region with `position: fixed`; `@starting-style` → no entry animation; `transition-behavior: allow-discrete` / `overlay` → `data-closing` exit fallback (§6.9); `text-wrap: balance/pretty` → normal wrapping |
 | **Limited availability** | Progressive enhancement only, never needed for a feature to work. | `<dialog closedby>` (not in Safari) → click-outside script (§6.9); `<input type="checkbox" switch>` (Safari only) → always `role="switch"` + own styles (§6.7); `interactive-widget` viewport key (Chromium only) → `visualViewport` rule (§5.5); `<meta name="text-scale">` (Chromium 146+); `accent-color`, `scrollbar-color`, `field-sizing: content`; `overscroll-behavior` on scroll containers that don't overflow |
 | **Platform APIs** | Always feature-detect; their absence is not an error ([browser-limitations.md](browser-limitations.md)). | Screen Wake Lock, `navigator.vibrate`, Web Share with files, `navigator.storage.persist()` |
 
@@ -34,7 +34,7 @@ Check new UI patterns against the modern-web-guidance skill (`npx -y modern-web-
 - **Dark and light are both first-class.** Neither is derived from the other: every color token is a hand-picked pair. Dark is a near-black neutral (no blue tint) so the screen is quiet in a dim gym. Light is a soft grey page with white cards.
 - **Flat, layered by borders.** Surfaces get lighter (dark) or whiter (light) as they come forward, separated by 1 px borders. Shadows only on overlays (dialog, sheet, toast), and those overlays have a border as well, so forced colors still works.
 - **Dense but tappable.** Compact type (16 px body, 14 px secondary). Every target is still at least 44 × 44 px.
-- **Numbers are typography.** Tabular figures everywhere numbers line up (set rows, timers, stats). The rest-timer number is the largest text in the app.
+- **Numbers are typography.** Tabular figures everywhere numbers line up (set rows, timers, stats). The rest-timer number is the largest text on the workout screen while logging.
 
 Reference mood: the set grid of a mature gym logger (Hevy, Strong) for density; iOS Settings for grouped lists; system apps for restraint (system font, native controls where possible).
 
@@ -113,6 +113,8 @@ Theme-color values (not CSS tokens; used in `<meta name="theme-color">`, §4): l
 | `--color-accent-text` on `--color-surface-1` | 8.72:1 | 9.90:1 | 4.5:1 |
 | `--color-accent-text` on `--color-surface-2` | 7.39:1 | 8.77:1 | 4.5:1 |
 | `--color-accent-text` on `--color-accent-subtle` | 7.15:1 | 8.15:1 | 4.5:1 |
+| `--color-accent-text` on `--color-surface-3` (toast action, pressed ghost) | 6.63:1 | 7.46:1 | 4.5:1 |
+| `--color-text-muted` on `--color-accent-subtle` (selected row subtitle) | 6.34:1 | 5.73:1 | 4.5:1 |
 | `--color-on-accent` on `--color-accent` | 6.70:1 | 7.73:1 | 4.5:1 |
 | `--color-on-accent` on `--color-accent-hover` | 8.72:1 | 10.89:1 | 4.5:1 |
 | `--color-on-accent` on `--color-accent-active` | 10.36:1 | 13.83:1 | 4.5:1 |
@@ -142,9 +144,13 @@ Theme-color values (not CSS tokens; used in `<meta name="theme-color">`, §4): l
 | `--color-border-strong` on `--color-bg` | 3.71:1 | 4.82:1 | 3:1 |
 | `--color-border-strong` on `--color-surface-1` | 4.07:1 | 4.38:1 | 3:1 |
 | `--color-border-strong` on `--color-surface-2` | 3.45:1 | 3.88:1 | 3:1 |
+| `--color-border-strong` on `--color-surface-3` (toast edge) | 3.09:1 | 3.30:1 | 3:1 |
+| `--color-border-strong` on `--color-success-subtle` (inputs in a completed set row) | 3.71:1 | 3.66:1 | 3:1 |
 | `--color-accent` on `--color-bg` | 6.10:1 | 7.73:1 | 3:1 |
 | `--color-accent` on `--color-surface-1` | 6.70:1 | 7.03:1 | 3:1 |
 | `--color-accent` on `--color-surface-2` | 5.68:1 | 6.22:1 | 3:1 |
+| `--color-accent` on `--color-surface-3` (progress fill on track) | 5.09:1 | 5.29:1 | 3:1 |
+| `--color-accent` on `--color-accent-subtle` (selected segment edge) | 5.49:1 | 5.78:1 | 3:1 |
 | `--color-success` on `--color-bg` | 4.56:1 | 11.27:1 | 3:1 |
 | `--color-success` on `--color-surface-1` | 5.02:1 | 10.25:1 | 3:1 |
 | `--color-success` on `--color-success-subtle` | 4.57:1 | 8.55:1 | 3:1 |
@@ -160,10 +166,11 @@ Theme-color values (not CSS tokens; used in `<meta name="theme-color">`, §4): l
 | `--color-focus` on `--color-bg` | 4.70:1 | 10.89:1 | 3:1 |
 | `--color-focus` on `--color-surface-1` | 5.17:1 | 9.90:1 | 3:1 |
 | `--color-focus` on `--color-surface-2` | 4.38:1 | 8.77:1 | 3:1 |
+| `--color-focus` on `--color-success-subtle` (completed set row) | 4.71:1 | 8.27:1 | 3:1 |
 | `--color-text-muted` (switch thumb, off) on `--color-surface-2` | 6.55:1 | 6.17:1 | 3:1 |
 | `--color-text-disabled` on `--color-surface-1` | 2.56:1 | 2.70:1 | exempt (disabled) |
 
-The focus ring is always drawn with `outline-offset`, so it sits on the surface around a control and never on the accent fill itself. `--color-border` is decorative only. Never use it as the only edge of an interactive control.
+The focus ring is always drawn with `outline-offset`, so it sits on the surface around a control and never on the accent fill itself. `--color-border` is decorative only. Never use it as the only edge of a control whose edge identifies it (inputs, buttons with a fill, switch, segments). List rows are identified by their text and chevron, not their dividers, so dividers may use it.
 
 **`@media (prefers-contrast: more)`:** `--color-border` → `--color-border-strong`, `--color-text-muted` → `--color-text`.
 
@@ -182,8 +189,8 @@ The focus ring is always drawn with `outline-offset`, so it sits on the surface 
 | `--text-md` | 1 / 16 | 1.5 | Body, inputs, buttons, list titles |
 | `--text-lg` | 1.125 / 18 | 1.33 | Page title (`h1` in PageHeader), exercise name, dialog title |
 | `--text-xl` | 1.375 / 22 | 1.27 | Rest-timer remaining time, section display numbers |
-| `--text-2xl` | 1.75 / 28 | 1.14 | Summary stats (duration, volume) |
-| `--text-3xl` | 2.25 / 36 | 1.11 | Rest-timer "done" state, chart headline value |
+| `--text-2xl` | 1.75 / 28 | 1.14 | Summary stats (finish summary, history detail) |
+| `--text-3xl` | 2.25 / 36 | 1.11 | Chart headline value (Progress) |
 
 - **Weights:** `--weight-regular: 400` (body), `--weight-medium: 500` (list titles, buttons), `--weight-semibold: 600` (headings, selected segment, active tab), `--weight-bold: 700` (stat numbers only).
 - **Numbers:** `.tabular { font-variant-numeric: tabular-nums; }` on set rows, timers, stats, tables, chart labels, and any column of numbers.
@@ -291,7 +298,7 @@ Phone (< 48em)                          Wide (≥ 48em)
 - **Breakpoint:** one, `@media (width >= 48em)` (em-based, so it moves with text size). Components respond to their container with `@container` queries in `em`, not to the viewport.
 - **Tab bar (phones):** `position: fixed; inset-inline: 0; bottom: 0`, `--color-bg` with a top `--color-border` line, five equal items (icon 24 px over a `--text-xs` label), each ≥ `--tap-min`, height `--tabbar-h` + `env(safe-area-inset-bottom)`. Current item: `--color-accent-text` icon and label, `--weight-semibold`, a 3 px `--color-accent` bar above the icon, and `aria-current="page"` (shape + weight + color, not color alone). Items: Home (`home`), Routines (`list`), History (`history`), Exercises (`dumbbell`), Progress (`chart`). Tabs for features that don't exist yet stay hidden ([PRD §5](PRD.md)).
 - **Side rail (wide):** `position: sticky; top: 0; block-size: 100dvh`, `--rail-w` wide, same items stacked vertically (icon over label), Settings pinned at the bottom. Content is centered in the remaining space with `max-inline-size: var(--content-max)`.
-- **Shell offsets:** the shell sets `--shell-bottom` = tab-bar height + `env(safe-area-inset-bottom)` on phones, or just the safe-area inset when the tab bar is hidden or on wide screens. `main` has `padding-block-end: var(--shell-bottom)`.
+- **Shell offsets:** `--shell-bottom` is defined on `:root` (so `html`'s `scroll-padding` can read it): `calc(var(--tabbar-h) + var(--safe-bottom))` while the phone tab bar is shown, otherwise just `var(--safe-bottom)` (wide screens, `/workout`, and while typing, §5.5). `main` has `padding-block-end: var(--shell-bottom)`.
 
 ### 5.2 Content width
 
@@ -311,7 +318,18 @@ Every page's content is centered at `max-inline-size: var(--content-max)` (42rem
 ### 5.5 Virtual keyboard
 
 - **Chromium (Android):** `interactive-widget=resizes-content` shrinks the layout viewport, so sticky footers ride above the keyboard. The browser scrolls the focused field into view, and `scroll-padding` (§5.4) keeps it clear of the bars.
-- **Hide the tab bar while typing** on touch devices: `@media (pointer: coarse) { body:has(:is(input:not([type=checkbox],[type=radio]), textarea, select):focus) .tabbar { display: none; } }`. This saves space on Android. On iOS the bar is behind the keyboard anyway.
+- **Hide the tab bar while typing** on touch devices, and drop its height from the offsets in the same rule so no gap is left:
+
+  ```css
+  @media (pointer: coarse) {
+    :root:has(:is(input:not([type=checkbox], [type=radio]), textarea, select):focus) {
+      --shell-bottom: var(--safe-bottom);
+      & .tabbar { display: none; }
+    }
+  }
+  ```
+
+  This saves space on Android. On iOS the bar is behind the keyboard anyway.
 - **iOS (ignores `interactive-widget`, the keyboard covers the layout viewport):** a single shared helper (an action used by NumberField and TextField) listens to `visualViewport` `resize`/`scroll` while a field is focused. If the field's bottom edge is below `visualViewport.offsetTop + visualViewport.height - 8px`, it calls `field.scrollIntoView({ block: 'center' })`. This keeps the active set row visible above the keyboard ([PRD §18](PRD.md)). The helper never scrolls when the field is already visible, so it doesn't fight the user.
 - Dismissing the keyboard (blur, "Done") keeps the typed value. Values commit on `change`/blur, never only on Enter.
 
@@ -356,7 +374,7 @@ All live in `src/lib/components/ui/` and are imported as `#lib/components/ui/<Na
 | Variant | Fill / text / edge | Hover · Pressed |
 |---|---|---|
 | primary | `--color-accent` / `--color-on-accent` / none | `--color-accent-hover` · `--color-accent-active` |
-| secondary | `--color-surface-2` / `--color-text` / `--color-border` | `--color-surface-3` · `--color-surface-3` |
+| secondary | `--color-surface-2` / `--color-text` / `--color-border-strong` | `--color-surface-3` · `--color-surface-3` |
 | ghost | transparent / `--color-accent-text` / none | `--color-surface-2` · `--color-surface-3` |
 | danger | `--color-danger` / `--color-on-danger` / none | `--color-danger-hover` · `--color-danger-hover` |
 
@@ -451,7 +469,7 @@ The same API as Dialog, plus `size?: 'auto' | 'full' = 'auto'`.
 ### 6.12 Toast (with Undo)
 
 `toast(message: string, { action?: { label: string; run: () => void }, durationMs?: number })`. The default duration is 4000 ms, or 6000 ms with an action.
-- One Toaster host in `+layout.svelte`. The region is always in the DOM: `<section aria-live="polite" aria-label="Notifications">`. Each toast is `popover="manual"` (top layer, so it stays above dialogs and is not light-dismissed). Without Popover support (iOS < 18.3), the region falls back to `position: fixed` with `z-index: var(--z-toast)`. Feature-detect `'popover' in HTMLElement.prototype` and style with `:is(:popover-open, .open)`.
+- One Toaster host in `+layout.svelte`. The region is always in the DOM: `<section aria-live="polite" aria-label="Notifications">`. Each toast is `popover="manual"` (top layer, so it stays above dialogs and is not light-dismissed). Without Popover support (among our minimums only Firefox 121–124), the region falls back to `position: fixed` with `z-index: var(--z-toast)`. Feature-detect `'popover' in HTMLElement.prototype` and style with `:is(:popover-open, .open)`.
 - Placement: bottom center, `bottom: calc(var(--shell-bottom) + var(--sticky-bottom-h, 0px) + var(--space-3))`, width `min(100% - 2 * var(--gutter), 28rem)`. At most 3 visible, newest at the bottom, gap `--space-2`.
 - Box: `--color-surface-3`, `--border-w` `--color-border-strong`, `--radius-md`, `--shadow-overlay`, padding `--space-3` `--space-4`, `--text-sm`. Layout: message, optional action (ghost Button `sm`, `--color-accent-text`), close IconButton (`x`, "Dismiss").
 - The timer pauses while the toast is hovered or contains focus. Enter/exit per §3.5.
@@ -533,7 +551,7 @@ The wireframes are drawn at **320 px** (≈ 34 columns). `[ … ]` = Button, `(�
 │ Routines                See all ›│   creates a second session)
 │ ┌──────────────────────────────┐ │ h2 --text-md semibold + ghost link
 │ │ Push A               [Start] │ │ list group; static ListRow +
-│ │ 6 exercises · Mon 14 Oct     │ │  secondary Button sm "Start"
+│ │ 6 exercises · Wed 14 Oct     │ │  secondary Button sm "Start"
 │ ├──────────────────────────────┤ │  (max 3 routines)
 │ │ Pull A               [Start] │ │
 │ └──────────────────────────────┘ │
@@ -542,7 +560,7 @@ The wireframes are drawn at **320 px** (≈ 34 columns). `[ … ]` = Button, `(�
 │ Recent                           │ h2
 │ ┌──────────────────────────────┐ │ ListRow links → /history/:id
 │ │ Push A                     › │ │  subtitle: date · duration · sets
-│ │ Mon 14 Oct · 58 min · 18 sets│ │  (last 3)
+│ │ Wed 14 Oct · 58 min · 18 sets│ │  (last 3)
 │ └──────────────────────────────┘ │
 ├──────────────────────────────────┤
 │  ⌂     ☰      ⟲      🏋     📈   │ Tab bar (Home current)
@@ -577,7 +595,8 @@ The wireframes are drawn at **320 px** (≈ 34 columns). `[ … ]` = Button, `(�
 │ [＋ Add exercise              ]  │ secondary Button block → picker Sheet
 │                                  │
 ├──────────────────────────────────┤
-│ ⏱ 1:23 ▓▓▓▓▓▓░░░  −15 +15 ⏸ ⏭  │ Rest-timer bar (§7.3), sticky bottom
+│▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░│ Rest-timer bar (§7.3), sticky bottom:
+│ ⏱ 1:23        [−15] [+15] ⏸  ⏭  │  progress strip above the controls
 └──────────────────────────────────┘ (no tab bar on this screen)
 ```
 
@@ -586,17 +605,28 @@ The wireframes are drawn at **320 px** (≈ 34 columns). `[ … ]` = Button, `(�
 | Column | Width | Content |
 |---|---|---|
 | Set label | `--tap-min` | A ghost button showing `1`, `2`, … in `--text-sm` semibold tabular (warm-up → Badge "W"), label "Set 2 options". It opens the row's action Sheet. |
-| Previous | `minmax(3.5rem, 1fr)` | `80 × 8` in `--text-sm` muted tabular (display unit, §8.2); `–` when none. Wraps to 2 lines rather than truncate. |
+| Previous | `minmax(3.5rem, 1fr)` (`minmax(0, 1fr)` when stacked) | `80 × 8` in `--text-sm` muted tabular (display unit, §8.2); `–` when none. Wraps rather than truncate. |
 | Weight | `4rem` | NumberField decimal, `labelVisible=false`, label "Set 2 weight, kg", `enterkeyhint="next"` |
 | Reps | `3.25rem` | NumberField integer, label "Set 2 reps", `enterkeyhint="done"` |
 | Complete | `--tap-min` | IconButton, `pressed` = completed |
 
-Gap `--space-1`, row `min-block-size: --tap-min`, card padding-inline `--space-1`. Width check at 320 px: 320 − 2 × 12.8 gutter − 2 × 4 padding = 286 px available. Columns need 44 + 56 + 64 + 52 + 44 + 4 × 4 = 276 px, so it fits. **When the container is narrower than `17.5em`** (large text), the Previous column moves to a second line under the set label (`grid-template-areas` switch), so the inputs keep their width.
+Gap `--space-1`, row `min-block-size: --tap-min`, card padding-inline `--space-1`. Width check at 320 px: 320 − 2 × 12.8 gutter − 2 × 4 padding = 286 px available. Columns need 44 + 56 + 64 + 52 + 44 + 4 × 4 = 276 px (17.25em), so it fits.
+
+**Stacked layout, when the row's container is narrower than `17.5em`** (container query; `em` there is the container's font size, so larger text triggers it). This happens at 320 px from about 110% text, and at 200% text on any phone. The row becomes two lines through a `grid-template-areas` switch:
+
+```
+┌ label ┬ previous (wraps) ┬ complete ┐   row 1: --tap-min | minmax(0, 1fr) | --tap-min
+├───────┴──────┬───────────┴──────────┤
+│ weight (1fr) │ reps (1fr)           │   row 2: two equal fields
+└──────────────┴──────────────────────┘
+```
+
+Width check at 320 px with 200% text (1em = 32 px): the gutter is 24 px (the `clamp` minimum, 0.75rem) and the padding 8 px, so 256 px is available. Row 1: 88 + 88 + 2 × 8 gaps = 192 px fixed, leaving 64 px for Previous (`80 × 8` wraps to two lines, nothing is clipped). Row 2: (256 − 8) / 2 = 124 px per field. `102.5` at 32 px with 16 px padding needs about 112 px, so it fits. The column header row uses the same areas (`SET · PREVIOUS` over `KG · REPS`), so the unit stays visible without a suffix eating field width.
 
 **States of a set row:**
 - *Not completed:* row transparent on `--color-surface-1`. Complete button: secondary IconButton with a `circle` outline icon (the plain ring), label "Complete set 2".
 - *Prefilled:* empty fields show the prefill as `--color-text-muted` placeholder. One tap on Complete stores those values and completes the set ([PRD §8.3](PRD.md)). Editing a value never completes it.
-- *Completed:* row fill `--color-success-subtle`. The Complete button turns into a filled `--color-success` circle with a `--color-on-success` `check` (shape change; the mark pops with `--duration-fast`). `aria-pressed="true"`, label "Set 2 completed, undo". Values stay editable. Tapping the button again un-completes the set. Not color alone: a filled vs outline icon plus `aria-pressed`.
+- *Completed:* row fill `--color-success-subtle`. The Complete button turns into a filled `--color-success` circle with a `--color-on-success` `check` (shape change; the mark pops with `--duration-fast`). `aria-pressed="true"`, label "Set 2 completed, undo". Values stay editable. Tapping the button again un-completes the set (a toggle, so there is no toast and no confirm; the button itself is the undo). Not color alone: a filled vs outline icon plus `aria-pressed`.
 - *Invalid entry:* revert + announce (§6.5).
 - *Row menu* (tap the set label): action Sheet with Duplicate, Toggle warm-up, Delete. Delete → Toast "Set deleted" [Undo].
 
@@ -731,14 +761,14 @@ Gap `--space-1`, row `min-block-size: --tap-min`, card padding-inline `--space-1
 ```
 ┌──────────────────────────────────┐   ┌──────────────────────────────────┐
 │ History              [＋ Log]  ⚙ │   │ ‹  Push A              [Edit]  ⋮ │
-├──────────────────────────────────┤   │    Mon 14 Oct 2026, 18:05        │
+├──────────────────────────────────┤   │    14 Oct 2026, 18:05            │
 │ October 2026                     │   ├──────────────────────────────────┤
 │ ┌──────────────────────────────┐ │   │ ┌────────┬────────┬────────────┐ │
 │ │ Push A                     › │ │   │ │ 58 min │18 sets │ 7,420 kg   │ │
-│ │ Mon 14 Oct · 58 min · 18 sets│ │   │ │Duration│  Sets  │ Volume     │ │
+│ │ Wed 14 Oct · 58 min · 18 sets│ │   │ │Duration│  Sets  │ Volume     │ │
 │ ├──────────────────────────────┤ │   │ └────────┴────────┴────────────┘ │
 │ │ Pull A                     › │ │   │ Bench Press                      │
-│ │ Sat 12 Oct · 1 h 4 min · 16  │ │   │ ┌──────────────────────────────┐ │
+│ │ Mon 12 Oct · 1 hr 4 min · 16 │ │   │ ┌──────────────────────────────┐ │
 │ └──────────────────────────────┘ │   │ │ SET    KG     REPS           │ │
 │ September 2026                   │   │ │  W     40     10             │ │
 │ …                                │   │ │  1     80     8     [★ PR]   │ │
@@ -749,7 +779,7 @@ Gap `--space-1`, row `min-block-size: --tap-min`, card padding-inline `--space-1
 ```
 - **List:** grouped by month in the session's time zone (`h2`, `--text-sm` semibold muted). ListRow links. Pages of 30 with a secondary "Load more" Button (bounded queries, [PRD §21](PRD.md)). The header action "Log" (secondary sm, `plus`) logs a past workout (Dialog: date + time fields, then the logger). Empty: EmptyState (`history`, "No workouts yet", "Finished workouts show up here.", primary "Start workout").
 - **Detail:** read-only by default. Stats in a 3-column grid of Cards (`--text-2xl` bold tabular value over a `--text-xs` muted label; it wraps to 1 column below 20em). Per exercise: a read-only `<table>` with the same column rhythm as the set row (tabular, warm-up Badge, PR Badge from T7.05). Incomplete sets are shown muted with the text "not completed".
-- **Edit** (explicit action): the same screen with SetRows editable, a sticky action area [Cancel] [Save changes] (primary). Leaving with unsaved edits → ConfirmDialog. ⋮ → Delete session → ConfirmDialog `danger` naming the date and set count.
+- **Edit** (explicit action): the same screen with SetRows editable, a sticky action area [Cancel] [Save changes] (primary). **Save changes → ConfirmDialog** ([PRD §5.3](PRD.md)): "Save changes to Wed 14 Oct?", "Volume and PRs will be recalculated.", confirm "Save changes" (not the `danger` variant). Leaving with unsaved edits → ConfirmDialog `danger` ("Discard changes?"). ⋮ → Delete session → ConfirmDialog `danger` naming the date and set count.
 
 ### 7.8 Settings (`/settings`)
 
@@ -782,7 +812,9 @@ Gap `--space-1`, row `min-block-size: --tap-min`, card padding-inline `--space-1
 │ │ Last backup: 3 Oct · 12 KB   │ │  static row; warning Badge if overdue
 │ │ [Export backup] [Restore…]   │ │  secondary Buttons
 │ ├──────────────────────────────┤ │
-│ │ Backup reminder  [14 days ▾] │ │  Select (Off, 7, 14, 30 days)
+│ │ Remind after     [14 days ▾] │ │  Select (7, 14, 30, 60 days)
+│ ├──────────────────────────────┤ │
+│ │ …or after     [10 workouts ▾]│ │  Select (5, 10, 20, 50 workouts)
 │ ├──────────────────────────────┤ │
 │ │ Storage      [✓ Persistent]  │ │  Badge + explanation text when
 │ └──────────────────────────────┘ │   not persistent (Banner warning)
@@ -791,7 +823,8 @@ Gap `--space-1`, row `min-block-size: --tap-min`, card padding-inline `--space-1
 └──────────────────────────────────┘
 ```
 - Every change applies immediately with no Save button. Units and theme update the whole app at once.
-- Restore → file pick → validate → ConfirmDialog `danger` ("Replace all data?", lists the counts in the file vs on this device, "Replace all data"). A validation failure → Banner danger, nothing changed. Export success → Toast "Backup saved · 12 KB" ([PRD §13](PRD.md)).
+- Backup reminder ([backup-restore.md](backup-restore.md)): a Banner appears when the last backup is older than N days **or** more than N workouts ago, whichever comes first. Defaults are 14 days and 10 workouts, and both are configurable. There is no "off" option because the PRD doesn't define one.
+- Restore → file pick → validate → ConfirmDialog `danger` ("Replace all data?", lists the counts in the file vs on this device and the latest session date, offers "Export a backup first" as a secondary action, confirm "Replace all data"). A validation failure → Banner danger, nothing changed. Export success → Toast "Backup saved · 12 KB" ([PRD §13](PRD.md)).
 - At 320 px: rows whose control can't fit next to the title (Theme, the backup buttons) stack the control below the title (ListRow container rule, §5.6).
 
 ### 7.9 Progress (`/progress`)
@@ -836,26 +869,26 @@ Gap `--space-1`, row `min-block-size: --tap-min`, card padding-inline `--space-1
 - Plain, short, calm. Address the user as "you". Never blame ("Invalid input!" → "Enter a number").
 - **Sentence case** everywhere (titles, buttons, labels). No exclamation marks, no emoji in UI copy, no praise or gamification ("Great job!", streak warnings, guilt about rest days).
 - Buttons start with a verb and name the object when it isn't obvious: "Start workout", "Add set", "Import 2 routines", "Discard workout". Avoid "OK", "Yes", "Submit".
-- Destructive copy names what is affected, with counts: "Delete session from Mon 14 Oct? 18 sets will be deleted."
+- Destructive copy names what is affected, with counts: "Delete session from Wed 14 Oct? 18 sets will be deleted."
 - Errors say what happened and what to do: "Couldn't read the file. Check that it's a .json backup and try again." Technical details go in a collapsed `<details>` ("Details").
 - Use consistent terms: **workout** (in the UI) = session (in code), **routine**, **program**, **set**, **rep**, **rest**, **backup**. Use "Exercise", not "movement" or "lift".
 
 ### 8.2 Numbers, units, dates
 
-All formatting goes through `Intl` with the user's locale (`navigator.language`), via shared helpers in `src/lib` (`units.ts`, `time.ts`). Components never format by hand.
+All formatting goes through `Intl` with the user's locale (`navigator.language`), via shared helpers in `src/lib` (`units.ts`, `time.ts`). Components never format by hand. The examples are real `Intl` output for **en-GB / en-US** (14 Oct 2026 is a Wednesday). The wireframes in §7 use en-GB. Other locales differ, and that is intended.
 
-| Value | Rule | Example (en) |
+| Value | Rule | Example (en-GB / en-US) |
 |---|---|---|
-| Weight | `Intl.NumberFormat(locale, { maximumFractionDigits: 2 })` of the display-unit value; no grouping in inputs; unit after a no-break space | `82.5 kg`, `185 lb`; `82,5 kg` in de |
+| Weight | `Intl.NumberFormat(locale, { maximumFractionDigits: 2 })` of the display-unit value; no grouping in inputs; unit after a no-break space | `82.5 kg` / `185 lb`; `82,5 kg` in de |
 | Set | weight × reps with U+00D7 and thin no-break spaces; bodyweight shows reps only, or `+10 kg × 8` | `80 × 8` |
 | Volume | grouped integer in display unit | `7,420 kg` |
 | Reps, sets, counts | integers; plural via `Intl.PluralRules` | `1 set`, `18 sets` |
 | Rest / timer | `m:ss`; `h:mm:ss` from 1 h; tabular | `1:30`, `1:02:13` |
-| Duration (summary) | hours and minutes, built from `Intl.NumberFormat` unit style (`hour`/`minute`, `narrow`); no `Intl.DurationFormat` | `58 min`, `1 h 4 min` |
-| Date (list) | `Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: session.timeZone })`; add `year` when not the current year | `Mon 14 Oct` |
-| Date + time (detail) | `dateStyle: 'medium', timeStyle: 'short'`, session `timeZone`; locale picks the 12/24 h clock | `14 Oct 2026, 18:05` |
-| Relative (Home) | "Today" / "Yesterday" via `Intl.RelativeTimeFormat(locale, { numeric: 'auto' })` computed on the session's local day; older → the list date | `Today` |
-| Month group | `{ month: 'long', year: 'numeric' }`, session `timeZone` | `October 2026` |
+| Duration (summary) | hours and minutes joined with a space, each from `Intl.NumberFormat(locale, { style: 'unit', unit: 'hour' \| 'minute', unitDisplay: 'short' })`; no `Intl.DurationFormat` | `1 hr 58 mins` / `1 hr 58 min`; `58 min` |
+| Date (list) | `Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: session.timeZone })`; add `year` when not the current year | `Wed 14 Oct` / `Wed, Oct 14` |
+| Date + time (detail) | `dateStyle: 'medium', timeStyle: 'short'`, session `timeZone`; locale picks the 12/24 h clock | `14 Oct 2026, 18:05` / `Oct 14, 2026, 6:05 PM` |
+| Relative (Home) | "Today" / "Yesterday" via `Intl.RelativeTimeFormat(locale, { numeric: 'auto' })` computed on the session's local day; older → the list date | `today`, `yesterday` (capitalize the first letter for display) |
+| Month group | `{ month: 'long', year: 'numeric' }`, session `timeZone` | `October 2026` (both) |
 
 - **Session dates always use the session's stored `timeZone`**, not the device's current zone ([PRD §5.4](PRD.md)). Travel must not move a workout to another day.
 - Display rounds to at most 2 decimals with trailing zeros trimmed. Stored values are never rounded ([PRD §10.3](PRD.md)).
@@ -872,12 +905,12 @@ All formatting goes through `Intl` with the user's locale (`navigator.language`)
 
 ### 8.4 Destructive actions: confirm or undo
 
-| Use **Undo** (Toast, change applied immediately) | Use **Confirm** (ConfirmDialog, `danger`) |
+| Use **Undo** (Toast, change applied immediately) | Use **Confirm** (ConfirmDialog) |
 |---|---|
-| Delete a set, remove an exercise from the active workout, un-complete a set (tap again), remove an exercise in import preview | Discard the active workout, delete a completed session, delete a routine, save edits to a past session, restore a backup (replaces everything), merge exercises |
+| Delete a set, remove an exercise from the active workout, remove an exercise in import preview | `danger`: discard the active workout, delete a completed session, delete a routine, discard unsaved edits, restore a backup (replaces everything), merge exercises. Not `danger`: save edits to a past session |
 | Small, local, cheap to restore | Large, affects history, or replaces data |
 
-Never both for the same action. Never confirm something that is trivially undoable. A Confirm button repeats the action ("Delete session"), and Cancel is always available and focused first for `danger`.
+Completing and un-completing a set is a toggle: the same button undoes it, so it gets neither a toast nor a confirm. Never both for the same action. Never confirm something that is trivially undoable. A Confirm button repeats the action ("Delete session"), and Cancel is always available and focused first for `danger`.
 
 ---
 
@@ -888,7 +921,7 @@ Self-review done for T1.01 (2026-10-20). Recheck these items when this document 
 - [x] **Every Scope bullet of T1.01 is covered with concrete values:** browser policy + minimum iOS version (§1), visual direction with do/don't (§2), color/type/spacing/radius/border/elevation/motion/z/touch tokens (§3), theme mechanism (§4), layout incl. safe areas, sticky areas, viewport key, keyboard rule, Settings location, tab bar on the workout screen (§5), all 19 components from the issue with API sketch and states, plus the live announcer (§6), the 9 required screens (§7), content rules (§8). No "TBD".
 - [x] **Contrast:** every color pair the components use is listed with ratios in both schemes. Text ≥ 4.5:1 and UI ≥ 3:1 in all rows. The only exception is disabled text, which WCAG exempts (§3.1).
 - [x] **Screens use only defined tokens and components.** Menus are action Sheets, the exercise card is a Card, the rest-timer bar is built from Buttons/IconButtons plus a progressbar `div`, the chart is the T7.03 LineChart. Nothing references a raw color or an undefined component.
-- [x] **320 px:** each screen is drawn at 320 px. The set-row width is computed (§7.2) and has a large-text fallback. Rows stack their trailing controls under 20em (§5.6).
+- [x] **320 px:** each screen is drawn at 320 px. The set-row width is computed at default text (one line) and at 200% text (stacked layout, §7.2). Rows stack their trailing controls under 20em (§5.6).
 - [x] **Both themes:** all colors are `light-dark()` pairs. No screen needs scheme-specific rules. Theme-color and the status bar are specified for both (§4).
 - [x] **Touch targets** ≥ 44 × 44 px (`--tap-min`), including `sm` controls through an expanded hit area.
 - [x] **Not color alone:** completed set (filled check + `aria-pressed`), current tab (bar + weight), selected segment (accent fill + edge + weight), switch (thumb position), badges and banners (icon + text), errors (icon + message).
