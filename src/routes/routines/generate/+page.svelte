@@ -5,14 +5,18 @@
   import Button from "#lib/components/ui/Button.svelte";
   import NumberField from "#lib/components/ui/NumberField.svelte";
   import PageHeader from "#lib/components/ui/PageHeader.svelte";
+  import SegmentedControl from "#lib/components/ui/SegmentedControl.svelte";
   import Select from "#lib/components/ui/Select.svelte";
   import Switch from "#lib/components/ui/Switch.svelte";
   import TextField from "#lib/components/ui/TextField.svelte";
-  import { buildPlanPrompt, formatHistory, HISTORY_WEEKS, summarizeHistory, type HistoryLine } from "#lib/imports/prompt";
+  import { buildConvertPrompt, buildPlanPrompt, MAX_CONVERT_TEXT_CHARS, formatHistory, HISTORY_WEEKS, summarizeHistory, type HistoryLine } from "#lib/imports/prompt";
   import { listExercises } from "#lib/storage/exercises";
   import { listCompletedSessions } from "#lib/storage/sessions";
   import type { Exercise } from "#lib/types";
 
+  let mode = $state("create");
+  let planText = $state("");
+  let sourceUrl = $state("");
   let goal = $state("Build muscle");
   let daysPerWeek = $state<number | null>(4);
   let sessionMinutes = $state<number | null>(60);
@@ -42,7 +46,9 @@
   });
 
   const prompt = $derived(
-    buildPlanPrompt({
+    mode === "convert"
+      ? buildConvertPrompt({ text: planText, sourceUrl, exercises })
+      : buildPlanPrompt({
       goal,
       daysPerWeek: daysPerWeek ?? 4,
       sessionMinutes: sessionMinutes ?? 60,
@@ -53,6 +59,7 @@
       history: includeHistory ? history : undefined,
     }),
   );
+  const canCopy = $derived(mode === "create" || planText.trim().length > 0);
 
   async function copy() {
     try {
@@ -75,6 +82,27 @@
     Nothing is sent from this app; the prompt is only text on your device until you paste it somewhere.
   </p>
 
+  <SegmentedControl
+    legend="Mode"
+    bind:value={mode}
+    options={[
+      { value: "create", label: "Create a plan" },
+      { value: "convert", label: "Convert a plan" },
+    ]}
+  />
+
+  {#if mode === "convert"}
+    <form onsubmit={(e) => e.preventDefault()} novalidate>
+      <TextField
+        label="Plan text"
+        bind:value={planText}
+        multiline
+        placeholder="Paste the article or plan here"
+        hint={`Stays on your device. Only the first ${MAX_CONVERT_TEXT_CHARS.toLocaleString()} characters are used.`}
+      />
+      <TextField label="Source URL (optional)" bind:value={sourceUrl} placeholder="https://…" hint="Credited in the plan’s source. Nothing is fetched." />
+    </form>
+  {:else}
   <form onsubmit={(e) => e.preventDefault()} novalidate>
     <TextField label="Goal" bind:value={goal} placeholder="e.g. build muscle, get stronger" />
     <NumberField label="Training days per week" mode="integer" bind:value={daysPerWeek} min={1} max={7} />
@@ -104,6 +132,7 @@
       </div>
     {/if}
   </form>
+  {/if}
 
   {#if failed}
     <Banner variant="warning" title="Couldn’t load your exercises">The prompt will not list catalog ids. Reload and try again.</Banner>
@@ -113,7 +142,7 @@
   <textarea id="prompt-text" bind:this={promptEl} readonly rows="10" value={prompt} spellcheck="false"></textarea>
 
   <div class="actions" role="status">
-    <Button variant="primary" icon="copy" onclick={copy}>Copy prompt</Button>
+    <Button variant="primary" icon="copy" onclick={copy} disabled={!canCopy}>Copy prompt</Button>
     <Button variant="secondary" icon="import" href={resolve("/routines/import")}>Next: Import the result</Button>
   </div>
   {#if copyResult === "copied"}<p>Prompt copied.</p>{/if}
