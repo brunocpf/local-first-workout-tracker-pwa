@@ -72,7 +72,10 @@
   </EmptyState>
 {:else}
   <PageHeader title={routine.name} subtitle={program?.name} {back}>
-    {#snippet actions()}<StartRoutineButton routine={routine!} variant="primary" size="md">Start workout</StartRoutineButton>{/snippet}
+    {#snippet actions()}
+      <Button variant="secondary" size="md" icon="edit" href={resolve(`/routines/${routine!.id}/edit` as "/")}>Edit</Button>
+      <StartRoutineButton routine={routine!} variant="primary" size="md">Start workout</StartRoutineButton>
+    {/snippet}
   </PageHeader>
   {#if routine.description}<p class="desc">{routine.description}</p>{/if}
   {#if routine.exercises.length === 0}

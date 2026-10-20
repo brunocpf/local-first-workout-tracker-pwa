@@ -33,6 +33,7 @@
 
   const isEmpty = $derived(grouped.standalone.length === 0 && grouped.programs.every((p) => p.routines.length === 0));
   const count = (r: Routine) => `${r.exercises.length} ${r.exercises.length === 1 ? "exercise" : "exercises"}`;
+  const newHref = resolve("/routines/new");
   const importHref = resolve("/routines/import");
   const generateHref = resolve("/routines/generate");
 
@@ -90,6 +91,7 @@
 
 <PageHeader title="Routines">
   {#snippet actions()}
+    <Button variant="primary" size="sm" icon="plus" href={newHref}>New routine</Button>
     <Button variant="secondary" size="sm" href={generateHref}>Generate with AI</Button>
     <Button variant="secondary" size="sm" icon="import" href={importHref}>Import</Button>
   {/snippet}
@@ -99,9 +101,10 @@
   <EmptyState icon="alert-triangle" title="Couldn’t load routines" body="Reload the app and try again." />
 {:else if loaded}
   {#if isEmpty}
-    <EmptyState icon="list" title="No routines yet" body="Import a plan to start from a routine.">
+    <EmptyState icon="list" title="No routines yet" body="Create a routine or import a plan to start from one.">
       {#snippet action()}
-        <Button variant="primary" icon="import" href={importHref}>Import routine</Button>
+        <Button variant="primary" icon="plus" href={newHref}>New routine</Button>
+        <Button variant="secondary" icon="import" href={importHref}>Import routine</Button>
         <Button variant="secondary" href={generateHref}>Generate with AI</Button>
       {/snippet}
     </EmptyState>
