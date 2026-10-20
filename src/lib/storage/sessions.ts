@@ -1,4 +1,6 @@
 import Dexie from "dexie";
+import { z } from "zod";
+import { sessionSchema } from "#lib/backup/format";
 import { db } from "#lib/storage/db";
 import { newId } from "#lib/ids";
 import { currentTimeZone } from "#lib/time";
@@ -156,5 +158,60 @@ export async function deleteCompletedSession(id: string): Promise<void> {
     if (!s) return;
     if (s.status !== "completed") throw new Error(`Session ${id} is not completed; use discardSession`);
     await db.sessions.delete(id);
+  });
+}
+
+export class InvalidSessionEditError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidSessionEditError";
+  }
+}
+
+/** Limits for edited values; generous, they only reject typos and corrupt data. */
+export const MAX_SET_WEIGHT_KG = 2000;
+export const MAX_SET_REPS = 10_000;
+
+const editedSetValues = z.object({
+  weight: z.number().min(0).max(MAX_SET_WEIGHT_KG).optional(),
+  reps: z.number().int().min(0).max(MAX_SET_REPS).optional(),
+});
+
+/**
+ * Saves edits to a COMPLETED session (UI must confirm first). Validates the shape (the backup schema) and set values,
+ * requires the stored row to exist and be completed (never creates or activates a session) and `endedAt ≥ startedAt`;
+ * keeps `status: "completed"`, drops any rest timer, clamps set `completedAt` into [startedAt, endedAt], recomputes
+ * `exerciseIds`, and bumps `updatedAt`. Accepts `$state` proxies. Touches nothing else.
+ */
+export async function updateCompletedSession(session: WorkoutSession, now = new Date()): Promise<WorkoutSession> {
+  const plain = toPlain(session);
+  if (!sessionSchema.safeParse(plain).success) throw new InvalidSessionEditError("The session has invalid data");
+  for (const e of plain.exercises) {
+    for (const set of e.sets) {
+      if (!editedSetValues.safeParse(set).success) {
+        throw new InvalidSessionEditError(`${e.exerciseNameSnapshot}: weight or reps out of range`);
+      }
+    }
+  }
+  const start = Date.parse(plain.startedAt);
+  const end = plain.endedAt === undefined ? NaN : Date.parse(plain.endedAt);
+  if (Number.isNaN(start) || Number.isNaN(end)) throw new InvalidSessionEditError("Start and end times must be valid");
+  if (end < start) throw new InvalidSessionEditError("A workout can't end before it starts");
+  for (const set of plain.exercises.flatMap((e) => e.sets)) {
+    if (set.completedAt === undefined) continue;
+    const t = Date.parse(set.completedAt);
+    if (t < start) set.completedAt = plain.startedAt;
+    else if (t > end) set.completedAt = plain.endedAt;
+  }
+  delete plain.restTimer;
+  plain.status = "completed";
+  plain.exerciseIds = exerciseIdsOf(plain);
+  plain.updatedAt = now.toISOString();
+  return db.transaction("rw", db.sessions, async () => {
+    const stored = await db.sessions.get(plain.id);
+    if (!stored) throw new Error(`Session ${plain.id} not found`);
+    if (stored.status !== "completed") throw new Error(`Session ${plain.id} is not completed`);
+    await db.sessions.put(plain);
+    return plain;
   });
 }

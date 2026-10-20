@@ -105,6 +105,7 @@
 {:else}
   <PageHeader title={session.name} subtitle={when(session)} back={{ href: resolve("/history"), label: "History" }}>
     {#snippet actions()}
+      <IconButton icon="edit" label="Edit session" href={resolve(`/history/${page.params.id}/edit` as "/")} />
       <IconButton icon="trash" label="Delete session" variant="danger" disabled={deleting} onclick={remove} />
     {/snippet}
   </PageHeader>

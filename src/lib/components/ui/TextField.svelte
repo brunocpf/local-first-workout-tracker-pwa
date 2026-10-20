@@ -18,7 +18,7 @@
   }: {
     label: string;
     value: string;
-    type?: "text" | "search" | "url";
+    type?: "text" | "search" | "url" | "datetime-local";
     hint?: string;
     error?: string;
     required?: boolean;
