@@ -1,6 +1,6 @@
 # Backup & restore
 
-_Status: **format v1 and export builder implemented** (`src/lib/backup/format.ts`, `export.ts`). Restore, the save/share UI and the reminder are not implemented yet (T4.02, T4.04). UX below is planned (PRD §13)._
+_Status: **format v1, export builder and restore logic implemented** (`src/lib/backup/format.ts`, `export.ts`, `restore.ts`). The save/share/restore UI and the reminder are not implemented yet (T4.04). UX below is planned (PRD §13)._
 
 IndexedDB is persistent but not a backup: browsers can evict it, and it is bound to the origin and (on iOS) to installed-app vs Safari-tab storage.
 
@@ -50,6 +50,14 @@ Notes:
 2. The whole file is validated with Zod (size-limited, never evaluated). Any error → clear message and **nothing changes** (all-or-nothing transaction).
 3. Full restore **replaces** existing data: a confirmation names what will be replaced (counts of sessions/routines, latest session date) and offers to back up first.
 4. Program/routine-only import is a separate, additive operation ([import-schema.md](import-schema.md)).
+
+### Implementation (`src/lib/backup/restore.ts`)
+
+- `parseBackup(text)` never touches the database. In order: size limit (`MAX_BACKUP_BYTES`, 50 MB), `JSON.parse`, version check (a newer `backupVersion` → "update the app"; anything else unknown → unsupported), Zod `backupV1` (unknown keys stripped; errors are `path: message`, capped at 50), then integrity checks the schema can't express: unique ids per collection, custom exercises have `isCustom: true` and don't reuse a built-in id, at most one active session, every routine `exerciseId` is a catalog or backed-up custom exercise, and every program schedule `routineId` is a backed-up routine. Sessions' `exerciseId`/`routineId`/`programId` and a routine's `programId` are deliberately not checked: sessions snapshot names so history stays readable without the referenced row, and the app lists routines with an unknown program as standalone.
+- `summarizeBackup(backup)` / `summarizeCurrentData()` return counts of sessions, routines, programs and custom exercises plus the latest session `startedAt`, for the confirmation text.
+- `restoreBackup(backup)` re-validates its input (from a plain JSON copy, so `$state` proxies are fine), then in **one `rw` transaction over all five tables**: clears them, rewrites the built-in catalog from the app's seed with the backup's `builtinExerciseState` applied (this is the re-seed; built-in rows already stored but no longer in the app's catalog are kept, never deleted, so retired ids still resolve; state for ids in neither is ignored), adds custom exercises, programs, routines, sessions (recomputing `exerciseIds`) and settings. Any error aborts the transaction and the previous data is intact.
+- The caller (T4.04) must not keep an in-memory active session across a restore: reload app state afterwards.
+- `tests/fixtures/backup-v1.json` is the frozen v1 fixture: every future version must keep restoring it (`tests/backup-restore.test.ts`).
 
 ## Reminder policy
 
