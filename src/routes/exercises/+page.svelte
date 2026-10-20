@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { resolve } from "$app/paths";
   import { searchExercises } from "#lib/catalog/search";
   import EmptyState from "#lib/components/ui/EmptyState.svelte";
   import ListRow from "#lib/components/ui/ListRow.svelte";
@@ -53,7 +54,7 @@
   {:else}
     <ul class="group" aria-label="Exercises">
       {#each results as e (e.id)}
-        <li><ListRow title={e.name} subtitle={secondary(e)} /></li>
+        <li><ListRow title={e.name} subtitle={secondary(e)} href={resolve(`/exercises/${e.id}` as "/")} /></li>
       {/each}
     </ul>
   {/if}
