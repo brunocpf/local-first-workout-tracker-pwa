@@ -167,6 +167,43 @@ test("prescription editor: sets, reps, rest, notes; 135 lb round-trips", async (
   await expect(page.getByLabel("Set 1 weight")).toHaveValue("135");
 });
 
+test("supersets: group, move as a block, ungroup; sessions get the groupId", async ({ page }) => {
+  await createRoutine(page, "Upper");
+  await page.getByRole("link", { name: "Edit" }).click();
+  await page.getByRole("button", { name: "Group Barbell Bench Press with next" }).click();
+  await expect(page.getByText("Superset", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Move Back Squat up" }).click();
+  await expect(page.getByRole("heading", { level: 3 })).toHaveText(["Back Squat", "Barbell Bench Press"]);
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Upper" })).toBeVisible();
+
+  const [saved] = await readStore<Stored & { exercises: { supersetGroupId?: string }[] }>(page, "routines");
+  expect(saved.exercises[0].supersetGroupId).toBeTruthy();
+  expect(saved.exercises[1].supersetGroupId).toBe(saved.exercises[0].supersetGroupId);
+
+  await page.getByRole("button", { name: "Start workout" }).first().click();
+  await expect(page).toHaveURL(/\/workout/);
+  await expect
+    .poll(async () => {
+      const rows = await readStore<{ exercises: { supersetGroupId?: string }[] }>(page, "sessions");
+      return rows.at(-1)?.exercises.map((e) => e.supersetGroupId);
+    })
+    .toEqual([saved.exercises[0].supersetGroupId, saved.exercises[0].supersetGroupId]);
+
+});
+
+test("supersets: ungroup a middle member keeps the group contiguous", async ({ page }) => {
+  await page.goto("/routines/new");
+  await page.getByRole("textbox", { name: "Name" }).fill("Trio");
+  await addExercises(page, "barbell bench press", "back squat", "deadlift");
+  await page.getByRole("button", { name: "Group Barbell Bench Press with next" }).click();
+  await page.getByRole("button", { name: "Group Back Squat with next" }).click();
+  await expect(page.getByText("Superset", { exact: true })).toHaveCount(1);
+  await page.getByRole("button", { name: "Ungroup Back Squat" }).click();
+  await expect(page.getByRole("heading", { level: 3 })).toHaveText(["Barbell Bench Press", "Conventional Deadlift", "Back Squat"]);
+  await expect(page.getByText("Superset", { exact: true })).toHaveCount(1);
+});
+
 test("routines page does not scroll horizontally with long names", async ({ page }) => {
   const long = `${"Extremely long routine name ".repeat(4)}${"Supercalifragilisticexpialidocious".repeat(2)}`;
   await createRoutine(page, long);

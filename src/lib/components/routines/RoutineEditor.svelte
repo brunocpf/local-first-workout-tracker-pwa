@@ -5,6 +5,7 @@
   import { resolve } from "$app/paths";
   import ExercisePicker from "#lib/components/ExercisePicker.svelte";
   import PrescriptionEditor from "#lib/components/routines/PrescriptionEditor.svelte";
+  import Badge from "#lib/components/ui/Badge.svelte";
   import Button from "#lib/components/ui/Button.svelte";
   import Card from "#lib/components/ui/Card.svelte";
   import EmptyState from "#lib/components/ui/EmptyState.svelte";
@@ -13,7 +14,9 @@
   import TextField from "#lib/components/ui/TextField.svelte";
   import {
     addRoutineExercise,
-    moveRoutineExercise,
+    groupWithNext,
+    stepRoutineExercise,
+    ungroupRoutineExercise,
     removeRoutineExercise,
     replaceRoutineExercise,
     validateRoutine,
@@ -47,6 +50,16 @@
   const validation = $derived(validateRoutine(draft));
   const nameError = $derived(submitted ? validation.errors.find((e) => e.path === "name")?.message : undefined);
   const otherErrors = $derived(validation.errors.filter((e) => e.path !== "name"));
+  // Adjacent exercises sharing a supersetGroupId render as one block.
+  const blocks = $derived.by(() => {
+    const out: { group?: string; items: { re: RoutineExercise; i: number }[] }[] = [];
+    draft.exercises.forEach((re, i) => {
+      const last = out.at(-1);
+      if (re.supersetGroupId && last?.group === re.supersetGroupId) last.items.push({ re, i });
+      else out.push({ group: re.supersetGroupId, items: [{ re, i }] });
+    });
+    return out;
+  });
   const unit = $derived(settings.weightUnit);
   const back = $derived({
     href: isNew ? resolve("/routines") : resolve(`/routines/${initial.id}` as "/"),
@@ -183,45 +196,62 @@
   <EmptyState icon="dumbbell" title="No exercises yet" body="Add the exercises this routine is made of." />
 {:else}
   <ol class="list">
-    {#each draft.exercises as re, i (re.id)}
-      {@const name = names[re.exerciseId] ?? "Unknown exercise"}
+    {#each blocks as block (block.items[0].re.id)}
       <li>
-        <Card>
-          <div class="row">
-            <div class="text">
-              <h3>{name}</h3>
-              <p>{summary(re)}</p>
-            </div>
-            <div class="buttons">
-              <IconButton icon="chevron-up" label={`Move ${name} up`} disabled={i === 0} onclick={() => moveRoutineExercise(draft, i, i - 1)} />
-              <IconButton
-                icon="chevron-down"
-                label={`Move ${name} down`}
-                disabled={i === draft.exercises.length - 1}
-                onclick={() => moveRoutineExercise(draft, i, i + 1)}
-              />
-            </div>
-          </div>
-          <div class="row-actions">
-            <Button
-              size="sm"
-              variant="secondary"
-              onclick={() => {
-                editingId = re.id;
-                editOpen = true;
-              }}>Edit sets for {name}</Button
-            >
-            <Button
-              size="sm"
-              variant="secondary"
-              onclick={() => {
-                replacingId = re.id;
-                pickerOpen = true;
-              }}>Replace {name}</Button
-            >
-            <Button size="sm" variant="danger" icon="trash" onclick={() => remove(re)}>Remove {name}</Button>
-          </div>
-        </Card>
+        <div class={block.items.length > 1 ? "superset" : "single"}>
+          {#if block.items.length > 1}
+            <Badge variant="accent" icon="link">Superset</Badge>
+          {/if}
+          <ul class="members">
+            {#each block.items as { re, i } (re.id)}
+              {@const name = names[re.exerciseId] ?? "Unknown exercise"}
+              <li>
+                <Card>
+                  <div class="row">
+                    <div class="text">
+                      <h3>{name}</h3>
+                      <p>{summary(re)}</p>
+                    </div>
+                    <div class="buttons">
+                      <IconButton icon="chevron-up" label={`Move ${name} up`} disabled={i === 0} onclick={() => stepRoutineExercise(draft, i, -1)} />
+                      <IconButton
+                        icon="chevron-down"
+                        label={`Move ${name} down`}
+                        disabled={i === draft.exercises.length - 1}
+                        onclick={() => stepRoutineExercise(draft, i, 1)}
+                      />
+                    </div>
+                  </div>
+                  <div class="row-actions">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onclick={() => {
+                        editingId = re.id;
+                        editOpen = true;
+                      }}>Edit sets for {name}</Button
+                    >
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onclick={() => {
+                        replacingId = re.id;
+                        pickerOpen = true;
+                      }}>Replace {name}</Button
+                    >
+                    {#if i < draft.exercises.length - 1 && !(re.supersetGroupId && re.supersetGroupId === draft.exercises[i + 1].supersetGroupId)}
+                      <Button size="sm" variant="secondary" onclick={() => groupWithNext(draft, re.id)}>Group {name} with next</Button>
+                    {/if}
+                    {#if re.supersetGroupId}
+                      <Button size="sm" variant="secondary" onclick={() => ungroupRoutineExercise(draft, re.id)}>Ungroup {name}</Button>
+                    {/if}
+                    <Button size="sm" variant="danger" icon="trash" onclick={() => remove(re)}>Remove {name}</Button>
+                  </div>
+                </Card>
+              </li>
+            {/each}
+          </ul>
+        </div>
       </li>
     {/each}
   </ol>
@@ -286,6 +316,25 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
+  }
+  .superset {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-2);
+    border-inline-start: var(--space-1) solid var(--color-accent);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-2);
+    align-items: flex-start;
+  }
+  .members {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    inline-size: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
   }
   .row {
     display: flex;
