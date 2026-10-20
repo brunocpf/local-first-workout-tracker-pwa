@@ -1,11 +1,30 @@
 /** The fields search reads. Any `Exercise` satisfies it. */
-export type SearchableExercise = { name: string; aliases: string[]; archivedAt?: string };
+export type SearchableExercise = {
+  name: string;
+  aliases: string[];
+  archivedAt?: string;
+  primaryMuscles?: string[];
+  secondaryMuscles?: string[];
+  equipment?: string[];
+  exerciseType?: string;
+  favorite?: boolean;
+};
+
+/** Filters narrow the results; they combine with each other and with the text query (AND). Empty/undefined = no filter. */
+export type ExerciseFilters = {
+  /** Matches a primary or secondary muscle. */
+  muscle?: string;
+  equipment?: string;
+  exerciseType?: string;
+  favoritesOnly?: boolean;
+};
 
 export type SearchOptions = {
   /** Maximum number of results (default: all). */
   limit?: number;
   /** Archived exercises are hidden unless this is true. */
   includeArchived?: boolean;
+  filters?: ExerciseFilters;
 };
 
 /**
@@ -40,6 +59,36 @@ function rankOf(query: string, tokens: string[], name: string, fields: string[])
 
 const compareText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
+export function matchesFilters(item: SearchableExercise, f: ExerciseFilters): boolean {
+  if (f.muscle && !(item.primaryMuscles ?? []).concat(item.secondaryMuscles ?? []).includes(f.muscle)) return false;
+  if (f.equipment && !(item.equipment ?? []).includes(f.equipment)) return false;
+  if (f.exerciseType && item.exerciseType !== f.exerciseType) return false;
+  if (f.favoritesOnly && !item.favorite) return false;
+  return true;
+}
+
+/** Distinct exercise ids of the newest `sessionCount` sessions, most recent first. Pass completed sessions, newest first. */
+export function recentExerciseIds(
+  sessions: readonly { exercises: readonly { exerciseId: string }[] }[],
+  sessionCount = 5,
+): string[] {
+  const ids = new Set<string>();
+  for (const s of sessions.slice(0, sessionCount)) for (const e of s.exercises) ids.add(e.exerciseId);
+  return [...ids];
+}
+
+/** Empty-query ordering: favorites, then recents, then the rest. Input order (A–Z) is kept within each group. */
+export function groupForPicker<T extends SearchableExercise & { id: string }>(
+  items: readonly T[],
+  recentIds: readonly string[],
+): { favorites: T[]; recent: T[]; all: T[] } {
+  const recentSet = new Set(recentIds);
+  const favorites = items.filter((e) => e.favorite);
+  const recent = items.filter((e) => !e.favorite && recentSet.has(e.id));
+  const all = items.filter((e) => !e.favorite && !recentSet.has(e.id));
+  return { favorites, recent, all };
+}
+
 /**
  * Offline search over names and aliases. Results are ranked exact > name prefix > word prefix >
  * substring, then by name. An empty query returns everything, sorted by name.
@@ -47,7 +96,7 @@ const compareText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 export function searchExercises<T extends SearchableExercise>(
   query: string,
   exercises: readonly T[],
-  { limit, includeArchived = false }: SearchOptions = {},
+  { limit, includeArchived = false, filters = {} }: SearchOptions = {},
 ): T[] {
   const q = normalizeName(query);
   const tokens = q === "" ? [] : q.split(" ");
@@ -55,6 +104,7 @@ export function searchExercises<T extends SearchableExercise>(
 
   for (const item of exercises) {
     if (!includeArchived && item.archivedAt !== undefined) continue;
+    if (!matchesFilters(item, filters)) continue;
     const name = normalizeName(item.name);
     if (q === "") {
       hits.push({ item, name, rank: EXACT });

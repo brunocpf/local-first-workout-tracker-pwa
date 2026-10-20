@@ -122,3 +122,36 @@ describe("searchExercises performance", () => {
     expect(elapsed).toBeLessThan(100);
   });
 });
+
+describe("searchExercises filters", () => {
+  const full = (name: string, o: Partial<SearchableExercise> = {}): SearchableExercise => ({
+    name,
+    aliases: [],
+    primaryMuscles: [],
+    secondaryMuscles: [],
+    equipment: [],
+    exerciseType: "weighted_reps",
+    ...o,
+  });
+  const items = [
+    full("Bench Press", { primaryMuscles: ["chest"], secondaryMuscles: ["triceps"], equipment: ["barbell"], favorite: true }),
+    full("Dumbbell Bench Press", { primaryMuscles: ["chest"], equipment: ["dumbbell"] }),
+    full("Push-Up", { primaryMuscles: ["chest"], equipment: ["bodyweight"], exerciseType: "bodyweight_reps" }),
+    full("Triceps Pushdown", { primaryMuscles: ["triceps"], equipment: ["cable"] }),
+  ];
+
+  it("filters by muscle (primary or secondary), equipment, type and favorites", () => {
+    expect(names(searchExercises("", items, { filters: { muscle: "triceps" } }))).toEqual(["Bench Press", "Triceps Pushdown"]);
+    expect(names(searchExercises("", items, { filters: { equipment: "dumbbell" } }))).toEqual(["Dumbbell Bench Press"]);
+    expect(names(searchExercises("", items, { filters: { exerciseType: "bodyweight_reps" } }))).toEqual(["Push-Up"]);
+    expect(names(searchExercises("", items, { filters: { favoritesOnly: true } }))).toEqual(["Bench Press"]);
+  });
+  it("combines filters with each other and with the query", () => {
+    expect(names(searchExercises("bench", items, { filters: { equipment: "barbell" } }))).toEqual(["Bench Press"]);
+    expect(names(searchExercises("push", items, { filters: { muscle: "chest" } }))).toEqual(["Push-Up"]);
+    expect(searchExercises("bench", items, { filters: { muscle: "chest", equipment: "cable" } })).toEqual([]);
+  });
+  it("treats empty filter values as no filter", () => {
+    expect(searchExercises("", items, { filters: { muscle: "", favoritesOnly: false } })).toHaveLength(4);
+  });
+});

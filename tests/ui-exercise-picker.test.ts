@@ -45,7 +45,7 @@ beforeAll(() => {
   };
 });
 
-const rowButtons = () => screen.getAllByRole("list", { name: "Exercises" })[0].querySelectorAll<HTMLButtonElement>("button");
+const rowButtons = () => document.querySelectorAll<HTMLButtonElement>("ul[aria-label] button");
 
 describe("ExercisePicker", () => {
   let onpick: Mock<(exercises: Exercise[]) => void>;
