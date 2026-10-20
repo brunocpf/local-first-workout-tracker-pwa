@@ -1,5 +1,12 @@
-// Logical domain model; see docs/data-model.md. Timestamps are ISO 8601, weights in kg.
-export type ExerciseType = "weighted_reps" | "bodyweight_reps" | "duration" | "distance";
+// Logical domain model; see docs/data-model.md. Timestamps are ISO 8601 UTC instants
+// (always `toISOString()`), weights are kg numbers, IDs come from `newId()` (#lib/ids).
+export type ExerciseType =
+  | "weighted_reps"
+  | "bodyweight_reps"
+  | "weighted_bodyweight" // logged weight is ADDED load (weighted pull-up)
+  | "assisted_bodyweight" // logged weight is ASSISTANCE (assisted pull-up machine)
+  | "duration"
+  | "distance";
 export type SetType = "normal" | "warmup" | "drop" | "failure";
 
 export type Exercise = {
@@ -11,6 +18,9 @@ export type Exercise = {
   equipment: string[];
   movementPattern?: string;
   exerciseType: ExerciseType;
+  /** Reps are logged per side and never doubled. */
+  isUnilateral?: boolean;
+  favorite?: boolean;
   instructions?: string;
   formCues?: string[];
   media?: { type: "image" | "video" | "gif" | "external_link"; url: string; attribution?: string; license?: string }[];
@@ -35,7 +45,6 @@ export type PrescribedSet = {
 export type RoutineExercise = {
   id: string;
   exerciseId: string;
-  order: number;
   prescribedSets: PrescribedSet[];
   restSeconds?: number;
   notes?: string;
@@ -45,6 +54,8 @@ export type RoutineExercise = {
 export type Routine = {
   id: string;
   programId?: string;
+  /** A routine belongs to at most one program. Program membership is stored only here. */
+  programOrder?: number;
   name: string;
   description?: string;
   exercises: RoutineExercise[];
@@ -60,7 +71,6 @@ export type Program = {
   goal?: string;
   experienceLevel?: string;
   daysPerWeek?: number;
-  routineIds: string[];
   schedule?: { type: "weekly"; days: { day: string; routineId: string }[] };
   source?: { name?: string; url?: string; attribution?: string };
   schemaVersion: number;
@@ -68,7 +78,8 @@ export type Program = {
   updatedAt: string;
 };
 
-export type CompletedSet = {
+/** A set row in a session. Completed <=> `completedAt` is present. */
+export type LoggedSet = {
   id: string;
   prescribedSetId?: string;
   type: SetType;
@@ -78,31 +89,61 @@ export type CompletedSet = {
   distance?: number;
   rpe?: number;
   rir?: number;
-  completed: boolean;
   completedAt?: string;
   notes?: string;
 };
 
+/** Self-describing: a copy of the prescription and names at session time, never a live reference. */
 export type SessionExercise = {
   id: string;
   exerciseId: string;
   exerciseNameSnapshot: string;
-  order: number;
+  exerciseTypeSnapshot: ExerciseType;
+  prescribedSets?: PrescribedSet[];
+  restSeconds?: number;
+  supersetGroupId?: string;
   notes?: string;
-  sets: CompletedSet[];
+  sets: LoggedSet[];
+};
+
+export type RestTimer = {
+  /** ISO instant the timer finishes (authoritative while running). */
+  endsAt: string;
+  durationSeconds: number;
+  /** Present only while paused; `endsAt` is stale then. */
+  pausedRemainingMs?: number;
 };
 
 export type WorkoutSession = {
   id: string;
+  /** References for navigation only; history never depends on them still existing. */
   routineId?: string;
   programId?: string;
-  routineSnapshot?: Routine;
+  routineNameSnapshot?: string;
   name: string;
-  status: "active" | "completed" | "abandoned";
+  /** "Discard" deletes an active session; there is no "abandoned" status. */
+  status: "active" | "completed";
   startedAt: string;
   endedAt?: string;
+  /** IANA zone (Intl) the session was performed in; used for local day/week grouping. */
+  timeZone: string;
   notes?: string;
   exercises: SessionExercise[];
+  /** Denormalized for the multi-entry index; maintained by `saveSession`, never write by hand. */
+  exerciseIds: string[];
+  restTimer?: RestTimer;
   createdAt: string;
   updatedAt: string;
+};
+
+export type WeightUnit = "kg" | "lb";
+
+export type UserSettings = {
+  weightUnit: WeightUnit;
+  defaultRestSeconds: number;
+  autoStartRestTimer: boolean;
+  previousValuesMode: "exercise" | "routine";
+  /** 0 = Sunday, 1 = Monday, ... 6 = Saturday. */
+  weekStartsOn: 0 | 1 | 6;
+  theme: "system" | "light" | "dark";
 };
