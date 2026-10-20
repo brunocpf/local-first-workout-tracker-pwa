@@ -4,6 +4,7 @@
   import { resolve } from "$app/paths";
   import InstallHint from "#lib/components/InstallHint.svelte";
   import BackupSection from "#lib/components/settings/BackupSection.svelte";
+  import NotificationsSection from "#lib/components/settings/NotificationsSection.svelte";
   import Banner from "#lib/components/ui/Banner.svelte";
   import Button from "#lib/components/ui/Button.svelte";
   import Card from "#lib/components/ui/Card.svelte";
@@ -13,11 +14,13 @@
   import SegmentedControl from "#lib/components/ui/SegmentedControl.svelte";
   import Switch from "#lib/components/ui/Switch.svelte";
   import { formatBytes } from "#lib/diagnostics";
+  import { isPushConfigured } from "#lib/push";
   import { isStandalone } from "#lib/pwa/install";
   import { settings, updateSettings } from "#lib/settings.svelte";
   import { getPersistenceStatus, requestPersistentStorage, type PersistenceStatus } from "#lib/storage/persistence";
   import type { UserSettings } from "#lib/types";
 
+  const pushConfigured = isPushConfigured();
   let standalone = $state(false);
   let persistence = $state<PersistenceStatus>();
   let requesting = $state(false);
@@ -86,6 +89,12 @@
       />
     </div>
   </Card>
+
+  {#if pushConfigured}
+    <Card as="section" header={notifications}>
+      <NotificationsSection />
+    </Card>
+  {/if}
 
   <Card as="section" header={appearance}>
     <SegmentedControl
@@ -169,6 +178,7 @@
 
 {#snippet units()}Units{/snippet}
 {#snippet workout()}Workout{/snippet}
+{#snippet notifications()}Notifications{/snippet}
 {#snippet appearance()}Appearance{/snippet}
 {#snippet calendar()}Calendar{/snippet}
 {#snippet backup()}Backup{/snippet}

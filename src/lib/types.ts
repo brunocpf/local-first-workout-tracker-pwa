@@ -144,6 +144,8 @@ export type UserSettings = {
   autoStartRestTimer: boolean;
   /** Beep when a rest timer finishes (only while the app is open). */
   timerSound?: boolean;
+  /** Opt-in background rest-timer notifications via the push relay (ADR 0014). The subscription itself is never stored here. */
+  restNotifications?: boolean;
   previousValuesMode: "exercise" | "routine";
   /** 0 = Sunday, 1 = Monday, ... 6 = Saturday. */
   weekStartsOn: 0 | 1 | 6;

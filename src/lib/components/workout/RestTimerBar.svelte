@@ -1,7 +1,7 @@
 <script lang="ts">
   // Rest-timer bar (design.md §7.3). State is `session.restTimer` (a stored end instant, ADR 0004); this
   // component only re-reads it on a render tick and on `visibilitychange`, and writes changes through `active`.
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import { playRestDoneAlert, prepareAlerts } from "#lib/alerts";
   import Banner from "#lib/components/ui/Banner.svelte";
   import Button from "#lib/components/ui/Button.svelte";
@@ -17,6 +17,8 @@
     resumeRestTimer,
     startRestTimer,
   } from "#lib/restTimer";
+  import { cancelPush, hasSubscription, pushPlan, pushSupport, schedulePush, FOREGROUND_CANCEL_MS } from "#lib/push";
+  import { isStandalone } from "#lib/pwa/install";
   import { settings } from "#lib/settings.svelte";
   import type { RestTimer } from "#lib/types";
 
@@ -29,6 +31,8 @@
   let now = $state(Date.now());
   let noteSeen = $state(true);
   let bar = $state<HTMLElement>();
+  let visible = $state(true);
+  let standalone = $state(true);
 
   const timer = $derived(active.session?.restTimer);
   const paused = $derived(timer ? isPaused(timer) : false);
@@ -44,9 +48,47 @@
     } catch {
       noteSeen = false;
     }
-    const refresh = () => (now = Date.now());
+    standalone = isStandalone();
+    visible = document.visibilityState === "visible";
+    const refresh = () => {
+      now = Date.now();
+      visible = document.visibilityState === "visible";
+    };
     document.addEventListener("visibilitychange", refresh);
     return () => document.removeEventListener("visibilitychange", refresh);
+  });
+
+  // Background notification (ADR 0014): keep the relay's single scheduled push in step with the timer.
+  const pushOn = $derived(settings.restNotifications === true && pushSupport() === "ready" && hasSubscription());
+  /** iOS delivers notifications only to the Home Screen app: say so beside the timer (not dismissible) until installed. */
+  const showInstallHint = $derived(!standalone && pushSupport() === "needs-install");
+  let pushed: string | undefined;
+  $effect(() => {
+    if (!pushOn) return;
+    const t = timer ? $state.snapshot(timer) : undefined;
+    const plan = pushPlan(t, visible);
+    const key = plan === "schedule" ? t!.endsAt : undefined;
+    if (key !== pushed) {
+      pushed = key;
+      if (key) void schedulePush(key);
+      else void cancelPush();
+    }
+    // Re-evaluate shortly before the end, while the page is still visible.
+    if (!t || plan !== "schedule" || !visible) return;
+    const id = setTimeout(() => cancelIfForeground(t), Math.max(0, Date.parse(t.endsAt) - Date.now() - FOREGROUND_CANCEL_MS));
+    return () => clearTimeout(id);
+  });
+
+  function cancelIfForeground(t: RestTimer) {
+    if (pushed === t.endsAt && pushPlan(t, document.visibilityState === "visible") === "cancel") {
+      pushed = undefined;
+      void cancelPush();
+    }
+  }
+
+  // Finished or discarded workout: nothing left to notify about (a timer still stored in the session keeps its push).
+  onDestroy(() => {
+    if (pushed && !active.session?.restTimer) void cancelPush();
   });
 
   // Render ticks only while a timer is actually counting down; the value shown is always derived from `endsAt`.
@@ -130,12 +172,25 @@
   }
 </script>
 
-{#if timer && !noteSeen}
+{#if timer && (!noteSeen || showInstallHint)}
   <div class="note">
-    <Banner variant="info" action={{ label: "Got it", onclick: dismissNote }}>
-      Rest alerts only work while the app is open. With the screen locked or the app in the background, you'll see the
-      result when you come back.
-    </Banner>
+    {#if !noteSeen}
+      <Banner variant="info" action={{ label: "Got it", onclick: dismissNote }}>
+        {#if pushOn}
+          With rest notifications on, you'll also get a notification when the rest ends with the screen locked or the app in
+          the background.
+        {:else}
+          Rest alerts only work while the app is open. With the screen locked or the app in the background, you'll see the
+          result when you come back.
+        {/if}
+      </Banner>
+    {/if}
+    {#if showInstallHint}
+      <p class="install-hint" data-testid="rest-install-hint">
+        For a notification with the screen locked, add this app to the Home Screen (Share, then Add to Home Screen) and turn
+        on rest notifications in Settings.
+      </p>
+    {/if}
   </div>
 {/if}
 
@@ -183,6 +238,17 @@
     inset-block-end: calc(var(--sticky-bottom-h, 0px));
     z-index: var(--z-sticky);
     padding-block-end: var(--space-2);
+  }
+  .install-hint {
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-2);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+  .note > :global(* + *) {
+    margin-block-start: var(--space-2);
   }
   .bar {
     position: sticky;
