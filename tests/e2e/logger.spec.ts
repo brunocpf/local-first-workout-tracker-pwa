@@ -28,11 +28,15 @@ test("start → reload → resume → discard", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Start workout" }).click();
   await expect(page).toHaveURL(/\/workout$/);
-  await expect(page.getByRole("button", { name: "Finish" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Finish", exact: true }),
+  ).toBeVisible();
 
   await page.reload();
   await expect(page).toHaveURL(/\/workout$/);
-  await expect(page.getByRole("button", { name: "Finish" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Finish", exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("link", { name: "Home" }).click();
   await expect(page.getByText("Workout in progress")).toBeVisible();
@@ -71,7 +75,9 @@ test("a second tab adopts the active session instead of creating another", async
   // session on load and shows "Resume workout"; which one depends on timing, and both must end up on a's session.
   await b.getByRole("button", { name: /^(Start|Resume) workout$/ }).click();
   await expect(b).toHaveURL(/\/workout$/);
-  await expect(b.getByRole("button", { name: "Finish" })).toBeVisible();
+  await expect(
+    b.getByRole("button", { name: "Finish", exact: true }),
+  ).toBeVisible();
   expect(
     (await storedSessions(b)).filter((x) => x.status === "active"),
   ).toHaveLength(1);
@@ -174,7 +180,11 @@ test("log a set, finish; next workout prefills it and completes in one tap; surv
   await expect(
     page.getByRole("button", { name: "Set 1 completed, undo" }),
   ).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Finish" }).click();
+  await page.getByRole("button", { name: "Finish", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Workout complete" })
+    .getByRole("button", { name: "Done" })
+    .click();
   await expect(page).toHaveURL(/\/history$/);
 
   await page.goto("/");
@@ -343,4 +353,40 @@ test("rest timer alerts exactly once when it finishes while open", async ({
       () => (window as unknown as { vibrations: number }).vibrations,
     ),
   ).toBe(1);
+});
+
+test("finish warns about incomplete sets, shows a summary and lands in History", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Start workout" }).click();
+  await addExercise(page, "barbell bench press", /Barbell Bench Press/);
+  await page.getByLabel("Set 1 weight, kg").fill("50");
+  await page.getByLabel("Set 1 reps").fill("10");
+  await page.getByRole("button", { name: "Complete set 1" }).click();
+  await page.getByRole("button", { name: "Add set" }).click();
+
+  await page.getByRole("button", { name: "Finish", exact: true }).click();
+  const confirmation = page.getByRole("dialog", {
+    name: "Finish with incomplete sets?",
+  });
+  await expect(confirmation).toContainText("1 set isn't completed");
+  await confirmation.getByRole("button", { name: "Cancel" }).click();
+  await expect(page).toHaveURL(/\/workout$/);
+  expect((await storedSessions(page)).some((s) => s.status === "active")).toBe(
+    true,
+  );
+
+  await page.getByRole("button", { name: "Finish", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Finish with incomplete sets?" })
+    .getByRole("button", { name: "Finish workout" })
+    .click();
+  const summary = page.getByRole("dialog", { name: "Workout complete" });
+  await expect(summary).toContainText("500 kg");
+  await summary.getByRole("button", { name: "Done" }).click();
+  await expect(page).toHaveURL(/\/history$/);
+  expect(
+    (await storedSessions(page)).filter((s) => s.status === "completed"),
+  ).toHaveLength(1);
 });

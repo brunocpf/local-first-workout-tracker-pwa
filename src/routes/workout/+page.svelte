@@ -31,7 +31,9 @@
   } from "#lib/logger/workout";
   import { loadPreviousSets, type SetValues } from "#lib/logger/previousValues";
   import { settings } from "#lib/settings.svelte";
-  import type { Exercise, LoggedSet, SessionExercise } from "#lib/types";
+  import { requestPersistentStorage } from "#lib/storage/persistence";
+  import WorkoutSummary from "#lib/components/workout/WorkoutSummary.svelte";
+  import type { Exercise, LoggedSet, SessionExercise, WorkoutSession } from "#lib/types";
 
   let pickerOpen = $state(false);
 
@@ -197,15 +199,37 @@
     await goto(resolve("/"), { replaceState: true });
   }
 
+  let summary = $state<WorkoutSession>();
+  let finishing = false;
+
   async function finish() {
+    const s = active.session;
+    if (!s || finishing) return;
+    const incomplete = s.exercises.reduce((n, e) => n + e.sets.filter((x) => !x.completedAt).length, 0);
+    if (incomplete > 0) {
+      const ok = await confirm({
+        title: "Finish with incomplete sets?",
+        body: `${incomplete} set${incomplete === 1 ? " isn't" : "s aren't"} completed. ${incomplete === 1 ? "It" : "They"} will be kept but not counted in your totals or progress.`,
+        confirmLabel: "Finish workout",
+      });
+      if (!ok) return;
+    }
+    finishing = true;
     leaving = true;
     try {
-      await active.finish();
+      summary = await active.finish();
     } catch {
       leaving = false;
       toast("Couldn't finish the workout");
       return;
+    } finally {
+      finishing = false;
     }
+    void requestPersistentStorage(); // once the first workout is saved; the browser remembers a grant
+  }
+
+  async function done() {
+    summary = undefined;
     await goto(resolve("/history"), { replaceState: true });
   }
 </script>
@@ -249,6 +273,9 @@
   </div>
   <RestTimerBar />
   <ExercisePicker bind:open={pickerOpen} multiple onpick={addPicked} />
+{/if}
+{#if summary}
+  <WorkoutSummary session={summary} unit={settings.weightUnit} ondone={done} />
 {/if}
 
 <style>
