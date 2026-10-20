@@ -145,7 +145,11 @@ Theme-color values (not CSS tokens; used in `<meta name="theme-color">`, §4): l
 | `--color-border-strong` on `--color-surface-1` | 4.07:1 | 4.38:1 | 3:1 |
 | `--color-border-strong` on `--color-surface-2` | 3.45:1 | 3.88:1 | 3:1 |
 | `--color-border-strong` on `--color-surface-3` (toast edge) | 3.09:1 | 3.30:1 | 3:1 |
-| `--color-border-strong` on `--color-success-subtle` (inputs in a completed set row) | 3.71:1 | 3.66:1 | 3:1 |
+| `--color-border-strong` on `--color-success-subtle` (inputs in a completed set row, success banner action) | 3.71:1 | 3.66:1 | 3:1 |
+| `--color-border-strong` on `--color-accent-subtle` (selected row, accent badge) | 3.34:1 | 3.61:1 | 3:1 |
+| `--color-border-strong` on `--color-warning-subtle` (warning banner action) | 3.66:1 | 3.58:1 | 3:1 |
+| `--color-border-strong` on `--color-danger-subtle` (danger banner action) | 3.33:1 | 3.96:1 | 3:1 |
+| `--color-border-strong` on `--color-info-subtle` (info banner action) | 3.55:1 | 3.41:1 | 3:1 |
 | `--color-accent` on `--color-bg` | 6.10:1 | 7.73:1 | 3:1 |
 | `--color-accent` on `--color-surface-1` | 6.70:1 | 7.03:1 | 3:1 |
 | `--color-accent` on `--color-surface-2` | 5.68:1 | 6.22:1 | 3:1 |
@@ -306,7 +310,7 @@ Every page's content is centered at `max-inline-size: var(--content-max)` (42rem
 
 ### 5.3 Safe areas
 
-- `viewport-fit=cover`. The shell exposes `--safe-top/right/bottom/left: env(safe-area-inset-*, 0px)`.
+- `viewport-fit=cover`. `--safe-top/right/bottom/left: env(safe-area-inset-*, 0px)` are defined on `:root` in `src/app.css`, next to `--shell-bottom` (§5.1), which uses them.
 - The PageHeader adds `--safe-top` to its top padding. The shell adds `--safe-left/right` to the gutters (landscape notch). The bottom-most fixed or sticky element (tab bar, rest-timer bar, sticky action area, bottom sheet) adds `--safe-bottom`. Nothing else uses the insets.
 
 ### 5.4 Sticky areas
@@ -456,7 +460,7 @@ Native `<select>` with `appearance: none`, the same box as TextField, and a `che
 
 ### 6.10 ConfirmDialog
 
-`confirm({ title, body, confirmLabel, cancelLabel = 'Cancel', danger = false }) → Promise<boolean>`, with one host mounted in `+layout.svelte`. It is a Dialog with `dismissible` (Esc/backdrop resolve `false`). `confirmLabel` is a specific verb phrase ("Discard workout", "Delete session", "Replace all data"), never "OK" or "Yes". `danger` → confirm uses the `danger` variant and **initial focus goes to Cancel**. Otherwise initial focus is on the confirm button. The body says exactly what is lost or replaced, with counts ("12 completed sets will be deleted.").
+`confirm({ title, body, confirmLabel, cancelLabel = 'Cancel', danger = false, secondaryAction? }) → Promise<boolean>`, with one host mounted in `+layout.svelte`. `secondaryAction?: { label: string; run: () => void | Promise<void> }` renders a ghost Button at the start of the actions row (on its own line below 24em). It runs **without closing** the dialog (it shows `loading` while a promise is pending), so the user can still confirm or cancel afterwards. It is used only for "Export a backup first" on restore. It is a Dialog with `dismissible` (Esc/backdrop resolve `false`). `confirmLabel` is a specific verb phrase ("Discard workout", "Delete session", "Replace all data"), never "OK" or "Yes". `danger` → confirm uses the `danger` variant and **initial focus goes to Cancel**. Otherwise initial focus is on the confirm button. The body says exactly what is lost or replaced, with counts ("12 completed sets will be deleted.").
 
 ### 6.11 Sheet
 
@@ -560,7 +564,8 @@ The wireframes are drawn at **320 px** (≈ 34 columns). `[ … ]` = Button, `(�
 │ Recent                           │ h2
 │ ┌──────────────────────────────┐ │ ListRow links → /history/:id
 │ │ Push A                     › │ │  subtitle: date · duration · sets
-│ │ Wed 14 Oct · 58 min · 18 sets│ │  (last 3)
+│ │ Wed 14 Oct · 58 mins ·       │ │  (last 3); the subtitle wraps
+│ │ 18 sets                      │ │
 │ └──────────────────────────────┘ │
 ├──────────────────────────────────┤
 │  ⌂     ☰      ⟲      🏋     📈   │ Tab bar (Home current)
@@ -764,17 +769,19 @@ Width check at 320 px with 200% text (1em = 32 px): the gutter is 24 px (the `cl
 ├──────────────────────────────────┤   │    14 Oct 2026, 18:05            │
 │ October 2026                     │   ├──────────────────────────────────┤
 │ ┌──────────────────────────────┐ │   │ ┌────────┬────────┬────────────┐ │
-│ │ Push A                     › │ │   │ │ 58 min │18 sets │ 7,420 kg   │ │
-│ │ Wed 14 Oct · 58 min · 18 sets│ │   │ │Duration│  Sets  │ Volume     │ │
-│ ├──────────────────────────────┤ │   │ └────────┴────────┴────────────┘ │
-│ │ Pull A                     › │ │   │ Bench Press                      │
-│ │ Mon 12 Oct · 1 hr 4 min · 16 │ │   │ ┌──────────────────────────────┐ │
-│ └──────────────────────────────┘ │   │ │ SET    KG     REPS           │ │
-│ September 2026                   │   │ │  W     40     10             │ │
-│ …                                │   │ │  1     80     8     [★ PR]   │ │
-│ [        Load more          ]    │   │ │  2     80     8              │ │
-├──────────────────────────────────┤   │ └──────────────────────────────┘ │
-│ tab bar (History current)        │   │ Notes: …                         │
+│ │ Push A                     › │ │   │ │ 58 mins│18 sets │ 7,420 kg   │ │
+│ │ Wed 14 Oct · 58 mins ·       │ │   │ │Duration│  Sets  │ Volume     │ │
+│ │ 18 sets                      │ │   │ └────────┴────────┴────────────┘ │
+│ ├──────────────────────────────┤ │   │ Bench Press                      │
+│ │ Pull A                     › │ │   │ ┌──────────────────────────────┐ │
+│ │ Mon 12 Oct · 1 hr 4 mins ·   │ │   │ │ SET    KG     REPS           │ │
+│ │ 16 sets                      │ │   │ │  W     40     10             │ │
+│ └──────────────────────────────┘ │   │ │  1     80     8     [★ PR]   │ │
+│ September 2026                   │   │ │  2     80     8              │ │
+│ …                                │   │ │  3     80     7              │ │
+│ [        Load more          ]    │   │ └──────────────────────────────┘ │
+├──────────────────────────────────┤   │ Notes: …                         │
+│ tab bar (History current)        │   │                                  │
 └──────────────────────────────────┘   └──────────────────────────────────┘
 ```
 - **List:** grouped by month in the session's time zone (`h2`, `--text-sm` semibold muted). ListRow links. Pages of 30 with a secondary "Load more" Button (bounded queries, [PRD §21](PRD.md)). The header action "Log" (secondary sm, `plus`) logs a past workout (Dialog: date + time fields, then the logger). Empty: EmptyState (`history`, "No workouts yet", "Finished workouts show up here.", primary "Start workout").
@@ -812,9 +819,9 @@ Width check at 320 px with 200% text (1em = 32 px): the gutter is 24 px (the `cl
 │ │ Last backup: 3 Oct · 12 KB   │ │  static row; warning Badge if overdue
 │ │ [Export backup] [Restore…]   │ │  secondary Buttons
 │ ├──────────────────────────────┤ │
-│ │ Remind after     [14 days ▾] │ │  Select (7, 14, 30, 60 days)
+│ │ Remind after     [14 days ▾] │ │  Select (7, 14, 21, 30, 60 days)
 │ ├──────────────────────────────┤ │
-│ │ …or after     [10 workouts ▾]│ │  Select (5, 10, 20, 50 workouts)
+│ │ …or after     [10 workouts ▾]│ │  Select (5, 10, 15, 20, 30 workouts)
 │ ├──────────────────────────────┤ │
 │ │ Storage      [✓ Persistent]  │ │  Badge + explanation text when
 │ └──────────────────────────────┘ │   not persistent (Banner warning)
@@ -824,7 +831,7 @@ Width check at 320 px with 200% text (1em = 32 px): the gutter is 24 px (the `cl
 ```
 - Every change applies immediately with no Save button. Units and theme update the whole app at once.
 - Backup reminder ([backup-restore.md](backup-restore.md)): a Banner appears when the last backup is older than N days **or** more than N workouts ago, whichever comes first. Defaults are 14 days and 10 workouts, and both are configurable. There is no "off" option because the PRD doesn't define one.
-- Restore → file pick → validate → ConfirmDialog `danger` ("Replace all data?", lists the counts in the file vs on this device and the latest session date, offers "Export a backup first" as a secondary action, confirm "Replace all data"). A validation failure → Banner danger, nothing changed. Export success → Toast "Backup saved · 12 KB" ([PRD §13](PRD.md)).
+- Restore → file pick → validate → ConfirmDialog `danger` ("Replace all data?", lists the counts in the file vs on this device and the latest session date, `secondaryAction` "Export a backup first" ([backup-restore.md](backup-restore.md)), confirm "Replace all data"). A validation failure → Banner danger, nothing changed. Export success → Toast "Backup saved · 12 KB" ([PRD §13](PRD.md)).
 - At 320 px: rows whose control can't fit next to the title (Theme, the backup buttons) stack the control below the title (ListRow container rule, §5.6).
 
 ### 7.9 Progress (`/progress`)
@@ -884,7 +891,7 @@ All formatting goes through `Intl` with the user's locale (`navigator.language`)
 | Volume | grouped integer in display unit | `7,420 kg` |
 | Reps, sets, counts | integers; plural via `Intl.PluralRules` | `1 set`, `18 sets` |
 | Rest / timer | `m:ss`; `h:mm:ss` from 1 h; tabular | `1:30`, `1:02:13` |
-| Duration (summary) | hours and minutes joined with a space, each from `Intl.NumberFormat(locale, { style: 'unit', unit: 'hour' \| 'minute', unitDisplay: 'short' })`; no `Intl.DurationFormat` | `1 hr 58 mins` / `1 hr 58 min`; `58 min` |
+| Duration (summary) | hours and minutes joined with a space, each from `Intl.NumberFormat(locale, { style: 'unit', unit: 'hour' \| 'minute', unitDisplay: 'short' })`; no `Intl.DurationFormat` | `1 hr 58 mins` / `1 hr 58 min`; `58 mins` / `58 min` |
 | Date (list) | `Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: session.timeZone })`; add `year` when not the current year | `Wed 14 Oct` / `Wed, Oct 14` |
 | Date + time (detail) | `dateStyle: 'medium', timeStyle: 'short'`, session `timeZone`; locale picks the 12/24 h clock | `14 Oct 2026, 18:05` / `Oct 14, 2026, 6:05 PM` |
 | Relative (Home) | "Today" / "Yesterday" via `Intl.RelativeTimeFormat(locale, { numeric: 'auto' })` computed on the session's local day; older → the list date | `today`, `yesterday` (capitalize the first letter for display) |
