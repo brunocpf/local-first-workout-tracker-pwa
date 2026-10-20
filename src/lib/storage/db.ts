@@ -1,20 +1,28 @@
 import Dexie, { type EntityTable } from "dexie";
-import type { Exercise, Program, Routine, WorkoutSession } from "#lib/types";
+import type { Exercise, Program, Routine, UserSettings, WorkoutSession } from "#lib/types";
+
+export const SETTINGS_KEY = "settings";
+export type StoredSettings = UserSettings & { key: typeof SETTINGS_KEY };
 
 export class AppDB extends Dexie {
   exercises!: EntityTable<Exercise, "id">;
   programs!: EntityTable<Program, "id">;
   routines!: EntityTable<Routine, "id">;
   sessions!: EntityTable<WorkoutSession, "id">;
+  settings!: EntityTable<StoredSettings, "key">;
 
   constructor(name = "app") {
     super(name);
-    // Explicit versions only; never drop user data. See docs/data-model.md.
+    // Changing version(1) in place was fine only because no user data existed yet.
+    // From now on NEVER edit a shipped version: add `this.version(n + 1).stores({ ...changed tables })`
+    // (+ `.upgrade(tx => ...)` to transform existing rows), never drop data, and add a fixture test
+    // in tests/migrations.test.ts. See docs/data-model.md "Migrations".
     this.version(1).stores({
       exercises: "id, name, *aliases, isCustom, archivedAt",
       programs: "id, name",
       routines: "id, programId, folderId",
-      sessions: "id, status, startedAt, routineId",
+      sessions: "id, status, startedAt, routineId, [status+startedAt], *exerciseIds",
+      settings: "key",
     });
   }
 }

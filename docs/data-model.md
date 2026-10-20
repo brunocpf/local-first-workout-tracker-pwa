@@ -1,20 +1,109 @@
 # Data model
 
-Types live in `src/types.ts` (logical model from PRD §15).
+Types live in `src/lib/types.ts` (logical model from PRD §15). Storage is Dexie/IndexedDB (`src/lib/storage/`), which is the source of truth.
+
+## Entities
+
+- **Exercise**: catalog entry. `exerciseType`, `isUnilateral?`, `favorite?`. Archived, never deleted, once used.
+- **Program** → **Routine** → **RoutineExercise** → **PrescribedSet**: templates. Program membership is stored **only** on the routine (`Routine.programId` + `programOrder`); a routine belongs to at most one program. A program's routines are queried via the `routines.programId` index and sorted by `programOrder`. Array order is the order of exercises and sets (no `order` fields).
+- **WorkoutSession** → **SessionExercise** → **LoggedSet**: history and the active workout. Self-describing (see below).
+- **UserSettings**: single row in the `settings` table (key `"settings"`), merged over `DEFAULT_SETTINGS` on read.
 
 ## Conventions
 
-- IDs: stable strings (never names as foreign keys).
-- Timestamps: ISO 8601.
-- Weight unit: **kg internally**; display unit is a setting.
-- Raw sets are stored; aggregates are computed.
-- Sessions snapshot `exerciseNameSnapshot` and `routineSnapshot`; editing routines/exercises never rewrites history.
+- IDs: random UUIDs from `newId()` (`src/lib/ids.ts`, `crypto.randomUUID()`, needs a secure context). Never names as foreign keys.
+- Timestamps: ISO 8601 **UTC instants** written with `toISOString()` (`...Z`), so string order equals time order and Dexie indexes sort correctly. Imports must normalize to this form.
+- Weights: **kg numbers, full precision**. Display unit is a setting (`weightUnit`).
+- Raw sets are stored; aggregates (volume, e1RM, PRs) are computed and never stored as the only copy.
+- Everything stored is JSON-only (strings, numbers, booleans, arrays, plain objects; no `Date`, `Map`, `undefined`-significant fields).
 - Unknown fields are preserved on import/export upgrades where safe.
+
+### Sessions are self-describing
+
+A session copies, at start (or when an exercise is added mid-workout), everything it needs: `exerciseNameSnapshot`, `exerciseTypeSnapshot`, and per exercise `prescribedSets?`, `restSeconds?`, `supersetGroupId?`, `notes`. `routineId`/`programId` are navigation hints, `routineNameSnapshot` is the display name. History never reads the live routine or exercise, so editing or deleting them never rewrites history. An ad-hoc exercise simply has no `prescribedSets`.
+
+### Set completion
+
+A `LoggedSet` is completed ⇔ `completedAt` is present. Sets without it are planned/in-progress rows: kept as raw data, ignored by every metric.
+
+### Session status and discard
+
+`status` is `active | completed`. **Discard = delete the active session** after UI confirmation (`discardSession`, which refuses non-active sessions so it can never delete history). There is no `abandoned` state: an abandoned workout is either finished (it has real sets) or discarded. Deleting a completed workout from history is a separate, explicit user action.
+
+At most **one active session** exists. `startSession` and `saveSession` check this inside the same IndexedDB `readwrite` transaction as the write, which also serializes against a second tab.
+
+### Rest timer
+
+Stored on the active session: `restTimer?: { endsAt, durationSeconds, pausedRemainingMs? }`. Running: remaining = `max(0, ceil((endsAt − now)/1000))`. Paused: `pausedRemainingMs` is authoritative and `endsAt` is stale; resume sets a new `endsAt = now + pausedRemainingMs`. Helpers: `src/lib/restTimer.ts`. `finishSession` clears it. The UI re-reads the clock; no interval state is persisted.
+
+### Time zones and weeks
+
+`WorkoutSession.timeZone` is an IANA name from `Intl` captured at start. `localDate(session)` (`src/lib/time.ts`) gives the calendar day (`YYYY-MM-DD`) the session started on **in that zone**, so a 22:30 workout in Los Angeles stays on its local day even though UTC rolled over, and travelling doesn't shift old workouts. An unknown zone (from an import) falls back to UTC. Week start is the `weekStartsOn` setting (0 Sun, 1 Mon default, 6 Sat); `localWeekStart(session, weekStartsOn)` returns the week's first day.
+
+### Units
+
+Stored in kg. `lbToKg`/`kgToLb`/`toKg` (`src/lib/units.ts`) convert; user input in lb is converted to kg **without rounding**. `displayWeight(kg, unit)` rounds only for display: **0.1 lb** or **0.05 kg**. 225 lb → 102.0582… kg → shown as 225. Never write a display value back to storage. Rep/duration/distance have no unit conversion yet (distance is metres when added).
+
+### Exercise types and volume
+
+| `exerciseType` | Logged `weight` means | In volume totals |
+|---|---|---|
+| `weighted_reps` | load lifted | yes (`weight × reps`) |
+| `bodyweight_reps` | unused | no (track reps) |
+| `weighted_bodyweight` | **added** load (weighted pull-up) | no, until bodyweight measurements exist |
+| `assisted_bodyweight` | **assistance** (lower = better) | no, until bodyweight measurements exist |
+| `duration` / `distance` | unused | no |
+
+`exerciseVolume(sets, type)` returns 0 for everything but `weighted_reps`. Once bodyweight is recorded, effective load = bodyweight ± logged weight and these can join volume. Their progress is shown with per-exercise best weight/reps (for assisted, *lower* weight is progress; the PR code is `weighted_reps` only for now). `isUnilateral`: reps are per side and never doubled.
 
 ## Metrics definitions
 
-- Set volume = `weight × reps`, completed non-warm-up sets only.
-- Exercise volume = sum of set volumes. Bodyweight/duration exercises are kept separate.
-- Unilateral exercises: reps are per side, not doubled (document any change).
-- Estimated 1RM: Epley `w × (1 + reps/30)`, valid for 1–12 reps; `undefined` outside that range.
-- Rest timer remaining = `max(0, ceil((endsAt − now)/1000))`.
+All computed from raw sets (`src/lib/progress/metrics.ts`); **warm-up sets and sets without `completedAt` are excluded** everywhere.
+
+- Set volume = `weight × reps` (missing values count 0). Drop and failure sets count.
+- Exercise volume = sum of set volumes (`weighted_reps` only, above).
+- Estimated 1RM: Epley `w × (1 + reps/30)`, valid for 1–12 reps; **1 rep returns the weight itself**; `undefined` outside 1–12 or for weight ≤ 0.
+- PRs per exercise (`personalRecords`, input = sets grouped per session):
+  - **Max weight**: heaviest counted set with ≥ 1 rep (any rep count).
+  - **Rep PRs**: best weight for each exact rep count 1–12.
+  - **Best e1RM**: highest Epley value.
+  - **Best session volume**: highest exercise volume in one session.
+
+## Storage (`src/lib/storage/`)
+
+Tables and indexes (Dexie version 1):
+
+- `exercises`: `id, name, *aliases, isCustom, archivedAt`
+- `programs`: `id, name`
+- `routines`: `id, programId, folderId`
+- `sessions`: `id, status, startedAt, routineId, [status+startedAt], *exerciseIds`
+- `settings`: `key`
+
+`WorkoutSession.exerciseIds` is a denormalized, de-duplicated list of the session's exercise IDs for the multi-entry index, so "previous values" and PR queries for one exercise don't scan all sessions. `saveSession` (and `startSession`/`finishSession`) recompute it; never set it by hand. `completedSessionsWithExercise(id, limit?)` returns completed sessions newest first (index lookup, then sorted in memory, since IndexedDB can't compound a multi-entry index).
+
+### Session repository (`sessions.ts`)
+
+`startSession`, `getActiveSession`, `saveSession`, `finishSession`, `discardSession`, `completedSessionsWithExercise`. `saveSession` is an upsert that recomputes `exerciseIds` + `updatedAt` and writes in one transaction. It **deep-copies via JSON before writing**, so it accepts Svelte `$state` proxies directly (IndexedDB's structured clone throws `DataCloneError` on proxies; tested). Anything else written to Dexie from a component (routines, settings) must be plain data: use `$state.snapshot()` or go through a repository function.
+
+### Persistence (`persistence.ts`)
+
+`requestPersistentStorage()` wraps `navigator.storage.persist()/persisted()/estimate()` with feature detection and returns `{ supported, persisted, usageBytes?, quotaBytes? }`; `getPersistenceStatus()` reads without prompting. Browsers differ:
+
+- Chrome/Android: usually granted automatically for installed PWAs and engaged sites; no prompt.
+- Safari/iOS: installed Home Screen apps are exempt from the 7-day script-written-storage eviction; in a normal tab, data can be evicted after 7 days without use. Treat export/backup as the real safety net.
+- Firefox: may show a permission prompt.
+
+Persistence is best-effort: the app must work and warn, not fail, when it is `false`.
+
+### Migrations
+
+Version 1 was edited in place only because no user data existed. From now on:
+
+1. Never edit a shipped `version(n)`. Add `this.version(n+1).stores({ …only changed tables… }).upgrade(tx => …)` after it.
+2. Never drop tables/fields that hold user data; transform in `upgrade`. Make upgrades idempotent and tolerant of missing fields.
+3. Add a fixture test in `tests/migrations.test.ts`: freeze the old `stores()` schema, write representative rows into a uniquely named DB with plain `Dexie`, close, open `AppDB` with the same name, and assert nothing is lost and new indexes work. Use unique DB names and delete them in `afterEach`.
+4. Bump the export `schemaVersion` and keep older exports importable.
+
+## Not yet implemented
+
+Routine → session copying (the "start routine" logger slice), the exercise catalog repository, bodyweight measurements.
