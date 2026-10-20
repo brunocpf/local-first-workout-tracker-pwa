@@ -23,4 +23,6 @@ Rules that follow:
 
 ## Findings from real-device testing
 
+Open `/diagnostics` (link on Home) on the device, then use **Copy report** and paste the output here. It shows standalone mode, service-worker control, share/wake-lock/vibrate/notification support, persistence status, storage estimate and a launch counter (separate `workout-tracker-probe` IndexedDB).
+
 _None yet._ Record date, device, OS/browser version, and observation.

@@ -49,3 +49,20 @@ test("shell renders offline after first load", async ({ page, context }) => {
   await page.goto("/history");
   await expect(page.getByRole("heading", { name: "History" })).toBeVisible();
 });
+
+test("diagnostics page shows launch count that grows per reload, with no console errors", async ({ page }) => {
+  const problems: string[] = [];
+  page.on("console", (m) => m.type() === "error" && problems.push(m.text()));
+  page.on("pageerror", (e) => problems.push(e.message));
+  await page.goto("/");
+  await page.getByRole("link", { name: "Diagnostics" }).click();
+  await expect(page).toHaveURL(/\/diagnostics$/);
+  await expect(page.getByText("Standalone (installed)")).toBeVisible();
+  const count = async () => Number(await page.locator("dt:text-is('Launch count') + dd").textContent());
+  await expect(page.locator("dt:text-is('Launch count') + dd")).not.toHaveText("unavailable");
+  const first = await count();
+  await page.reload();
+  await expect(page.locator("dt:text-is('Launch count') + dd")).not.toHaveText("unavailable");
+  expect(await count()).toBe(first + 1);
+  expect(problems).toEqual([]);
+});
