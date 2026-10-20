@@ -71,6 +71,8 @@ All computed from raw sets (`src/lib/progress/metrics.ts`); **warm-up sets and s
 
 ## Storage (`src/lib/storage/`)
 
+Database name: `workout-tracker` (`DB_NAME`). The app is hosted on GitHub Pages (`brunocpf.github.io/local-first-workout-tracker-pwa/`) and all of a user's project sites share one origin and therefore one IndexedDB namespace, so the name must be app-specific and unique. It must also stay **stable**: renaming it later strands existing data in the old database. Tests use unique per-test names.
+
 Tables and indexes (Dexie version 1):
 
 - `exercises`: `id, name, *aliases, isCustom, archivedAt`

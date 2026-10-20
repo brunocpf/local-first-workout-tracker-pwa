@@ -13,6 +13,7 @@
 - **Time:** ISO 8601 UTC instants plus `timeZone` (IANA) per session; local day = `localDate(session)`; week start is a setting.
 - **Units:** kg numbers internally; lb converted without rounding on input; display rounded to 0.1 lb / 0.05 kg.
 - **Rest timer** is session state `{ endsAt, durationSeconds, pausedRemainingMs? }`, timestamp based.
+- **Database name:** `workout-tracker`, not a generic `app`: GitHub Pages project sites of one user share the origin `brunocpf.github.io` and its IndexedDB namespace. The name must never change, or existing data is stranded.
 - **Migrations:** future schema changes add new Dexie versions with `upgrade`, tested from frozen old-schema fixtures.
 
 **Consequences:** At most the last unflushed keystroke can be lost on a hard kill; completed sets are never at risk. `exerciseIds` must only be written via the repository. `saveSession` pays a JSON copy per write (small). Bodyweight-type exercises are excluded from volume until bodyweight measurements exist.
