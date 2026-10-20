@@ -23,6 +23,7 @@
     onrest,
     unit,
     previousSets = [],
+    prSetIds,
     onaddset,
     onsetchange,
     ontoggleset,
@@ -44,6 +45,8 @@
     unit: WeightUnit;
     /** Sets of this exercise from the last completed session (`loadPreviousSets`). */
     previousSets?: LoggedSet[];
+    /** Ids of this exercise's sets that are new PRs (`prSetIds`); omit where PRs aren't shown. */
+    prSetIds?: ReadonlySet<string>;
     onaddset: () => void;
     /** A typed weight (kg) or reps value; never changes completion. */
     onsetchange: (setId: string, patch: SetPatch) => void;
@@ -148,6 +151,7 @@
             previous={previous[i]}
             prescribed={prescribed(set)}
             prefill={prefillFor(set, previous[i], prescribed(set))}
+            pr={prSetIds?.has(set.id) ?? false}
             onweight={(weight) => onsetchange(set.id, { weight })}
             onreps={(reps) => onsetchange(set.id, { reps })}
             ontoggle={() => ontoggleset(set.id, prefillFor(set, previous[i], prescribed(set)))}

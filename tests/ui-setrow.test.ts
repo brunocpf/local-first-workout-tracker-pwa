@@ -52,6 +52,18 @@ describe("SetRow", () => {
     expect(input("Set 2 reps").placeholder).toBe("8");
   });
 
+  it("badges a completed PR set with icon and text, and not an uncompleted or non-PR one", async () => {
+    const done: LoggedSet = { ...set, weight: 100, reps: 5, completedAt: "2026-02-01T10:00:00.000Z" };
+    const { rerender } = render(SetRow, { ...base, set: done, pr: true });
+    expect(document.querySelector(".pr")!.textContent).toContain("PR");
+    expect(screen.getByText("– new personal record")).toBeTruthy();
+    expect(document.querySelector(".pr svg")).not.toBeNull();
+    await rerender({ ...base, set: { ...done, completedAt: undefined }, pr: true });
+    expect(document.querySelector(".pr")).toBeNull();
+    await rerender({ ...base, set: done, pr: false });
+    expect(document.querySelector(".pr")).toBeNull();
+  });
+
   it("shows an en dash when there is no previous set", () => {
     render(SetRow, { ...base, set });
     expect(document.querySelector(".previous")!.textContent).toBe("Previous: –");
@@ -233,6 +245,28 @@ describe("workout page set logging", () => {
     await fireEvent.click(benchCard().getByRole("button", { name: "Set 1 completed, undo" }));
     await active.flush();
     expect((await stored()).exercises[0].sets[0]).toEqual({ id: "bench-1", type: "normal", weight: 80, reps: 8 });
+  });
+
+  it("badges a PR set and toasts, and uncompleting removes the badge", async () => {
+    render(WorkoutPage);
+    await waitFor(() => expect(benchCard().getByLabelText<HTMLInputElement>("Set 1 weight, kg").placeholder).toBe("80"));
+    await type(benchCard().getByLabelText<HTMLInputElement>("Set 1 weight, kg"), "100");
+    await new Promise((r) => setTimeout(r, 50)); // earlier sessions load alongside the previous values
+    await fireEvent.click(benchCard().getByRole("button", { name: "Complete set 1" }));
+    await waitFor(() => expect(benchCard().getByText("– new personal record")).toBeTruthy());
+    expect(toasts.map((t) => t.message)).toContain("New PR: Bench Press");
+
+    await fireEvent.click(benchCard().getByRole("button", { name: "Set 1 completed, undo" }));
+    await waitFor(() => expect(benchCard().queryByText("– new personal record")).toBeNull());
+  });
+
+  it("does not badge a set that only ties the previous best", async () => {
+    render(WorkoutPage);
+    await waitFor(() => expect(benchCard().getByLabelText<HTMLInputElement>("Set 1 weight, kg").placeholder).toBe("80"));
+    await fireEvent.click(benchCard().getByRole("button", { name: "Complete set 1" }));
+    await active.flush();
+    expect(benchCard().queryByText("– new personal record")).toBeNull();
+    expect(toasts.map((t) => t.message)).not.toContain("New PR: Bench Press");
   });
 
   it("typing does not complete, persists, and does not recreate other inputs", async () => {

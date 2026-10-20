@@ -30,6 +30,8 @@
     type SetPatch,
   } from "#lib/logger/workout";
   import { loadPreviousSets, type SetValues } from "#lib/logger/previousValues";
+  import type { PrSession } from "#lib/progress/metrics";
+  import { loadPriorPrSessions, prSetIds as prSetIdsOf } from "#lib/progress/sessionPrs";
   import { settings } from "#lib/settings.svelte";
   import { requestPersistentStorage } from "#lib/storage/persistence";
   import WorkoutSummary from "#lib/components/workout/WorkoutSummary.svelte";
@@ -108,6 +110,38 @@
     }
   });
 
+  // Earlier sessions per weighted exercise id (what a set must beat to be a PR), loaded like `previous`.
+  let priors = $state<Record<string, PrSession[]>>({});
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity
+  const requestedPriors = new Set<string>();
+  $effect(() => {
+    const s = active.session;
+    if (!s) return;
+    for (const e of s.exercises) {
+      const id = e.exerciseId;
+      if (e.exerciseTypeSnapshot !== "weighted_reps" || requestedPriors.has(id)) continue;
+      requestedPriors.add(id);
+      loadPriorPrSessions(id, s).then(
+        (sessions) => {
+          priors[id] = sessions;
+        },
+        () => requestedPriors.delete(id),
+      );
+    }
+  });
+
+  /** Sets (across the session's cards of the same exercise) that are new PRs, recomputed from the current state. */
+  const prIds = $derived.by(() => {
+    const s = active.session;
+    const out: Record<string, ReadonlySet<string>> = {};
+    if (!s) return out;
+    for (const id of Object.keys(priors)) {
+      const sets = s.exercises.filter((e) => e.exerciseId === id).flatMap((e) => e.sets);
+      out[id] = prSetIdsOf(priors[id], { startedAt: s.startedAt, sets });
+    }
+    return out;
+  });
+
   /** Runs `fn` on the exercise (if it still exists) inside one write-through mutation. */
   function withExercise(id: string, persist: "now" | "deferred", fn: (e: SessionExercise) => void) {
     void active.mutate(
@@ -124,6 +158,7 @@
     withExercise(id, "deferred", (e) => updateSet(e, setId, patch));
 
   function toggleSet(id: string, setId: string, prefill: SetValues) {
+    let prName: string | undefined;
     void active.mutate(
       (s) => {
         const e = s.exercises.find((x) => x.id === id);
@@ -131,11 +166,17 @@
         if (!e || !set) return;
         if (set.completedAt) return uncompleteSet(set);
         completeSet(set, prefill, new Date().toISOString());
+        const history = priors[e.exerciseId];
+        if (history) {
+          const sets = s.exercises.filter((x) => x.exerciseId === e.exerciseId).flatMap((x) => x.sets);
+          if (prSetIdsOf(history, { startedAt: s.startedAt, sets }).has(set.id)) prName = e.exerciseNameSnapshot;
+        }
         const rest = restDurationFor(e, settings);
         if (settings.autoStartRestTimer && rest > 0) s.restTimer = startRestTimer(rest);
       },
       { persist: "now" },
     );
+    if (prName) toast(`New PR: ${prName}`);
     prepareAlerts(); // inside the tap, so the browser lets the done-beep play later
   }
 
@@ -260,6 +301,7 @@
           onrest={(seconds) => setRest(exercise.id, seconds)}
           unit={settings.weightUnit}
           previousSets={previous[exercise.exerciseId]}
+          prSetIds={prIds[exercise.exerciseId]}
           onaddset={() => withExercise(exercise.id, "now", (e) => addSet(e))}
           onsetchange={(setId, patch) => changeSet(exercise.id, setId, patch)}
           ontoggleset={(setId, prefill) => toggleSet(exercise.id, setId, prefill)}
