@@ -5,7 +5,7 @@ export type InstallEnv = {
   matchMedia?: (query: string) => { matches: boolean };
 };
 
-const DISMISS_KEY = "install-hint-dismissed";
+const DISMISS_KEY = "workout-tracker:install-hint-dismissed";
 
 /** Running as an installed app (display-mode: standalone, or iOS `navigator.standalone`). */
 export function isStandalone(env: InstallEnv = globalThis as unknown as InstallEnv): boolean {
