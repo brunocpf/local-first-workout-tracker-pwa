@@ -136,3 +136,17 @@ export async function listCompletedSessions({ before, limit = 20 }: { before?: s
     .limit(limit)
     .toArray();
 }
+
+export async function getSession(id: string): Promise<WorkoutSession | undefined> {
+  return db.sessions.get(id);
+}
+
+/** Deletes one COMPLETED session (UI must confirm first). Refuses active sessions (use `discardSession`); a missing id is a no-op. Touches nothing else. */
+export async function deleteCompletedSession(id: string): Promise<void> {
+  await db.transaction("rw", db.sessions, async () => {
+    const s = await db.sessions.get(id);
+    if (!s) return;
+    if (s.status !== "completed") throw new Error(`Session ${id} is not completed; use discardSession`);
+    await db.sessions.delete(id);
+  });
+}
