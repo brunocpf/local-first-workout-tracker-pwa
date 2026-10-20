@@ -22,6 +22,8 @@ Types live in `src/lib/types.ts` (logical model from PRD §15). Storage is Dexie
 
 A session copies, at start (or when an exercise is added mid-workout), everything it needs: `exerciseNameSnapshot`, `exerciseTypeSnapshot`, and per exercise `prescribedSets?`, `restSeconds?`, `supersetGroupId?`, `notes`. `routineId`/`programId` are navigation hints, `routineNameSnapshot` is the display name. History never reads the live routine or exercise, so editing or deleting them never rewrites history. An ad-hoc exercise simply has no `prescribedSets`.
 
+Starting from a routine uses `sessionInputFromRoutine(routine, exercisesById)` (`logger/fromRoutine.ts`). It returns `{ session, skippedExerciseIds }`: the `NewSession` input for `startSession`, with the routine's prescription deep-copied and fresh set rows created. Exercises missing from the catalog are left out and listed in `skippedExerciseIds`.
+
 ### Set completion
 
 A `LoggedSet` is completed ⇔ `completedAt` is present. Sets without it are planned/in-progress rows: kept as raw data, ignored by every metric.
