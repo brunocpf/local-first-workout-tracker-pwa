@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { alignPrevious, loadPreviousSets, prefillFor } from "#lib/logger/previousValues";
 import { db } from "#lib/storage/db";
-import { startSession, saveSession, finishSession } from "#lib/storage/sessions";
+import { newestCompletedSessionWith, startSession, saveSession, finishSession } from "#lib/storage/sessions";
 import type { LoggedSet, SetType } from "#lib/types";
 
 let n = 0;
@@ -101,6 +101,13 @@ describe("loadPreviousSets", () => {
     await saveSession(s);
     await finishSession(s.id);
     expect((await loadPreviousSets("bench")).map((x) => x.weight)).toEqual([50, 40]);
+  });
+  it("stops at the newest match instead of reading the whole history", async () => {
+    for (let day = 1; day <= 20; day++) await completed(`2026-01-${String(day).padStart(2, "0")}T10:00:00Z`, [done("normal", day)]);
+    const seen: string[] = [];
+    const found = await newestCompletedSessionWith("bench", (s) => (seen.push(s.startedAt), true));
+    expect(found?.startedAt).toBe("2026-01-20T10:00:00.000Z");
+    expect(seen).toHaveLength(1);
   });
   it("skips a session where none of the exercise's sets were completed", async () => {
     await completed("2026-01-01T10:00:00Z", [done("normal", 50)]);

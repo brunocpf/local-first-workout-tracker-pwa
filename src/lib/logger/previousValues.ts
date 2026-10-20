@@ -1,6 +1,6 @@
 // Previous values and set prefill (PRD §8.4). Alignment and prefill are pure; only the loader reads Dexie.
-import { completedSessionsWithExercise } from "#lib/storage/sessions";
-import type { LoggedSet, PrescribedSet, SetType } from "#lib/types";
+import { newestCompletedSessionWith } from "#lib/storage/sessions";
+import type { LoggedSet, PrescribedSet, SetType, WorkoutSession } from "#lib/types";
 
 export type SetGroup = "warmup" | "working";
 export type SetValues = { weight?: number; reps?: number };
@@ -32,12 +32,9 @@ export function alignPrevious(
  * all occurrences concatenated in order. Pass the active session's id as `excludeSessionId`.
  */
 export async function loadPreviousSets(exerciseId: string, opts: { excludeSessionId?: string } = {}): Promise<LoggedSet[]> {
-  for (const s of await completedSessionsWithExercise(exerciseId)) {
-    if (s.id === opts.excludeSessionId) continue;
-    const sets = s.exercises.filter((e) => e.exerciseId === exerciseId).flatMap((e) => e.sets);
-    if (sets.some((x) => x.completedAt)) return sets;
-  }
-  return [];
+  const setsOf = (s: WorkoutSession) => s.exercises.filter((e) => e.exerciseId === exerciseId).flatMap((e) => e.sets);
+  const session = await newestCompletedSessionWith(exerciseId, (s) => s.id !== opts.excludeSessionId && setsOf(s).some((x) => x.completedAt));
+  return session ? setsOf(session) : [];
 }
 
 /** Previous values first (each field independently), else the prescription (target weight, lower bound of rep range), else nothing. */

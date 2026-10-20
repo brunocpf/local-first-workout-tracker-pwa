@@ -127,6 +127,24 @@ export async function completedSessionsWithExercise(exerciseId: string, limit?: 
 }
 
 /**
+ * The newest completed session containing the exercise that `accept`s, scanning newest first and stopping at the
+ * first match, so the usual lookup (previous values) reads a handful of rows instead of the exercise's whole history.
+ * An exercise that was never logged is answered from the `*exerciseIds` index alone.
+ */
+export async function newestCompletedSessionWith(
+  exerciseId: string,
+  accept: (s: WorkoutSession) => boolean = () => true,
+): Promise<WorkoutSession | undefined> {
+  if ((await db.sessions.where("exerciseIds").equals(exerciseId).count()) === 0) return undefined;
+  return db.sessions
+    .where("[status+startedAt]")
+    .between(["completed", Dexie.minKey], ["completed", Dexie.maxKey])
+    .reverse()
+    .filter((s) => s.exerciseIds.includes(exerciseId) && accept(s))
+    .first();
+}
+
+/**
  * Completed sessions, newest first, bounded by `limit`. `before` is the `startedAt` of the last row of the
  * previous page (exclusive). Uses the `[status+startedAt]` index in reverse; the active session is never included.
  */

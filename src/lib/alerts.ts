@@ -22,6 +22,16 @@ function audioContext(): AudioContext | undefined {
   return audio;
 }
 
+/**
+ * Creates the AudioContext (suspended until a gesture resumes it) off the critical path. Creating it costs tens to
+ * hundreds of ms on some devices, which must not land inside the first set-completion tap (PRD §21 feedback budget).
+ */
+export function warmUpAlerts(): void {
+  const create = () => void audioContext();
+  if (typeof requestIdleCallback === "function") requestIdleCallback(create, { timeout: 3000 });
+  else setTimeout(create, 1000);
+}
+
 /** Call from a user gesture (starting a timer): browsers only let an AudioContext run once the user has interacted. */
 export function prepareAlerts(): void {
   void audioContext()
