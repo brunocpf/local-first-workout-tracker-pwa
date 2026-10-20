@@ -26,7 +26,7 @@
     type SetPatch,
   } from "#lib/logger/workout";
   import { settings } from "#lib/settings.svelte";
-  import { getSession, InvalidSessionEditError, updateCompletedSession } from "#lib/storage/sessions";
+  import { deleteCompletedSession, getSession, InvalidSessionEditError, updateCompletedSession } from "#lib/storage/sessions";
   import { isValidTimeZone, utcToZonedLocal, zonedLocalToUtc } from "#lib/time";
   import { confirm } from "#lib/ui/confirm.svelte";
   import { toast } from "#lib/ui/toast.svelte";
@@ -44,6 +44,9 @@
   let startLocal = $state("");
   let minutes = $state<number | null>(null);
   let error = $state("");
+  // Opened right after "Log past workout" (`?new=1`). While the stored session has no logged sets, Cancel offers to delete it.
+  const justCreated = page.url.searchParams.has("new");
+  let storedHasLoggedSets = true;
 
   const back = $derived({ href: resolve(`/history/${page.params.id}` as "/"), label: "Session" });
   const snapshot = () => JSON.stringify([$state.snapshot(draft), startLocal, minutes]);
@@ -54,6 +57,7 @@
       const s = await getSession(page.params.id ?? "");
       if (s?.status === "completed" && s.endedAt) {
         draft = s;
+        storedHasLoggedSets = s.exercises.some((e) => e.sets.some((x) => x.completedAt));
         startLocal = utcToZonedLocal(s.startedAt, s.timeZone) ?? "";
         minutes = Math.round((Date.parse(s.endedAt) - Date.parse(s.startedAt)) / 60_000);
         baseline = snapshot();
@@ -134,6 +138,25 @@
   }
 
   async function cancel() {
+    if (justCreated && !storedHasLoggedSets) {
+      const remove = await confirm({
+        title: "Delete this workout?",
+        body: "You haven’t logged any sets. Delete it, or keep it to finish later.",
+        confirmLabel: "Delete workout",
+        cancelLabel: "Keep workout",
+        danger: true,
+      });
+      if (remove) {
+        try {
+          await deleteCompletedSession(page.params.id ?? "");
+        } catch {
+          return void toast("Couldn’t delete the workout");
+        }
+        baseline = snapshot(); // nothing left to discard
+        await goto(resolve("/history"), { replaceState: true });
+        return;
+      }
+    }
     await goto(resolve(`/history/${page.params.id}` as "/"));
   }
 

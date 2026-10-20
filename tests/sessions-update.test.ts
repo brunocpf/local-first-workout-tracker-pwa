@@ -1,7 +1,16 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "#lib/storage/db";
-import { InvalidSessionEditError, finishSession, getSession, startSession, updateCompletedSession } from "#lib/storage/sessions";
+import {
+  InvalidSessionEditError,
+  createCompletedSession,
+  finishSession,
+  getSession,
+  listCompletedSessions,
+  startSession,
+  updateCompletedSession,
+} from "#lib/storage/sessions";
+import { localDate, localWeekStart } from "#lib/time";
 import { createSessionExercise } from "#lib/logger/workout";
 
 const at = (i: number) => new Date(Date.UTC(2026, 0, 1, 0, i));
@@ -91,5 +100,49 @@ describe("updateCompletedSession validation", () => {
     await expect(updateCompletedSession({ ...s, name: "x".repeat(300) })).rejects.toBeInstanceOf(InvalidSessionEditError);
     await expect(updateCompletedSession(withSet({ weight: 100, reps: 5 }))).resolves.toBeTruthy();
     expect(await getSession(s.id)).toMatchObject({ exercises: [{ sets: [{ weight: 100, reps: 5 }] }] });
+  });
+});
+
+describe("createCompletedSession", () => {
+  const past = { name: "Old", startedAt: "2026-01-04T23:30:00.000Z", endedAt: "2026-01-05T00:30:00.000Z", timeZone: "America/Los_Angeles" };
+
+  it("creates a completed session with its zone, exerciseIds and listed in history", async () => {
+    const s = await createCompletedSession({ ...past, routineId: "r1", exercises: [ex("squat"), ex("bench")] }, at(5));
+    expect(s).toMatchObject({ status: "completed", startedAt: past.startedAt, endedAt: past.endedAt, timeZone: past.timeZone, routineId: "r1" });
+    expect(s.exerciseIds).toEqual(["squat", "bench"]);
+    expect(s.createdAt).toBe(at(5).toISOString());
+    expect(await getSession(s.id)).toEqual(s);
+    expect((await listCompletedSessions()).map((x) => x.id)).toEqual([s.id]);
+    expect(await db.sessions.where("exerciseIds").equals("squat").count()).toBe(1);
+  });
+
+  it("lands on the local date of its zone, not the UTC one", async () => {
+    const s = await createCompletedSession(past);
+    expect(localDate(s)).toBe("2026-01-04");
+    expect(localWeekStart(s, 1)).toBe("2025-12-29");
+  });
+
+  it("defaults the zone to the device's and never touches the active session", async () => {
+    const active = await startSession({ name: "live" }, at(100));
+    const { timeZone: _tz, ...noZone } = past;
+    const s = await createCompletedSession(noZone);
+    expect(s.timeZone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+    expect(await getSession(active.id)).toEqual(active);
+    expect(s.status).toBe("completed");
+  });
+
+  it("rejects an end before the start, bad times and unknown zones without writing", async () => {
+    await expect(createCompletedSession({ ...past, endedAt: "2026-01-04T23:00:00.000Z" })).rejects.toBeInstanceOf(InvalidSessionEditError);
+    await expect(createCompletedSession({ ...past, startedAt: "nope" })).rejects.toBeInstanceOf(InvalidSessionEditError);
+    await expect(createCompletedSession({ ...past, timeZone: "Mars/Olympus" })).rejects.toBeInstanceOf(InvalidSessionEditError);
+    expect(await db.sessions.count()).toBe(0);
+  });
+
+  it("accepts zero duration and can then be edited like any completed session", async () => {
+    const s = await createCompletedSession({ ...past, endedAt: past.startedAt, exercises: [ex("squat")] });
+    const edited = structuredClone(s);
+    edited.exercises[0].sets.push({ id: "a", type: "normal", reps: 5, weight: 100, completedAt: past.startedAt });
+    const saved = await updateCompletedSession(edited);
+    expect(saved.exercises[0].sets).toHaveLength(1);
   });
 });

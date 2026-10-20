@@ -80,3 +80,54 @@ test("edit → Cancel asks once, and Discard leaves the session unchanged", asyn
   await expect(page.getByRole("heading", { level: 1, name: original })).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Discard changes?" })).toHaveCount(0);
 });
+
+/** Fills and submits the "Log past workout" dialog; `start` is a datetime-local value. */
+async function logPast(page: import("@playwright/test").Page, start: string, minutes: string) {
+  await page.getByRole("button", { name: "Log past workout" }).click();
+  const dialog = page.getByRole("dialog", { name: "Log past workout" });
+  await dialog.getByLabel("Time zone").selectOption("Europe/London");
+  await dialog.getByLabel("Start").fill(start);
+  await dialog.getByLabel("Duration").fill(minutes);
+  await dialog.getByRole("button", { name: "Create workout" }).click();
+}
+
+test("log past workout → edit screen → add a set → saved at the chosen date in History", async ({ page }) => {
+  await page.goto("/history");
+  await logPast(page, "2026-01-04T08:00", "45");
+  await expect(page).toHaveURL(/\/history\/[^/]+\/edit\?new=1$/);
+  await page.getByRole("button", { name: "Add exercise" }).click();
+  const picker = page.getByRole("dialog", { name: "Add exercise" });
+  await picker.getByRole("searchbox", { name: "Search exercises" }).fill("barbell bench press");
+  await picker.getByRole("button", { name: /Barbell Bench Press/ }).first().click();
+  await picker.getByRole("button", { name: "Add 1 exercise" }).click();
+  await expect(picker).toBeHidden();
+  await page.getByLabel("Set 1 weight, kg").fill("60");
+  await page.getByLabel("Set 1 reps").fill("8");
+  await page.getByRole("button", { name: "Complete set 1" }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("dialog", { name: "Save changes?" }).getByRole("button", { name: "Save changes" }).click();
+  await expect(page).toHaveURL(/\/history\/[^/]+$/);
+  await page.goto("/history");
+  await expect(page.getByText("Week of Dec 29")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Sun, Jan 4/ })).toBeVisible();
+  await expect(page.getByText("No workouts yet")).toHaveCount(0);
+});
+
+test("cancelling a just-created workout with no sets offers to delete it", async ({ page }) => {
+  await page.goto("/history");
+  await logPast(page, "2026-01-04T08:00", "30");
+  await expect(page).toHaveURL(/\/edit\?new=1$/);
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  const ask = page.getByRole("dialog", { name: "Delete this workout?" });
+  await ask.getByRole("button", { name: "Delete workout" }).click();
+  await expect(page).toHaveURL(/\/history$/);
+  await expect(page.getByText("No workouts yet")).toBeVisible();
+});
+
+test("keeping a just-created workout on cancel opens its detail page", async ({ page }) => {
+  await page.goto("/history");
+  await logPast(page, "2026-01-04T08:00", "30");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByRole("dialog", { name: "Delete this workout?" }).getByRole("button", { name: "Keep workout" }).click();
+  await expect(page).toHaveURL(/\/history\/[^/]+$/);
+});
