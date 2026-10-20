@@ -2,4 +2,6 @@
 try {
   var t = localStorage.getItem("workout-tracker:theme");
   if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
-} catch (e) {}
+} catch {
+  // storage unavailable: follow the OS
+}
