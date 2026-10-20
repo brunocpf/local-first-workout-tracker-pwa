@@ -14,6 +14,8 @@
   import { prepareAlerts } from "#lib/alerts";
   import { restAfterSet, startRestTimer } from "#lib/restTimer";
   import ExercisePicker from "#lib/components/ExercisePicker.svelte";
+  import { suggestSubstitutes } from "#lib/catalog/substitutes";
+  import { listExercises } from "#lib/storage/exercises";
   import {
     addExercise,
     addSet,
@@ -25,6 +27,8 @@
     joinSuperset,
     leaveSuperset,
     removeSet,
+    replaceExercise,
+    setProgress,
     restoreExercise,
     restoreSet,
     supersetInfo,
@@ -78,6 +82,32 @@
         },
       },
     });
+  }
+
+  async function loadSuggestions(exercise: SessionExercise): Promise<Exercise[]> {
+    const catalog = await listExercises();
+    const current = catalog.find((c) => c.id === exercise.exerciseId);
+    if (!current) return [];
+    const inWorkout = active.session?.exercises.map((e) => e.exerciseId) ?? [];
+    return suggestSubstitutes(current, catalog, { excludeIds: inWorkout });
+  }
+
+  async function replace(exercise: SessionExercise, to: Exercise) {
+    const { completed, remaining } = setProgress(exercise);
+    if (completed > 0) {
+      const done = `${completed} completed set${completed === 1 ? "" : "s"}`;
+      const ok = await confirm({
+        title: `Replace ${exercise.exerciseNameSnapshot}?`,
+        body:
+          remaining > 0
+            ? `${done} stay${completed === 1 ? "s" : ""} with ${exercise.exerciseNameSnapshot}. The other ${remaining} set${remaining === 1 ? "" : "s"} move${remaining === 1 ? "s" : ""} to ${to.name}.`
+            : `${done} stay${completed === 1 ? "s" : ""} with ${exercise.exerciseNameSnapshot}. ${to.name} starts with one empty set.`,
+        confirmLabel: "Replace exercise",
+      });
+      if (!ok) return;
+    }
+    void active.mutate((s) => replaceExercise(s, exercise.id, to), { persist: "now" });
+    toast(`Replaced with ${to.name}`);
   }
 
   function setNotes(id: string, notes: string) {
@@ -326,6 +356,9 @@
           }}
           onjoin={(d) => join(exercise.id, d)}
           onleave={() => leave(exercise.id)}
+          onreplace={(to) => replace(exercise, to)}
+          loadSuggestions={() => loadSuggestions(exercise)}
+          excludeIds={active.session.exercises.map((e) => e.exerciseId)}
         />
         </div>
       {/each}

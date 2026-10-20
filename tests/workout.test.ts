@@ -8,8 +8,10 @@ import {
   moveExercise,
   removeExercise,
   removeSet,
+  replaceExercise,
   restoreExercise,
   restoreSet,
+  setProgress,
   setsFromPrescription,
   uncompleteSet,
   updateSet,
@@ -152,5 +154,73 @@ describe("sets", () => {
     expect(se.sets[0]).toMatchObject({ weight: 10, reps: 3 });
     expect(se.sets[0].completedAt).toBeUndefined();
     uncompleteSet(se.sets[0]);
+  });
+});
+
+describe("replaceExercise (substitutions)", () => {
+  const press = { id: "press", name: "Chest Press", exerciseType: "weighted_reps" as const };
+  const setup = () => {
+    const s = session();
+    const se = addExercise(s, createSessionExercise(bench, { prescribedSets: rx, restSeconds: 90, notes: "n" }));
+    return { s, se };
+  };
+
+  it("swaps in place when nothing is completed, keeping id, prescription, sets and notes", () => {
+    const { s, se } = setup();
+    updateSet(se, se.sets[1].id, { weight: 60 });
+    const setIds = se.sets.map((x) => x.id);
+    const result = replaceExercise(s, se.id, press)!;
+    expect(result.split).toBe(false);
+    expect(s.exercises).toHaveLength(1);
+    expect(result.replacement).toBe(se);
+    expect(se).toMatchObject({ exerciseId: "press", exerciseNameSnapshot: "Chest Press", restSeconds: 90, notes: "n" });
+    expect(se.prescribedSets).toEqual(rx);
+    expect(se.sets.map((x) => x.id)).toEqual(setIds);
+    expect(se.sets[1].weight).toBe(60);
+  });
+
+  it("leaves completed sets on the original and moves the rest to a new exercise after it", () => {
+    const { s, se } = setup();
+    completeSet(se.sets[0], { weight: 20, reps: 10 }, NOW);
+    const [done, todo] = se.sets;
+    const result = replaceExercise(s, se.id, press)!;
+    expect(result.split).toBe(true);
+    expect(s.exercises.map((e) => e.exerciseNameSnapshot)).toEqual(["Bench Press", "Chest Press"]);
+    expect(s.exercises[0].sets).toEqual([done]);
+    expect(s.exercises[0].exerciseId).toBe("bench");
+    const next = s.exercises[1];
+    expect(next).toBe(result.replacement);
+    expect(next.id).not.toBe(se.id);
+    expect(next.sets).toEqual([todo]);
+    expect(next.sets[0].prescribedSetId).toBe("p2");
+    expect(next.prescribedSets).toEqual(rx);
+    expect(next.restSeconds).toBe(90);
+  });
+
+  it("gives the replacement one empty set when every set was completed", () => {
+    const { s, se } = setup();
+    se.sets.forEach((x) => completeSet(x, { weight: 1, reps: 1 }, NOW));
+    const result = replaceExercise(s, se.id, press)!;
+    expect(s.exercises[0].sets).toHaveLength(2);
+    expect(result.replacement.sets).toHaveLength(1);
+    expect(result.replacement.sets[0].completedAt).toBeUndefined();
+  });
+
+  it("keeps the superset group on the new exercise", () => {
+    const { s, se } = setup();
+    se.supersetGroupId = "g";
+    completeSet(se.sets[0], {}, NOW);
+    const result = replaceExercise(s, se.id, press)!;
+    expect(result.replacement.supersetGroupId).toBe("g");
+  });
+
+  it("returns undefined for an unknown exercise", () => {
+    expect(replaceExercise(session(), "nope", press)).toBeUndefined();
+  });
+
+  it("setProgress counts completed and remaining sets", () => {
+    const se = createSessionExercise(bench, { prescribedSets: rx });
+    completeSet(se.sets[0], {}, NOW);
+    expect(setProgress(se)).toEqual({ completed: 1, remaining: 1 });
   });
 });
