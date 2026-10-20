@@ -123,3 +123,16 @@ export async function completedSessionsWithExercise(exerciseId: string, limit?: 
   all.sort((a, b) => (a.startedAt < b.startedAt ? 1 : a.startedAt > b.startedAt ? -1 : 0));
   return limit === undefined ? all : all.slice(0, limit);
 }
+
+/**
+ * Completed sessions, newest first, bounded by `limit`. `before` is the `startedAt` of the last row of the
+ * previous page (exclusive). Uses the `[status+startedAt]` index in reverse; the active session is never included.
+ */
+export async function listCompletedSessions({ before, limit = 20 }: { before?: string; limit?: number } = {}): Promise<WorkoutSession[]> {
+  return db.sessions
+    .where("[status+startedAt]")
+    .between(["completed", Dexie.minKey], ["completed", before ?? Dexie.maxKey], true, before === undefined)
+    .reverse()
+    .limit(limit)
+    .toArray();
+}
