@@ -1,3 +1,11 @@
+<script module lang="ts">
+  import { db as appDb, type DbStatus as Status } from "#lib/storage/db";
+
+  /** Reactive copy of the app database's status; the root layout renders only AppStatus while `openError` is set. */
+  export const storage = $state<Status>({ ...appDb.status });
+  appDb.onStatus((s) => Object.assign(storage, { ...s, openError: s.openError }));
+</script>
+
 <script lang="ts">
   import { resolve } from "$app/paths";
   import { db as defaultDb, isQuotaError, type AppDB, type DbStatus, type StorageProblem } from "#lib/storage/db";
@@ -9,10 +17,11 @@
   // `db` is a prop only so tests can pass their own database.
   let { db = defaultDb }: { db?: AppDB } = $props();
 
-  let status = $state<DbStatus>({ versionChanged: false, blocked: false });
+  let local = $state<DbStatus>({ versionChanged: false, blocked: false });
+  const status = $derived(db === defaultDb ? storage : local);
   $effect(() => {
-    status = { ...db.status };
-    const off = db.onStatus((s) => (status = { ...s }));
+    local = { ...db.status };
+    const off = db.onStatus((s) => (local = { ...s }));
     void db.checkStorage();
     return off;
   });
@@ -29,6 +38,7 @@
 </script>
 
 {#if status.openError}
+  <!-- Rendered by the layout instead of the app (not over it), so focus and screen readers can't reach the page behind. -->
   <div class="fullscreen" role="alert">
     <EmptyState icon="alert-triangle" title="Storage unavailable" body={guidance[status.openError.problem]}>
       {#snippet action()}
@@ -56,9 +66,13 @@
   {#if active.writeFailed}
     <div class="banner">
       <Banner variant="danger" urgent title="Workout not saved" action={{ label: "Retry", onclick: () => void active.flush() }}>
-        {#if isQuotaError(active.error)}Your device is out of storage.{:else}The latest changes couldn't be written to storage.{/if}
-        They're kept on this screen and saved with your next change. Free up space on the device and
-        <a href={settingsHref}>export a backup</a>.
+        {#if isQuotaError(active.error)}
+          Your device is out of storage. Your latest changes are kept on this screen and saved with your next change.
+          Free up space on the device, then <a href={settingsHref}>export a backup</a>.
+        {:else}
+          Your latest changes couldn't be written to storage. They're kept on this screen and saved with your next
+          change. Tap Retry; if it keeps failing, <a href={settingsHref}>export a backup</a>.
+        {/if}
       </Banner>
     </div>
   {/if}
@@ -66,16 +80,12 @@
 
 <style>
   .fullscreen {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-banner);
+    min-block-size: 100dvh;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
-    background: var(--color-bg);
-    overflow-y: auto;
   }
   .detail {
     margin: 0;

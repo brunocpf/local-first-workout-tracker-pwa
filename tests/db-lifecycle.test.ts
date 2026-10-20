@@ -3,7 +3,7 @@ import { IDBFactory, IDBKeyRange } from "fake-indexeddb";
 import { render, screen } from "@testing-library/svelte";
 import Dexie from "dexie";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AppDB, CLOSE_FLUSH_TIMEOUT_MS, db, isQuotaError, storageProblem } from "#lib/storage/db";
+import { AppDB, CLOSE_FLUSH_TIMEOUT_MS, db, isQuotaError, OPEN_TIMEOUT_MS, storageProblem } from "#lib/storage/db";
 import { ActiveSessionStore } from "#lib/logger/activeSession.svelte";
 import * as sessions from "#lib/storage/sessions";
 import AppStatus from "#lib/components/AppStatus.svelte";
@@ -96,7 +96,7 @@ describe("blocked upgrade", () => {
     });
     const next = new AppDB(name);
     const checking = next.checkStorage();
-    await until(() => next.status.blocked);
+    expect((await next.untilProblem()).blocked).toBe(true);
     old.close();
     await checking;
     expect(next.status.blocked).toBe(false);
@@ -133,14 +133,49 @@ describe("open errors", () => {
     expect(status.openError?.problem).toBe("quota");
   });
 
-  it("records a missing IndexedDB as unsupported and shows the full-screen message", async () => {
-    const broken = new AppDB(uniqueName(), { indexedDB: undefined as never, IDBKeyRange });
-    // Dexie falls back to the global factory when the option is undefined, so remove it for this instance.
-    (broken as unknown as { _deps: { indexedDB: unknown } })._deps.indexedDB = undefined;
+  it("records a missing IndexedDB as unsupported at once and shows the full-screen message", async () => {
+    // Dexie captures `indexedDB` at import; an explicit undefined is what a browser without it gives.
+    const broken = new AppDB(uniqueName(), { indexedDB: undefined });
+    expect(await broken.untilProblem()).toMatchObject({ openError: { problem: "unsupported" } });
     render(AppStatus, { db: broken });
     expect(await screen.findByText("Storage unavailable")).toBeTruthy();
-    expect(broken.status.openError?.problem).toBe("unsupported");
     expect(screen.getByText(/Private or incognito/)).toBeTruthy();
+  });
+
+  it("turns an open that never settles into an open error, cleared if it opens later", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+    const factory = new IDBFactory();
+    const realOpen = factory.open.bind(factory);
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    // Hold the open request back until released, as a hung browser open would.
+    vi.spyOn(factory, "open").mockImplementation((name, version) => {
+      const req = realOpen(name, version);
+      const handlers: Record<string, unknown> = {};
+      for (const k of ["onsuccess", "onerror", "onupgradeneeded", "onblocked"] as const) {
+        Object.defineProperty(req, k, {
+          configurable: true,
+          get: () => handlers[k],
+          set: (fn) => (handlers[k] = (ev: Event) => void gate.then(() => (fn as (e: Event) => void)(ev))),
+        });
+      }
+      return req;
+    });
+    const slow = new AppDB(uniqueName(), { indexedDB: factory, IDBKeyRange });
+    const problem = slow.untilProblem();
+    await vi.advanceTimersByTimeAsync(OPEN_TIMEOUT_MS);
+    expect((await problem).openError?.message).toMatch(/timed out/);
+    release();
+    await vi.waitFor(() => expect(slow.status.openError).toBeUndefined());
+    expect(slow.isOpen()).toBe(true);
+    slow.close();
+  });
+
+  it("untilProblem doesn't resolve when the database opens fine", async () => {
+    const ok = new AppDB(uniqueName());
+    const result = await Promise.race([ok.untilProblem(), ok.checkStorage().then(() => "opened")]);
+    expect(result).toBe("opened");
+    ok.close();
   });
 });
 
@@ -159,6 +194,7 @@ describe("failed workout writes", () => {
     expect(active.writeFailed).toBe(true);
     expect(await screen.findByText("Workout not saved")).toBeTruthy();
     expect(screen.getByText(/out of storage/)).toBeTruthy();
+    expect(screen.getByText(/Free up space/)).toBeTruthy();
     expect(screen.getByRole("alert")).toBeTruthy();
 
     // The next mutation retries and succeeds.
@@ -167,6 +203,20 @@ describe("failed workout writes", () => {
     expect(active.writeFailed).toBe(false);
     await vi.waitFor(() => expect(screen.queryByText("Workout not saved")).toBeNull());
     expect((await db.sessions.get(active.session!.id))?.name).toBe("B");
+    await active.discard();
+  });
+
+  it("only advises freeing space for quota errors; otherwise suggests Retry and a backup", async () => {
+    const { active } = await import("#lib/logger/activeSession.svelte");
+    await active.start({ name: "Push" });
+    render(AppStatus);
+    vi.spyOn(sessions, "saveSession").mockRejectedValueOnce(new Error("disk I/O"));
+    await active.mutate((s) => (s.name = "A"), { persist: "now" });
+    expect(await screen.findByText("Workout not saved")).toBeTruthy();
+    expect(screen.queryByText(/Free up space/)).toBeNull();
+    expect(screen.getByText(/Tap Retry/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "export a backup" })).toBeTruthy();
+    await active.flush();
     await active.discard();
   });
 });
