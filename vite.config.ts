@@ -1,6 +1,7 @@
 import { sveltekit } from "@sveltejs/kit/vite";
 import adapter from "@sveltejs/adapter-static";
 import { defineConfig } from "vitest/config";
+import { svelteTesting } from "@testing-library/svelte/vite";
 
 // Deploy under a sub-path (e.g. GitHub Pages project site) with BASE_PATH=/repo-name. Empty = domain root.
 const base = (process.env.BASE_PATH ?? "").replace(/\/+$/, "") as "" | `/${string}`;
@@ -33,6 +34,8 @@ export default defineConfig({
         },
       },
     }),
+    // Resolves Svelte to its browser build under Vitest so components can be rendered.
+    svelteTesting(),
   ],
   test: {
     environment: "jsdom",
