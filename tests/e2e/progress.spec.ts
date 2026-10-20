@@ -84,3 +84,28 @@ test("exercise detail page shows personal records", async ({ page }) => {
   await expect(page).toHaveURL(/\/exercises\/[^/]+$/);
   await expect(page.getByRole("list", { name: "Personal records" })).toContainText("120 kg");
 });
+
+test("overview shows weekly muscle sets and monthly stats with month navigation", async ({ page }) => {
+  await seed(page);
+  await page.goto("/progress");
+
+  await expect(page.getByRole("heading", { name: "Weekly sets per muscle" })).toBeVisible();
+  const bars = page.getByRole("list", { name: "Average weekly sets per muscle" });
+  await expect(bars.getByRole("listitem").first()).toBeVisible();
+  await page.getByText("View as table").click();
+  await expect(page.getByRole("table", { name: /Weekly sets per muscle, last 4 weeks/ })).toBeVisible();
+  await page.getByLabel("Last 8 weeks").check({ force: true });
+  await expect(page.getByRole("table", { name: /last 8 weeks/ })).toBeVisible();
+
+  const tiles = page.getByRole("list", { name: /^Statistics for / });
+  await expect(tiles).toContainText("Workouts");
+  await expect(tiles).toContainText("Total time");
+  await expect(tiles).toContainText("Sets");
+  await expect(page.getByRole("button", { name: "Next month" })).toBeDisabled();
+
+  // Seeded sessions are 2–20 days ago, so stepping back always finds one in the current or previous month.
+  const before = await page.locator(".month-name").innerText();
+  await page.getByRole("button", { name: "Previous month" }).click();
+  await expect(page.locator(".month-name")).not.toHaveText(before);
+  await expect(page.getByRole("button", { name: "Next month" })).toBeEnabled();
+});
