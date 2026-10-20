@@ -236,6 +236,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
-    padding: var(--space-4) var(--gutter);
+    padding-block: var(--space-4); /* main already applies the gutter */
   }
 </style>

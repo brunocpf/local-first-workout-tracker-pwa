@@ -120,6 +120,7 @@
     align-items: center;
     gap: var(--space-2);
     min-block-size: var(--control-h);
+    min-inline-size: 0; /* shrink below the input's intrinsic width in narrow grids (set rows) */
     padding-inline: var(--space-3);
     border: var(--border-w) solid var(--color-border-strong);
     border-radius: var(--radius-md);

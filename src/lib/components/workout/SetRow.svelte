@@ -110,7 +110,7 @@
     aria-label={completed ? `${name} completed, undo` : `Complete ${name.toLowerCase()}`}
     onclick={ontoggle}
   >
-    <span class="mark">{#if completed}<Icon name="check" size={20} />{/if}</span>
+    <span class="mark">{#if completed}<Icon name="check" size="1.25rem" />{/if}</span>
   </button>
   <span class="vh" role="status">{status}</span>
 </li>
@@ -131,8 +131,8 @@
 
   .label { grid-area: label; }
   .previous { grid-area: prev; }
-  .weight { grid-area: weight; }
-  .reps { grid-area: reps; }
+  .weight { grid-area: weight; min-inline-size: 0; }
+  .reps { grid-area: reps; min-inline-size: 0; }
   .done { grid-area: done; }
 
   .label,
