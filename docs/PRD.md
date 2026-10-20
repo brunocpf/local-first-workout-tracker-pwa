@@ -301,7 +301,7 @@ The importer validates structure, not training quality. It may warn (implausible
 
 Adapter: `Hevy export → normalized records → validation → preview → local database`.
 
-- **Phase 0 task:** obtain a real Hevy export from the user's account and check the fields it contains; do not design from assumptions about formats or tiers. (Hevy references: hevyapp.com, api.hevyapp.com/docs.)
+- **Format and mapping:** designed from a real export (CSV); see [docs/hevy-import.md](hevy-import.md) and ADR 0006. (Hevy references: hevyapp.com, api.hevyapp.com/docs.)
 - Preserve dates, exercise names, sets, reps, weights, supported set types, notes; report unsupported fields; map Hevy exercise names to catalog ids with manual resolution of the unmatched; create custom exercises on request.
 - Detect duplicates; never overwrite history silently; the core app never depends on Hevy's API.
 
@@ -507,7 +507,7 @@ Also summarized in [AGENTS.md](../AGENTS.md).
 
 1. **Name:** repo name only; final product name open.
 2. **Production origin:** currently GitHub Pages (`brunocpf.github.io`). A custom domain later would cost a manual export/restore, so decide before real data accumulates.
-3. **Hevy export format:** inspect a real file in Phase 0.
+3. **Hevy export format:** resolved. Real export inspected (CSV, no time zone, kg); mapping in [docs/hevy-import.md](hevy-import.md), decisions in ADR 0006. Still open: drop/failure/superset/RPE/distance/lb shapes, which the sample doesn't contain.
 4. **Timer alerts:** are foreground-only alerts enough? Decide after real use; otherwise ADR for a native wrapper.
 5. **wger or larger catalog:** after P0.
 6. **Previous values source** (recent vs same routine): default recent; revisit after use.
