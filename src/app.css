@@ -162,25 +162,7 @@ button:disabled { cursor: not-allowed; color: var(--color-text-disabled); }
 
 .tabular { font-variant-numeric: tabular-nums; }
 
-/* App shell (placeholder until T1.07) */
 #app { display: contents; }
-.app {
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
-}
-main { flex: 1; padding: var(--space-4); }
-nav { display: flex; border-top: var(--border-w) solid var(--color-border); }
-nav a {
-  flex: 1;
-  min-height: var(--tap-min);
-  display: grid;
-  place-items: center;
-  color: inherit;
-  text-decoration: none;
-}
-nav a[aria-current="page"] { color: var(--color-accent-text); font-weight: var(--weight-semibold); }
 
 /* Components set their own reduced-motion rules (design.md §3.5); no global transition kill. */
 @media (prefers-reduced-motion: reduce) {
