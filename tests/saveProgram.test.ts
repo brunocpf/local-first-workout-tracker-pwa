@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildProgramDraft, saveProgramImport, type ExerciseResolution } from "#lib/imports/saveProgram";
+import { buildProgramDraft, editKey, saveProgramImport, type ExerciseResolution } from "#lib/imports/saveProgram";
 import { parseProgramImport, unresolvedExercises } from "#lib/imports/parseProgram";
 import type { ProgramImportV1 } from "#lib/imports/programSchema";
 import { AppDB } from "#lib/storage/db";
@@ -81,6 +81,38 @@ describe("buildProgramDraft", () => {
     const d = buildProgramDraft(data, { [path]: { kind: "exercise", exerciseId: "mapped" } }, { programName: "  Mine " });
     expect(d.program.name).toBe("Mine");
     expect(d.routines.flatMap((r) => r.exercises).some((e) => e.exerciseId === "mapped")).toBe(true);
+  });
+});
+
+describe("buildProgramDraft edits", () => {
+  it("applies routine names, exercise order and edited prescriptions", () => {
+    const data = load();
+    const res = resolveAll(data);
+    const base = buildProgramDraft(data, res);
+    const n = data.program.routines[0].exercises.length;
+    const order = Array.from({ length: n }, (_, i) => n - 1 - i);
+    const first = base.routines[0].exercises[0];
+    const edited = { ...first, prescribedSets: first.prescribedSets.slice(0, 1), restSeconds: 45, notes: "" };
+    const d = buildProgramDraft(data, res, {
+      edits: { routineNames: { 0: "  Renamed " }, order: { 0: order }, exercises: { [editKey(0, 0)]: edited } },
+    });
+    expect(d.routines[0].name).toBe("Renamed");
+    expect(d.routines[0].exercises).toHaveLength(n);
+    expect(d.sources[0].exercises).toEqual(order);
+    const last = d.routines[0].exercises[n - 1];
+    expect(last.prescribedSets).toHaveLength(1);
+    expect(last.restSeconds).toBe(45);
+    expect(last.notes).toBeUndefined();
+    expect(d.routines[1].name).toBe(base.routines[1].name);
+  });
+
+  it("saves what the edited draft says; building without saving writes nothing", async () => {
+    const data = load();
+    const res = resolveAll(data);
+    buildProgramDraft(data, res, { edits: { routineNames: { 0: "Cancelled" } } });
+    expect(await db.routines.count()).toBe(0);
+    await saveProgramImport(buildProgramDraft(data, res, { edits: { routineNames: { 0: "Saved name" } } }), db);
+    expect((await db.routines.toArray()).map((r) => r.name)).toContain("Saved name");
   });
 });
 

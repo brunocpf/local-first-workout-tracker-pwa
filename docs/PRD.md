@@ -275,7 +275,7 @@ The app needs no AI API: the user asks any assistant for JSON in the documented 
 4. **Preview** (minimal in P0): program/routine names, exercises with match status (exact / suggested / unresolved), sets, rep ranges, rest, notes, errors and warnings. The user can resolve unmatched exercises, remove exercises, rename the program.
 5. Errors block saving; warnings don't. Nothing is saved or activated without explicit confirmation, and a failed import leaves existing data untouched.
 
-Richer preview editing (set counts, reorder, etc.) arrives with the routine builder.
+The preview also lets the user rename routines, reorder exercises and edit each exercise's sets with the prescription editor; those edits are layered over the draft and are exactly what Confirm saves (Cancel saves nothing).
 
 ### 11.2 Input methods
 
