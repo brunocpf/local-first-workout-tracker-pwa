@@ -152,7 +152,7 @@ Stable id, name, aliases, primary/secondary muscles, equipment, exercise type (w
 
 ### 6.2 MVP catalog
 
-~100 common strength exercises, ids stable forever (they are referenced by history, backups and import files), text written for this project (no copied descriptions, no media). Search is offline, case/diacritic-insensitive over name and aliases. Filters (muscle, equipment, type) can follow in P1.
+~100 common strength exercises, ids stable forever (they are referenced by history, backups and import files), text written for this project (no copied descriptions, no media). Search is offline, case/diacritic-insensitive over name and aliases. Filters (muscle, equipment, type, favorites only) combine with the text query; the picker lists Favorites, then Recent (last 5 completed sessions), then all.
 
 ### 6.3 Later
 

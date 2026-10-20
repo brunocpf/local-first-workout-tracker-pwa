@@ -1,7 +1,8 @@
 <script lang="ts">
   // Sheet for choosing one or more exercises (design.md §7.4). Single mode picks on tap; multiple mode shows an "Add N" footer.
   import type { Snippet } from "svelte";
-  import { searchExercises } from "#lib/catalog/search";
+  import { groupForPicker, recentExerciseIds, searchExercises, type ExerciseFilters } from "#lib/catalog/search";
+  import ExerciseFiltersBar from "#lib/components/exercises/ExerciseFilters.svelte";
   import Button from "#lib/components/ui/Button.svelte";
   import ExerciseForm, { type ExerciseValues } from "#lib/components/exercises/ExerciseForm.svelte";
   import EmptyState from "#lib/components/ui/EmptyState.svelte";
@@ -10,6 +11,7 @@
   import Sheet from "#lib/components/ui/Sheet.svelte";
   import TextField from "#lib/components/ui/TextField.svelte";
   import { createCustomExercise, listExercises } from "#lib/storage/exercises";
+  import { listCompletedSessions } from "#lib/storage/sessions";
   import type { Exercise } from "#lib/types";
 
   let {
@@ -38,6 +40,8 @@
   let loaded = $state(false);
   let failed = $state(false);
   let query = $state("");
+  let filters = $state<ExerciseFilters>({});
+  let recentIds = $state<string[]>([]);
   let selectedIds = $state<string[]>([]);
   let picked = false;
   let announcement = $state("");
@@ -46,9 +50,15 @@
   $effect(() => {
     if (!open) return;
     query = "";
+    filters = {};
     selectedIds = [];
     picked = false;
     failed = false;
+    // Recents are a nicety: a failure here must not block picking.
+    listCompletedSessions({ limit: 5 }).then(
+      (sessions) => (recentIds = recentExerciseIds(sessions, 5)),
+      () => (recentIds = []),
+    );
     listExercises().then(
       (all) => {
         exercises = all;
@@ -67,11 +77,17 @@
   const subtitle = (e: Exercise) => capitalize([...words(e.primaryMuscles), ...words(e.equipment)].join(" · "));
 
   const available = $derived(exercises.filter((e) => !excludeIds.includes(e.id)));
-  const results = $derived.by(() => {
-    const found = searchExercises(query, available);
-    if (query.trim() !== "") return found;
-    // Empty query: favorites first, then A–Z (stable: search already sorted by name).
-    return [...found.filter((e) => e.favorite), ...found.filter((e) => !e.favorite)];
+  const results = $derived(searchExercises(query, available, { filters }));
+  // Empty query: Favorites, then Recent (last 5 completed sessions), then all. Typing or filtering by favorites shows one ranked list.
+  const grouped = $derived(query.trim() === "" && !filters.favoritesOnly);
+  const groups = $derived.by(() => {
+    if (!grouped) return [{ label: "Exercises", items: results }];
+    const g = groupForPicker(results, recentIds);
+    return [
+      { label: "Favorites", items: g.favorites },
+      { label: "Recent", items: g.recent },
+      { label: g.favorites.length + g.recent.length > 0 ? "All exercises" : "Exercises", items: g.all },
+    ].filter((x) => x.items.length > 0);
   });
 
   // Polite result count, debounced so it doesn't chatter while typing.
@@ -149,29 +165,33 @@
       enterkeyhint="search"
     />
   </div>
+  <ExerciseFiltersBar bind:filters />
 
   {#if failed}
     <EmptyState icon="alert-triangle" title="Couldn’t load exercises" body="Close this and try again." />
   {:else if loaded}
     {#if results.length === 0}
-      <EmptyState icon="search" title={query.trim() ? `No exercise matches “${query.trim()}”` : "No exercises"} />
+      <EmptyState icon="search" title={query.trim() ? `No exercise matches “${query.trim()}”` : "No exercises match"} />
     {:else}
-      <ul class="group" aria-label="Exercises">
-        {#each results as e (e.id)}
-          <li>
-            <ListRow
-              title={e.name}
-              subtitle={subtitle(e)}
-              selected={selectedIds.includes(e.id)}
-              onclick={() => choose(e)}
-            >
-              {#snippet leading()}
-                {#if e.favorite}<span class="fav"><Icon name="star" size={16} /><span class="vh">Favorite</span></span>{/if}
-              {/snippet}
-            </ListRow>
-          </li>
-        {/each}
-      </ul>
+      {#each groups as g (g.label)}
+        <h3 class="heading">{g.label}</h3>
+        <ul class="group" aria-label={g.label}>
+          {#each g.items as e (e.id)}
+            <li>
+              <ListRow
+                title={e.name}
+                subtitle={subtitle(e)}
+                selected={selectedIds.includes(e.id)}
+                onclick={() => choose(e)}
+              >
+                {#snippet leading()}
+                  {#if e.favorite}<span class="fav"><Icon name="star" size={16} /><span class="vh">Favorite</span></span>{/if}
+                {/snippet}
+              </ListRow>
+            </li>
+          {/each}
+        </ul>
+      {/each}
     {/if}
     {#if createRow}
       <div class="create">{@render createRow(query.trim())}</div>
@@ -225,6 +245,12 @@
   }
   .search {
     margin-block-end: var(--space-3);
+  }
+  .heading {
+    margin: var(--space-3) 0 var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    font-weight: 600;
   }
   .group {
     list-style: none;

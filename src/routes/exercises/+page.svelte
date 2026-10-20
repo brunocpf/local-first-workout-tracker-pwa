@@ -1,6 +1,7 @@
 <script lang="ts">
   import { resolve } from "$app/paths";
-  import { searchExercises } from "#lib/catalog/search";
+  import { searchExercises, type ExerciseFilters } from "#lib/catalog/search";
+  import ExerciseFiltersBar from "#lib/components/exercises/ExerciseFilters.svelte";
   import Badge from "#lib/components/ui/Badge.svelte";
   import Button from "#lib/components/ui/Button.svelte";
   import EmptyState from "#lib/components/ui/EmptyState.svelte";
@@ -17,6 +18,7 @@
   let query = $state("");
 
   let showArchived = $state(false);
+  let filters = $state<ExerciseFilters>({});
 
   // Reloads when the toggle changes; a stale response from an earlier toggle is dropped.
   let loadToken = 0;
@@ -43,7 +45,7 @@
   const secondary = (e: Exercise) =>
     capitalize([...words(e.equipment), ...words(e.primaryMuscles)].join(" · "));
 
-  const results = $derived(searchExercises(query, exercises, { includeArchived: showArchived }));
+  const results = $derived(searchExercises(query, exercises, { includeArchived: showArchived, filters }));
 </script>
 
 <PageHeader title="Exercises">
@@ -61,6 +63,7 @@
     autocomplete="off"
     enterkeyhint="search"
   />
+  <ExerciseFiltersBar bind:filters />
   <Switch label="Show archived" bind:checked={showArchived} />
 </div>
 
@@ -68,7 +71,7 @@
   <EmptyState icon="alert-triangle" title="Couldn’t load exercises" body="Reload the app and try again." />
 {:else if loaded}
   {#if results.length === 0}
-    <EmptyState icon="search" title={query.trim() ? `No exercise matches “${query.trim()}”` : "No exercises"} />
+    <EmptyState icon="search" title={query.trim() ? `No exercise matches “${query.trim()}”` : "No exercises match"} />
   {:else}
     <ul class="group" aria-label="Exercises">
       {#each results as e (e.id)}
@@ -83,6 +86,8 @@
 <style>
   .search {
     padding-block: var(--space-3);
+    display: grid;
+    gap: var(--space-3);
   }
   .group {
     list-style: none;
