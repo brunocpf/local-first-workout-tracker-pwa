@@ -53,6 +53,65 @@ export function moveRoutineExercise(routine: Routine, from: number, to: number):
   return true;
 }
 
+/** Index range [start, end] of the run of adjacent exercises sharing a superset group with index `i`. */
+function blockAt(routine: Routine, i: number): [number, number] {
+  const g = routine.exercises[i]?.supersetGroupId;
+  let start = i;
+  let end = i;
+  if (g) {
+    while (start > 0 && routine.exercises[start - 1].supersetGroupId === g) start--;
+    while (end < routine.exercises.length - 1 && routine.exercises[end + 1].supersetGroupId === g) end++;
+  }
+  return [start, end];
+}
+
+/**
+ * Moves one step up (-1) or down (+1) without splitting superset groups: inside a group it swaps with
+ * the neighbour; at the edge of a group (or when ungrouped) the whole block hops over the adjacent block.
+ */
+export function stepRoutineExercise(routine: Routine, i: number, dir: -1 | 1): boolean {
+  if (!Number.isInteger(i) || i < 0 || i >= routine.exercises.length) return false;
+  const [start, end] = blockAt(routine, i);
+  const j = i + dir;
+  if (j >= start && j <= end) return moveRoutineExercise(routine, i, j);
+  if (j < 0 || j >= routine.exercises.length) return false;
+  const [nStart, nEnd] = blockAt(routine, j);
+  const block = routine.exercises.splice(start, end - start + 1);
+  const at = dir < 0 ? nStart : nEnd + 1 - block.length;
+  routine.exercises.splice(at, 0, ...block);
+  return true;
+}
+
+/** Joins the exercise with the next one (merging both groups) into one superset. */
+export function groupWithNext(routine: Routine, id: string): boolean {
+  const i = routine.exercises.findIndex((e) => e.id === id);
+  const next = routine.exercises[i + 1];
+  if (i < 0 || !next) return false;
+  const here = routine.exercises[i];
+  const groupId = here.supersetGroupId ?? next.supersetGroupId ?? newId();
+  const ids = routine.exercises
+    .filter(
+      (e) =>
+        e === here ||
+        e === next ||
+        (e.supersetGroupId && (e.supersetGroupId === here.supersetGroupId || e.supersetGroupId === next.supersetGroupId)),
+    )
+    .map((e) => e.id);
+  setSupersetGroup(routine, ids, groupId);
+  return true;
+}
+
+/** Takes one exercise out of its superset; a middle member moves to just after the group so it stays contiguous. */
+export function ungroupRoutineExercise(routine: Routine, id: string): boolean {
+  const i = routine.exercises.findIndex((e) => e.id === id);
+  if (i < 0 || !routine.exercises[i].supersetGroupId) return false;
+  const [, end] = blockAt(routine, i);
+  const [e] = routine.exercises.splice(i, 1);
+  routine.exercises.splice(end, 0, e);
+  setSupersetGroup(routine, [id], undefined);
+  return true;
+}
+
 /** Swaps the exercise but keeps prescription, rest, notes and superset membership. */
 export function replaceRoutineExercise(routine: Routine, id: string, exerciseId: string): boolean {
   const re = routine.exercises.find((e) => e.id === id);

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   addRoutineExercise,
+  groupWithNext,
+  stepRoutineExercise,
+  ungroupRoutineExercise,
   moveRoutineExercise,
   newRoutine,
   removeRoutineExercise,
@@ -120,5 +123,43 @@ describe("routine edit", () => {
         "exercises[0].prescribedSets[1].targetWeight",
       ]),
     );
+  });
+});
+
+describe("builder superset helpers", () => {
+  const make = (n: number) => {
+    const r = newRoutine("R");
+    const ids = Array.from({ length: n }, (_, i) => addRoutineExercise(r, `ex${i}`).id);
+    return { r, ids };
+  };
+  const order = (r: ReturnType<typeof newRoutine>) => r.exercises.map((e) => e.exerciseId).join(",");
+
+  it("groups with next, merging groups, and ungroups", () => {
+    const { r, ids } = make(4);
+    groupWithNext(r, ids[0]);
+    groupWithNext(r, ids[1]);
+    expect(new Set(r.exercises.slice(0, 3).map((e) => e.supersetGroupId)).size).toBe(1);
+    expect(r.exercises[3].supersetGroupId).toBeUndefined();
+    expect(groupWithNext(r, ids[3])).toBe(false);
+    ungroupRoutineExercise(r, ids[1]);
+    expect(order(r)).toBe("ex0,ex2,ex1,ex3");
+    expect(r.exercises.map((e) => !!e.supersetGroupId)).toEqual([true, true, false, false]);
+    ungroupRoutineExercise(r, ids[0]);
+    expect(r.exercises.every((e) => !e.supersetGroupId)).toBe(true);
+  });
+
+  it("moves blocks without splitting groups", () => {
+    const { r, ids } = make(4);
+    groupWithNext(r, ids[1]);
+    stepRoutineExercise(r, 0, 1);
+    expect(order(r)).toBe("ex1,ex2,ex0,ex3");
+    stepRoutineExercise(r, 0, 1);
+    expect(order(r)).toBe("ex2,ex1,ex0,ex3");
+    stepRoutineExercise(r, 2, -1);
+    expect(order(r)).toBe("ex0,ex2,ex1,ex3");
+    stepRoutineExercise(r, 2, 1);
+    expect(order(r)).toBe("ex0,ex3,ex2,ex1");
+    expect(r.exercises[2].supersetGroupId).toBe(r.exercises[3].supersetGroupId);
+    expect(stepRoutineExercise(r, 0, -1)).toBe(false);
   });
 });
