@@ -25,7 +25,7 @@ The active workout is an in-memory Svelte `$state` object. Every mutation is wri
 
 ## Service worker updates
 
-The service worker precaches the app shell with a navigation fallback. New versions are installed but **activated only on user action** via an "update available" banner, which is suppressed while a workout is active, so an update never reloads the page mid-session. Details: ADR 0003 (PWA shell & updates) in [decisions/](decisions/).
+The service worker precaches the app shell with a navigation fallback. New versions are installed but **activated only on user action** via an "update available" banner, which is suppressed while a workout is active, so an update never reloads the page mid-session. `BASE_PATH` supports sub-path hosting (GitHub Pages project site). Details: ADR 0003 (PWA shell & updates) in [decisions/](decisions/).
 
 ## Migrations
 
@@ -33,4 +33,4 @@ Explicit Dexie versions in `src/lib/storage/db.ts`. Never drop user data. Test a
 
 ## Origin
 
-IndexedDB is per-origin: use a stable production origin; changing it means export/restore ([backup-restore.md](backup-restore.md)).
+IndexedDB is per-origin (`brunocpf.github.io` on GitHub Pages): keep a stable production origin; moving host or domain means export first, restore after ([backup-restore.md](backup-restore.md)). Project sites on that origin share storage, so the IndexedDB name and cache prefix are app-specific.

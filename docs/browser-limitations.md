@@ -16,7 +16,7 @@ Rules that follow:
 
 - The rest timer is timestamp-based (`endsAt`) and recomputed on return; alerts are foreground-only. Do not claim locked-screen alarms until verified on device.
 - Haptics are optional; always provide a visual/audio cue.
-- Request `navigator.storage.persist()`, show the result, and keep JSON backups (reminders in-app). Storage is bound to the origin: keep one stable origin.
+- Request `navigator.storage.persist()`, show the result, and keep JSON backups (reminders in-app). Storage is bound to the origin: keep one stable origin (all project sites on `brunocpf.github.io` share it, so use app-specific DB and cache names).
 - Feature-detect `navigator.canShare({files})` and fall back to a download. Don't depend on the File System Access API.
 - Don't rely on `beforeinstallprompt` (Chromium only).
 - Updates never reload during an active workout.

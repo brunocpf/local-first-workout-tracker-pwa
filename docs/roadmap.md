@@ -6,7 +6,7 @@ Scaffold status: SvelteKit/Svelte 5/TS, service worker + manifest, Dexie schema,
 
 ## MVP (P0)
 
-- [ ] **Phase 0 – Validation.** Install + IndexedDB persistence on a real iPhone/iPad and Android phone; fix the production origin; self-written seed catalog decision; **obtain a real Hevy export**.
+- [ ] **Phase 0 – Validation.** Install + IndexedDB persistence on a real iPhone/iPad and Android phone; confirm the production origin (GitHub Pages, `brunocpf.github.io`); self-written seed catalog decision; **obtain a real Hevy export**.
 - [ ] **Phase 1 – Shell and storage.** Navigation, theme, settings, Dexie schema/migrations, seed catalog (~100) + search, PWA shell, CI.
 - [ ] **Phase 2 – Logger vertical slice.** Blank workout → log sets → persist → reload → recover → finish → history; previous values; rest timer; Playwright coverage.
 - [ ] **Phase 3 – Routines via import.** Schema v1 validation, minimal preview, exercise matching, save routines, start from a routine.

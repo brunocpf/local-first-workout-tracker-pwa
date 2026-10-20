@@ -1,6 +1,6 @@
 # Installing the PWA
 
-The app is a static site: deploy `build/` to an **HTTPS** host with a **stable origin** (data is bound to the origin; changing domains loses it unless you export and restore). Load it once online so the service worker caches the shell, then verify offline.
+The app is a static site: deployed to GitHub Pages (or any static **HTTPS** host) on a **stable origin** (data is bound to the origin; moving host or domain means exporting a backup first and restoring afterwards). Load it once online so the service worker caches the shell, then verify offline.
 
 ## iOS / iPadOS (Safari)
 

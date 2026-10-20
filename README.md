@@ -51,8 +51,8 @@ Modules are added when there is code for them. Domain logic lives in `src/lib` (
 
 ## Deployment
 
-Any static HTTPS host (HTTPS is required for the service worker).
+**GitHub Pages** via the included workflow (push to `main`), served at https://brunocpf.github.io/local-first-workout-tracker-pwa/ with `BASE_PATH` set by the workflow. One-time setup: repo Settings → Pages → Source: **GitHub Actions**. Details: ADR 0003 in [docs/decisions/](docs/decisions/).
 
-- Build command: `npm run build`; output directory: `build/`.
-- Configure an SPA fallback to `index.html` (many hosts do this automatically when no `404.html` exists).
-- **Use a stable origin.** IndexedDB data is bound to the origin; changing domains loses local data unless you export a backup and restore it ([backup & restore](docs/backup-restore.md)).
+Any other static HTTPS host also works (HTTPS is required for the service worker): build with `npm run build`, serve `build/`, configure an SPA fallback to `index.html`, and set `BASE_PATH` only when serving under a sub-path.
+
+**Use a stable origin.** IndexedDB data is bound to the origin (`brunocpf.github.io`). Moving to another host or domain means exporting a backup first and restoring it afterwards ([backup & restore](docs/backup-restore.md)). All of the owner's GitHub Pages project sites share that origin, so the app uses an app-specific IndexedDB name and cache prefix to avoid collisions.

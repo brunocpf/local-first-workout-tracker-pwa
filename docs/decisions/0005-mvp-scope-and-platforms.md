@@ -6,7 +6,7 @@
 
 **Decision:**
 - **Platforms:** one PWA targeting installed iOS/iPadOS Safari, installed Android Chrome, and desktop Chromium/Safari/Firefox (Firefox desktop can't install; works as a tab). UI is phone-first and responsive. iOS stays the most constrained target and is called out where it differs (background timers, no `navigator.vibrate`, install flow, storage eviction, separate storage for the installed app vs the Safari tab). Playwright e2e runs on Chromium, Pixel and WebKit/iPhone emulation; real-device checks on iOS and Android remain mandatory.
-- **Stable origin:** production uses a stable origin; IndexedDB is bound to the origin, so moving hosts requires export/restore.
+- **Stable origin:** production is GitHub Pages (`brunocpf.github.io`); IndexedDB is bound to the origin, so moving host or domain requires export first and restore after. Project sites share the origin, hence app-specific DB and cache names.
 - **MVP (P0) = vertical slice:** ~100-exercise self-written seed catalog (no wger yet), routines created via **JSON import** with a minimal preview and exercise matching, workout logger with previous values, rest timer, history, interrupted-session recovery, full JSON backup/restore, installable offline PWA.
 - **Next (P1, in order):** Hevy history import (promoted — otherwise previous values/PRs stay empty and leaving Hevy is unreachable; obtain a real export in Phase 0), routine builder UI, custom exercises UI, exercise detail/guides, PRs + basic charts, AI prompt generator, calendar.
 - Set types (warm-up/drop/failure) and RPE/RIR are in the model and import format from v1; their UI can come later.
