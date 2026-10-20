@@ -10,7 +10,7 @@ export const toB64url = (data: ArrayBuffer | Uint8Array | string): string => {
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 };
 
-export const fromB64url = (s: string): Uint8Array => {
+export const fromB64url = (s: string): Uint8Array<ArrayBuffer> => {
   const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/"));
   return Uint8Array.from(bin, (c) => c.charCodeAt(0));
 };

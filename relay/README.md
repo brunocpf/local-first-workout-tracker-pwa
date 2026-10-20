@@ -28,6 +28,8 @@ A tiny Cloudflare Worker that sends a Web Push at the end of a rest timer, so th
 7. In the GitHub repository, add **Actions variables** (Settings, Secrets and variables, Variables): `PUSH_RELAY_URL` = the Worker URL, `PUSH_VAPID_PUBLIC_KEY` = the public key from step 3 (it is public by design). Re-run the Deploy workflow. For a local build use `VITE_PUSH_RELAY_URL` and `VITE_PUSH_VAPID_PUBLIC_KEY`.
 8. On your phone: install the app (iPhone/iPad: Share, Add to Home Screen, open it from there), then Settings, Notifications, turn it on and tap "Send test notification".
 
+The `[[ratelimits]]` block uses Cloudflare's rate limiting binding (needs Wrangler 4.36+). Its availability on the Free plan isn't documented; if `wrangler deploy` rejects it, delete that block: the relay treats the limiter as optional and still enforces the origin, size and time limits.
+
 If you rotate the VAPID keys, turn notifications off and on again in the app so it re-subscribes.
 
 ## API

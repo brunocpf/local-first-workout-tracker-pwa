@@ -72,4 +72,26 @@ test.describe("iPhone, not installed", () => {
     await expect(page.getByText("Install the app first")).toBeVisible();
     await expect(page.getByRole("switch", { name: "Rest timer notifications" })).toHaveCount(0);
   });
+
+  test("the timer keeps an install hint after the first-use note is dismissed", async ({ page }) => {
+    await stubPush(page, { standalone: false });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Start workout" }).click();
+    await page.getByRole("button", { name: "Start rest" }).click();
+    await page.getByRole("button", { name: "Got it" }).click();
+    await expect(page.getByRole("button", { name: "Got it" })).toHaveCount(0);
+    await expect(page.getByTestId("rest-install-hint")).toBeVisible();
+    await page.reload();
+    await expect(page.getByTestId("rest-install-hint")).toBeVisible();
+  });
+});
+
+test("no install hint beside the timer outside iOS", async ({ page, browserName }) => {
+  test.skip(browserName === "webkit", "the Mobile Safari project uses an iPhone user agent");
+  await stubPush(page, { standalone: false });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Start workout" }).click();
+  await page.getByRole("button", { name: "Start rest" }).click();
+  await expect(page.getByRole("button", { name: "Got it" })).toBeVisible();
+  await expect(page.getByTestId("rest-install-hint")).toHaveCount(0);
 });

@@ -5,10 +5,21 @@
   import Banner from "#lib/components/ui/Banner.svelte";
   import Button from "#lib/components/ui/Button.svelte";
   import Switch from "#lib/components/ui/Switch.svelte";
-  import { disablePush, enablePush, hasSubscription, notificationPermission, pushSupport, sendTestPush, type PushSupport } from "#lib/push";
+  import {
+    disablePush,
+    enablePush,
+    hasSubscription,
+    notificationPermission,
+    PUSH_PLATFORM_NOTE,
+    pushSupport,
+    sendTestPush,
+    type PushSupport,
+  } from "#lib/push";
+  import { detectPlatform, type InstallPlatform } from "#lib/pwa/install";
   import { settings, updateSettings } from "#lib/settings.svelte";
 
   let support = $state<PushSupport>("unsupported");
+  let platform = $state<InstallPlatform>("desktop");
   let permission = $state<ReturnType<typeof notificationPermission>>(null);
   let subscribed = $state<boolean>(false);
   let busy = $state(false);
@@ -18,6 +29,7 @@
 
   function refresh() {
     support = pushSupport();
+    platform = detectPlatform();
     permission = notificationPermission();
     subscribed = hasSubscription();
   }
@@ -76,14 +88,11 @@
 
 <div class="stack">
   <p class="note">
-    Get a notification when a rest ends even with the screen locked or the app in the background. This works only for the
-    installed app (on iPhone and iPad: Share, then Add to Home Screen, then open it from there and turn this on). It uses
-    a small relay that is told only when to ping this device, never your workouts.
+    Get a notification when a rest ends, even with the screen locked or the app in the background. {PUSH_PLATFORM_NOTE[platform]}
+    It uses a small relay that is told only when to ping this device, never your workouts.
   </p>
 
-  {#if support === "unconfigured"}
-    <Banner variant="info">This copy of the app isn't connected to a notification relay. Rest alerts work while the app is open.</Banner>
-  {:else if support === "unsupported"}
+  {#if support === "unsupported" || support === "unconfigured"}
     <Banner variant="info">This browser doesn't support push notifications. Rest alerts work while the app is open.</Banner>
   {:else if support === "needs-install"}
     <Banner variant="warning" title="Install the app first">

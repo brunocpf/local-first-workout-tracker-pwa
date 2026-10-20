@@ -60,8 +60,8 @@
 
   // Background notification (ADR 0014): keep the relay's single scheduled push in step with the timer.
   const pushOn = $derived(settings.restNotifications === true && pushSupport() === "ready" && hasSubscription());
-  /** Notifications are possible in this browser, but only for an installed app. */
-  const showInstallHint = $derived(!standalone && pushSupport() !== "unconfigured" && pushSupport() !== "unsupported");
+  /** iOS delivers notifications only to the Home Screen app: say so beside the timer (not dismissible) until installed. */
+  const showInstallHint = $derived(!standalone && pushSupport() === "needs-install");
   let pushed: string | undefined;
   $effect(() => {
     if (!pushOn) return;
@@ -172,17 +172,25 @@
   }
 </script>
 
-{#if timer && !noteSeen}
+{#if timer && (!noteSeen || showInstallHint)}
   <div class="note">
-    <Banner variant="info" action={{ label: "Got it", onclick: dismissNote }}>
-      {#if showInstallHint}
-        Rest notifications with the screen locked only work when the app is installed (on iPhone and iPad: Share, then Add
-        to Home Screen, then turn them on in Settings). Until then, alerts only work while the app is open.
-      {:else}
-        Rest alerts only work while the app is open. With the screen locked or the app in the background, you'll see the
-        result when you come back.
-      {/if}
-    </Banner>
+    {#if !noteSeen}
+      <Banner variant="info" action={{ label: "Got it", onclick: dismissNote }}>
+        {#if pushOn}
+          With rest notifications on, you'll also get a notification when the rest ends with the screen locked or the app in
+          the background.
+        {:else}
+          Rest alerts only work while the app is open. With the screen locked or the app in the background, you'll see the
+          result when you come back.
+        {/if}
+      </Banner>
+    {/if}
+    {#if showInstallHint}
+      <p class="install-hint" data-testid="rest-install-hint">
+        For a notification with the screen locked, add this app to the Home Screen (Share, then Add to Home Screen) and turn
+        on rest notifications in Settings.
+      </p>
+    {/if}
   </div>
 {/if}
 
@@ -230,6 +238,17 @@
     inset-block-end: calc(var(--sticky-bottom-h, 0px));
     z-index: var(--z-sticky);
     padding-block-end: var(--space-2);
+  }
+  .install-hint {
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-2);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+  .note > :global(* + *) {
+    margin-block-start: var(--space-2);
   }
   .bar {
     position: sticky;

@@ -33,11 +33,31 @@ export interface Env {
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
 
+/** Reads at most MAX_BODY_BYTES (checked in bytes, without buffering a larger body) and parses it as JSON. */
 async function readJson(request: Request): Promise<unknown | undefined> {
-  const text = await request.text();
-  if (text.length > MAX_BODY_BYTES) return undefined;
+  if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) return undefined;
+  if (!request.body) return undefined;
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > MAX_BODY_BYTES) {
+      await reader.cancel();
+      return undefined;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
   try {
-    return JSON.parse(text);
+    return JSON.parse(new TextDecoder().decode(bytes));
   } catch {
     return undefined;
   }
@@ -112,6 +132,8 @@ export class PushTimer {
       const key = await importSigningKey(this.env.VAPID_PUBLIC_KEY, this.env.VAPID_PRIVATE_KEY);
       await fetch(timer.endpoint, {
         method: "POST",
+        // Push services answer directly; never follow a redirect to some other host.
+        redirect: "manual",
         headers: {
           authorization: await vapidAuthorization(timer.endpoint, key, this.env.VAPID_PUBLIC_KEY, this.env.VAPID_SUBJECT),
           ttl: "60",

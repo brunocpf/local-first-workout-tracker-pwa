@@ -75,9 +75,12 @@ sw.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const target: string = event.notification.data?.url ?? sw.registration.scope;
   event.waitUntil(
-    sw.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+    sw.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clients) => {
       const open = clients.find((c) => c.url.startsWith(sw.registration.scope));
-      return open ? open.focus() : sw.clients.openWindow(target);
+      if (!open) return void (await sw.clients.openWindow(target));
+      const focused = await open.focus();
+      // Bring an app window that is elsewhere back to the workout (the session itself is already persisted).
+      if (!focused.url.startsWith(target)) await focused.navigate(target).catch(() => undefined);
     }),
   );
 });

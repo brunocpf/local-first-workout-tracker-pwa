@@ -14,11 +14,13 @@
   import SegmentedControl from "#lib/components/ui/SegmentedControl.svelte";
   import Switch from "#lib/components/ui/Switch.svelte";
   import { formatBytes } from "#lib/diagnostics";
+  import { isPushConfigured } from "#lib/push";
   import { isStandalone } from "#lib/pwa/install";
   import { settings, updateSettings } from "#lib/settings.svelte";
   import { getPersistenceStatus, requestPersistentStorage, type PersistenceStatus } from "#lib/storage/persistence";
   import type { UserSettings } from "#lib/types";
 
+  const pushConfigured = isPushConfigured();
   let standalone = $state(false);
   let persistence = $state<PersistenceStatus>();
   let requesting = $state(false);
@@ -88,9 +90,11 @@
     </div>
   </Card>
 
-  <Card as="section" header={notifications}>
-    <NotificationsSection />
-  </Card>
+  {#if pushConfigured}
+    <Card as="section" header={notifications}>
+      <NotificationsSection />
+    </Card>
+  {/if}
 
   <Card as="section" header={appearance}>
     <SegmentedControl

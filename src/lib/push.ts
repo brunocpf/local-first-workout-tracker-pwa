@@ -1,7 +1,7 @@
 // Optional background rest-timer notifications (ADR 0014). A tiny relay sends a Web Push at `endsAt`; everything
 // here is best effort: no relay, no permission or any failure just leaves the foreground alert as the only cue.
 // The push subscription lives in localStorage only (never Dexie, so never in a backup) and is never logged.
-import { detectPlatform, isStandalone, type InstallEnv } from "#lib/pwa/install";
+import { detectPlatform, isStandalone, type InstallEnv, type InstallPlatform } from "#lib/pwa/install";
 import type { RestTimer } from "#lib/types";
 
 export type PushConfig = { relayUrl: string; vapidPublicKey: string };
@@ -31,13 +31,24 @@ export type PushSupport =
   | "needs-install"
   | "ready";
 
+/** Whether this build has a relay at all; without one the feature is hidden entirely. */
+export const isPushConfigured = (config: PushConfig = pushConfig) => !!config.relayUrl && !!config.vapidPublicKey;
+
 export function pushSupport(config: PushConfig = pushConfig, env: PushEnv = globalThis as unknown as PushEnv): PushSupport {
-  if (!config.relayUrl || !config.vapidPublicKey) return "unconfigured";
+  if (!isPushConfigured(config)) return "unconfigured";
+  // Checked first: a Safari tab doesn't expose the Push API at all, but the installed app does.
+  if (detectPlatform(env) === "ios" && !isStandalone(env)) return "needs-install";
   const nav = env.navigator as (Navigator & { serviceWorker?: unknown }) | undefined;
   if (!nav?.serviceWorker || !env.PushManager || !env.Notification) return "unsupported";
-  if (detectPlatform(env) === "ios" && !isStandalone(env)) return "needs-install";
   return "ready";
 }
+
+/** Where background notifications work, per platform: only iOS needs the Home Screen app (docs/browser-limitations.md). */
+export const PUSH_PLATFORM_NOTE: Record<InstallPlatform, string> = {
+  ios: "On iPhone and iPad this only works in the installed app: tap Share, then Add to Home Screen, open the app from there and turn this on.",
+  android: "Works in Chrome and in the installed app, as long as notifications are allowed for it.",
+  desktop: "Works in most desktop browsers while the browser is running, as long as notifications are allowed for this site.",
+};
 
 export const notificationPermission = (env: PushEnv = globalThis as unknown as PushEnv) => env.Notification?.permission ?? null;
 
@@ -131,16 +142,29 @@ async function post(path: string, body: unknown, config: PushConfig = pushConfig
   }
 }
 
-/** Ask the relay to push at `fireAt`. Silent on failure. */
-export async function schedulePush(fireAt: string, config: PushConfig = pushConfig, fetcher?: typeof fetch): Promise<boolean> {
-  const subscription = storedSubscription();
-  if (!subscription || !config.relayUrl) return false;
-  return post("/schedule", { id: deviceId(), subscription, fireAt }, config, fetcher);
+// Schedule/cancel requests for the one pending push run strictly one after another, and a request that is
+// superseded while it waits is skipped: the relay always ends up with the latest intent (adjust then skip can't
+// leave a stray push, pause then resume can't lose one).
+let chain: Promise<unknown> = Promise.resolve();
+let latest = 0;
+
+function serialized(task: () => Promise<boolean>): Promise<boolean> {
+  const ticket = ++latest;
+  const run = chain.then(() => (ticket === latest ? task() : false));
+  chain = run.catch(() => {});
+  return run;
 }
 
-export async function cancelPush(config: PushConfig = pushConfig, fetcher?: typeof fetch): Promise<boolean> {
-  if (!hasSubscription() || !config.relayUrl) return false;
-  return post("/cancel", { id: deviceId() }, config, fetcher);
+/** Ask the relay to push at `fireAt` (replacing any pending push). Silent on failure. */
+export function schedulePush(fireAt: string, config: PushConfig = pushConfig, fetcher?: typeof fetch): Promise<boolean> {
+  const subscription = storedSubscription();
+  if (!subscription || !config.relayUrl) return Promise.resolve(false);
+  return serialized(() => post("/schedule", { id: deviceId(), subscription, fireAt }, config, fetcher));
+}
+
+export function cancelPush(config: PushConfig = pushConfig, fetcher?: typeof fetch): Promise<boolean> {
+  if (!hasSubscription() || !config.relayUrl) return Promise.resolve(false);
+  return serialized(() => post("/cancel", { id: deviceId() }, config, fetcher));
 }
 
 /** "Send test notification": a push in a few seconds, on its own id so it can't replace a rest timer. */

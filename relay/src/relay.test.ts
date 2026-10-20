@@ -108,9 +108,14 @@ describe("request handling", () => {
     expect((await handleRequest(post("/schedule", body(), {}), env(), now)).status).toBe(403);
     expect((await handleRequest(post("/schedule", "not json"), env(), now)).status).toBe(400);
     expect((await handleRequest(post("/schedule", "x".repeat(5000)), env(), now)).status).toBe(400);
+    // A valid body padded with multi-byte characters: 1500 × "€" is 4500 bytes but only 1500 UTF-16 units.
+    expect((await handleRequest(post("/schedule", body({ pad: "€".repeat(1500) })), env(), now)).status).toBe(400);
+    expect((await handleRequest(post("/schedule", body({ pad: "€".repeat(100) })), env(), now)).status).toBe(200);
+    const lying = new Request("https://relay.example/schedule", { method: "POST", headers: { origin, "content-length": "999999" }, body: "{}" });
+    expect((await handleRequest(lying, env(), now)).status).toBe(400);
     expect((await handleRequest(post("/schedule", body({ id: "x" })), env(), now)).status).toBe(400);
     expect((await handleRequest(post("/nope", {}), env(), now)).status).toBe(404);
-    expect(stub.fetch).not.toHaveBeenCalled();
+    expect(stub.fetch).toHaveBeenCalledTimes(1); // only the small padded body
   });
   it("answers preflight and rate limits", async () => {
     const pre = await handleRequest(new Request("https://relay.example/schedule", { method: "OPTIONS", headers: { origin } }), env());
