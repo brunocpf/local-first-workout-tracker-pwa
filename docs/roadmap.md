@@ -1,14 +1,23 @@
 # Roadmap
 
-Scaffold status: Phase 1 groundwork done (SvelteKit/Svelte 5/TS, service worker + manifest, Dexie schema v1, domain types, metrics, import schema v1 + tests, CI).
+Scope and priorities: PRD §4; phase detail: PRD §24; rationale: [ADR 0005](decisions/0005-mvp-scope-and-platforms.md). The logger vertical slice comes before the builder and before import.
 
-- [ ] **Phase 0** – Validate PWA install + IndexedDB persistence on a real iPhone; decide catalog seeding (wger licensing).
-- [ ] **Phase 1** – App shell, navigation, theme, settings, repositories, seed data.
-- [ ] **Phase 2** – Exercise search/detail/custom; routine + program builder.
-- [ ] **Phase 3** – Workout logger, previous values, rest timer, history, interrupted-session recovery. *(Do the vertical slice first.)*
-- [ ] **Phase 4** – Exercise history, PRs, volume, e1RM, charts, calendar.
-- [ ] **Phase 5** – Import preview + exercise matching, full backup/restore, AI prompt generator.
-- [ ] **Phase 6** – CSV, Hevy adapter, catalog normalization/media.
-- [ ] **Phase 7** – Supersets, RPE/RIR, plate calculator, measurements, etc.
+Scaffold status: SvelteKit/Svelte 5/TS, service worker + manifest, Dexie schema, domain types, import schema + tests, CI. Tooling/PWA shell ([ADR 0003](decisions/)) and data model ([ADR 0004](decisions/)) are being finalized in parallel.
 
-Scope labels (P0/P1/P2) are defined in PRD §4.
+## MVP (P0)
+
+- [ ] **Phase 0 – Validation.** Install + IndexedDB persistence on a real iPhone/iPad and Android phone; pick the production custom domain; self-written seed catalog decision; **obtain a real Hevy export**.
+- [ ] **Phase 1 – Shell and storage.** Navigation, theme, settings, Dexie schema/migrations, seed catalog (~100) + search, PWA shell, CI.
+- [ ] **Phase 2 – Logger vertical slice.** Blank workout → log sets → persist → reload → recover → finish → history; previous values; rest timer; Playwright coverage.
+- [ ] **Phase 3 – Routines via import.** Schema v1 validation, minimal preview, exercise matching, save routines, start from a routine.
+- [ ] **Phase 4 – Backup, hardening, P0 release.** Full backup/restore, backup reminder, persist() status, update banner, edit/delete/retroactive sessions, iOS + Android device checklists ([pwa-install.md](pwa-install.md)).
+
+## Next (P1, in order)
+
+- [ ] **Phase 5 – Hevy history import.**
+- [ ] **Phase 6 – Authoring.** Routine builder UI, custom exercises UI, exercise detail/guides.
+- [ ] **Phase 7 – Insight.** PRs + basic charts, AI prompt generator, calendar.
+
+## Later
+
+- [ ] **Phase 8 – Rest of P1/P2.** CSV, online-plan import, supersets, set-type/RPE UI, plate calculator, muscle-group volume, measurements, folders, scheduling, progression rules, wger catalog evaluation, etc.
