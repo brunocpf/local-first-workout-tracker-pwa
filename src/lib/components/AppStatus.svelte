@@ -1,9 +1,12 @@
 <script module lang="ts">
   import { db as appDb, type DbStatus as Status } from "#lib/storage/db";
 
-  /** Reactive copy of the app database's status; the root layout renders only AppStatus while `openError` is set. */
+  /** Reactive copy of the app database's status; the root layout renders only AppStatus while it is `fullscreen`. */
   export const storage = $state<Status>({ ...appDb.status });
   appDb.onStatus((s) => Object.assign(storage, { ...s, openError: s.openError }));
+
+  /** Nothing works without the database: an open error or a still-running open replaces the whole app. */
+  export const fullscreen = (s: Status) => !!s.openError || (s.slow && !s.blocked && !s.versionChanged);
 </script>
 
 <script lang="ts">
@@ -13,11 +16,12 @@
   import Banner from "#lib/components/ui/Banner.svelte";
   import Button from "#lib/components/ui/Button.svelte";
   import EmptyState from "#lib/components/ui/EmptyState.svelte";
+  import Spinner from "#lib/components/ui/Spinner.svelte";
 
   // `db` is a prop only so tests can pass their own database.
   let { db = defaultDb }: { db?: AppDB } = $props();
 
-  let local = $state<DbStatus>({ versionChanged: false, blocked: false });
+  let local = $state<DbStatus>({ versionChanged: false, blocked: false, slow: false });
   const status = $derived(db === defaultDb ? storage : local);
   $effect(() => {
     local = { ...db.status };
@@ -46,6 +50,12 @@
       {/snippet}
     </EmptyState>
     <p class="detail">{status.openError.message}</p>
+  </div>
+{:else if fullscreen(status)}
+  <!-- A slow open may be a long migration: no Reload here, it would abort the upgrade and restart it. -->
+  <div class="fullscreen" role="status">
+    <Spinner label="Still opening your data…" size="2rem" />
+    <p class="detail">This can take a while after an update on older devices. Keep the app open; it continues by itself.</p>
   </div>
 {:else if status.versionChanged}
   <div class="banner">

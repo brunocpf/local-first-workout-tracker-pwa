@@ -19,12 +19,14 @@ export type DbStatus = {
   versionChanged: boolean;
   /** This tab's upgrade waits for another tab (holding the old version) to close. */
   blocked: boolean;
+  /** The open (maybe a long migration) is still running after `OPEN_TIMEOUT_MS`; not an error, cleared when it settles. */
+  slow: boolean;
 };
 
 /** How long pending writes may delay closing for another tab's upgrade (that tab waits meanwhile). */
 export const CLOSE_FLUSH_TIMEOUT_MS = 2000;
 
-/** An open that neither succeeds, fails nor reports `blocked` within this time is shown as an open error. */
+/** An open that neither succeeds, fails nor reports `blocked` within this time is flagged `slow` ("Still opening…"). */
 export const OPEN_TIMEOUT_MS = 5000;
 
 const errorNames = (e: unknown): string[] => {
@@ -52,7 +54,7 @@ export class AppDB extends Dexie {
   sessions!: EntityTable<WorkoutSession, "id">;
   settings!: EntityTable<StoredSettings, "key">;
 
-  readonly status: DbStatus = { versionChanged: false, blocked: false };
+  readonly status: DbStatus = { versionChanged: false, blocked: false, slow: false };
   #listeners = new Set<(status: DbStatus) => void>();
   #beforeClose = new Set<() => Promise<unknown>>();
 
@@ -107,7 +109,8 @@ export class AppDB extends Dexie {
   /**
    * Opens (or re-checks) the database and records the outcome in `status`. Never throws; concurrent calls share
    * one attempt. A missing IndexedDB is reported at once, and an
-   * open that hangs without `blocked` becomes an open error after `OPEN_TIMEOUT_MS` (cleared if it opens later).
+   * open still running without `blocked` after `OPEN_TIMEOUT_MS` is flagged `slow`, never an error: reloading would
+   * abort a long upgrade and restart it from scratch.
    */
   checkStorage(): Promise<DbStatus> {
     return (this.#checking ??= this.#check().finally(() => (this.#checking = undefined)));
@@ -123,15 +126,15 @@ export class AppDB extends Dexie {
     }
     const timer = setTimeout(() => {
       if (!this.isOpen() && !this.status.blocked && !this.status.versionChanged && !this.status.openError) {
-        this.#update({ openError: { problem: "unavailable", message: "Opening the database timed out." } });
+        this.#update({ slow: true });
       }
     }, OPEN_TIMEOUT_MS);
     try {
       await this.open();
-      this.#update({ openError: undefined, blocked: false });
+      this.#update({ openError: undefined, blocked: false, slow: false });
     } catch (e) {
       if (!this.status.versionChanged) {
-        this.#update({ openError: { problem: storageProblem(e), message: e instanceof Error ? e.message : String(e) }, blocked: false });
+        this.#update({ openError: { problem: storageProblem(e), message: e instanceof Error ? e.message : String(e) }, blocked: false, slow: false });
       }
     } finally {
       clearTimeout(timer);
@@ -140,13 +143,13 @@ export class AppDB extends Dexie {
   }
 
   /**
-   * Starts `checkStorage()` and resolves once a problem is known (open error, blocked, version change); never
+   * Starts `checkStorage()` and resolves once a problem is known (open error, blocked, slow, version change); never
    * resolves if the database opens fine. Startup races it so it never waits unboundedly on a hung or blocked open.
    */
   untilProblem(): Promise<DbStatus> {
     return new Promise((resolve) => {
       const check = (s: DbStatus) => {
-        if (!(s.openError || s.blocked || s.versionChanged)) return false;
+        if (!(s.openError || s.blocked || s.slow || s.versionChanged)) return false;
         off();
         resolve(s);
         return true;

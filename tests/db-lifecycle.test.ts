@@ -142,7 +142,7 @@ describe("open errors", () => {
     expect(screen.getByText(/Private or incognito/)).toBeTruthy();
   });
 
-  it("turns an open that never settles into an open error, cleared if it opens later", async () => {
+  it("flags a slow open (e.g. long migration) as 'Still opening' without Reload, and clears it when the open succeeds", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
     const factory = new IDBFactory();
     const realOpen = factory.open.bind(factory);
@@ -164,10 +164,18 @@ describe("open errors", () => {
     const slow = new AppDB(uniqueName(), { indexedDB: factory, IDBKeyRange });
     const problem = slow.untilProblem();
     await vi.advanceTimersByTimeAsync(OPEN_TIMEOUT_MS);
-    expect((await problem).openError?.message).toMatch(/timed out/);
+    const status = await problem;
+    expect(status.slow).toBe(true);
+    expect(status.openError).toBeUndefined();
+    render(AppStatus, { db: slow });
+    expect(await screen.findByText("Still opening your data…")).toBeTruthy();
+    expect(screen.queryByText("Storage unavailable")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Reload" })).toBeNull();
     release();
-    await vi.waitFor(() => expect(slow.status.openError).toBeUndefined());
+    await vi.waitFor(() => expect(slow.status.slow).toBe(false));
+    expect(slow.status.openError).toBeUndefined();
     expect(slow.isOpen()).toBe(true);
+    await vi.waitFor(() => expect(screen.queryByText("Still opening your data…")).toBeNull());
     slow.close();
   });
 
