@@ -87,6 +87,7 @@
     flex-direction: column;
   }
   .title {
+    overflow-wrap: anywhere;
     font-size: var(--text-md);
     font-weight: var(--weight-medium);
   }
