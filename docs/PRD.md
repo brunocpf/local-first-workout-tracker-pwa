@@ -1,6 +1,6 @@
 # PRD: Personal Workout Tracker
 
-**Working title:** local-first-pwa (repo name; product name not finalized)  
+**Working title:** local-first-workout-tracker-pwa (repo name; product name not finalized)  
 **Document type:** Product Requirements Document  
 **Status:** Initial specification for implementation  
 **Primary platform:** iPhone, delivered as an installable Progressive Web App (PWA)  
@@ -1052,16 +1052,16 @@ Use the following defaults unless the repository already contains a compelling a
 | Layer | Technology |
 |---|---|
 | Language | TypeScript |
-| UI | React |
-| Build tool | Vite |
+| UI | Svelte 5 via SvelteKit (static SPA) — changed from React, see ADR 0002 |
+| Build tool | Vite (via SvelteKit) |
 | Styling | CSS modules, plain CSS, or the project's existing styling system |
 | Local database | IndexedDB |
 | Database wrapper | Dexie |
 | Validation | Zod |
-| Offline app shell | Service worker |
-| PWA | Web app manifest and service worker tooling |
+| Offline app shell | SvelteKit service worker |
+| PWA | Web app manifest + SvelteKit service worker |
 | Charts | Lightweight charting library, introduced only when needed |
-| Testing | Vitest and React Testing Library |
+| Testing | Vitest and Testing Library for Svelte |
 | Browser automation | Playwright, if supported by the development environment |
 
 Do not use Next.js merely because it is familiar. Server-side rendering and backend features are not required for the initial product.

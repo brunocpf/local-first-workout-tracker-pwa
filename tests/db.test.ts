@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { expect, it } from "vitest";
-import { AppDB } from "../src/storage/db";
+import { AppDB } from "#lib/storage/db";
 
 it("persists and reads a session", async () => {
   const db = new AppDB("test");

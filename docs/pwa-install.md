@@ -1,6 +1,6 @@
 # Installing on iPhone
 
-1. Deploy `dist/` to an HTTPS host.
+1. Deploy `build/` to an HTTPS host.
 2. Open the URL in **Safari**.
 3. Share → **Add to Home Screen**.
 4. Launch from the Home Screen (standalone mode).

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimated1RM, exerciseVolume, remainingSeconds } from "../src/progress/metrics";
+import { estimated1RM, exerciseVolume, remainingSeconds } from "#lib/progress/metrics";
 
 const set = (weight: number, reps: number, over = {}) => ({ id: "s", type: "normal" as const, weight, reps, completed: true, ...over });
 

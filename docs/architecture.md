@@ -1,6 +1,6 @@
 # Architecture
 
-Local-first: IndexedDB (via Dexie) is the source of truth. No server.
+Local-first static SvelteKit SPA (`adapter-static`, SSR off): IndexedDB (via Dexie) is the source of truth. No server.
 
 ## Modules (`src/`)
 
@@ -14,11 +14,11 @@ Local-first: IndexedDB (via Dexie) is the source of truth. No server.
 | imports / exports | External formats, validation, backup/restore |
 | storage | Dexie schema, migrations, repositories |
 | settings | Local user settings |
-| ui | React components only |
+| routes (`src/routes`) | Svelte components/pages only |
 
 ## Rules
 
-- UI calls repositories/services; no ad-hoc DB queries or business logic in components.
+- Svelte components call repositories/services; no ad-hoc DB queries or business logic in components.
 - Import/export formats are independent of the IndexedDB schema.
 - Separate: catalog, programs, routines, scheduled workouts, sessions, sets, metrics.
 - Pragmatic repositories (`ExerciseRepository`, `ProgramRepository`, `RoutineRepository`, `WorkoutSessionRepository`, `ProgressService`, `ProgramImportService`, `BackupService`); no generic framework.

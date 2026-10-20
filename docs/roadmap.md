@@ -1,6 +1,6 @@
 # Roadmap
 
-Scaffold status: Phase 1 groundwork done (Vite/React/TS, PWA plugin, Dexie schema v1, domain types, metrics, import schema v1 + tests, CI).
+Scaffold status: Phase 1 groundwork done (SvelteKit/Svelte 5/TS, service worker + manifest, Dexie schema v1, domain types, metrics, import schema v1 + tests, CI).
 
 - [ ] **Phase 0** – Validate PWA install + IndexedDB persistence on a real iPhone; decide catalog seeding (wger licensing).
 - [ ] **Phase 1** – App shell, navigation, theme, settings, repositories, seed data.

@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from "dexie";
-import type { Exercise, Program, Routine, WorkoutSession } from "../types";
+import type { Exercise, Program, Routine, WorkoutSession } from "#lib/types";
 
 export class AppDB extends Dexie {
   exercises!: EntityTable<Exercise, "id">;

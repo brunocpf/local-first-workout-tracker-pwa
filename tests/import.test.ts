@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { parseProgramImport } from "../src/imports/parseProgram";
+import { parseProgramImport } from "#lib/imports/parseProgram";
 
 const valid = readFileSync("tests/fixtures/program-valid.json", "utf8");
 

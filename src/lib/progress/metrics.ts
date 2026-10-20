@@ -1,4 +1,4 @@
-import type { CompletedSet } from "../types";
+import type { CompletedSet } from "#lib/types";
 
 /** Volume of one completed weighted set: weight x reps. Others count as 0. */
 export function setVolume(s: CompletedSet): number {
