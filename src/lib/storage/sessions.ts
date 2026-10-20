@@ -255,3 +255,30 @@ export async function createCompletedSession(input: NewCompletedSession, now = n
 export async function listCompletedSessionsBetween(from: string, to: string): Promise<WorkoutSession[]> {
   return db.sessions.where("[status+startedAt]").between(["completed", from], ["completed", to], true, false).toArray();
 }
+
+export class InvalidImportError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidImportError";
+  }
+}
+
+/**
+ * Inserts many COMPLETED sessions (e.g. a Hevy import) in one `rw` transaction: all-or-nothing, so a failure on the
+ * Nth session leaves the store untouched. Rejects (`InvalidImportError`) any non-completed or schema-invalid session
+ * before writing, and never overwrites: a session whose id already exists aborts the whole import. Stores plain
+ * copies with `exerciseIds` recomputed and any rest timer dropped. Returns the number of sessions written.
+ */
+export async function importCompletedSessions(sessions: readonly WorkoutSession[]): Promise<number> {
+  const plain = sessions.map((s, i) => {
+    const copy = toPlain(s);
+    if (copy.status !== "completed") throw new InvalidImportError(`Session ${i + 1} is not completed`);
+    if (!sessionSchema.safeParse(copy).success) throw new InvalidImportError(`Session ${i + 1} has invalid data`);
+    delete copy.restTimer;
+    copy.exerciseIds = exerciseIdsOf(copy);
+    return copy;
+  });
+  if (plain.length === 0) return 0;
+  await db.transaction("rw", db.sessions, () => db.sessions.bulkAdd(plain));
+  return plain.length;
+}

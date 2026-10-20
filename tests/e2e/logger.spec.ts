@@ -471,3 +471,36 @@ test("discard removes the session and leaves History empty", async ({
   await page.goto("/history");
   await expect(page.getByText("No workouts yet")).toBeVisible();
 });
+
+test("superset: labels A1/A2, rest starts only after the last member's set, unlink restores per-set rest", async ({
+  page,
+}) => {
+  await startWorkout(page);
+  await addExercise(page, "barbell bench press", /Barbell Bench Press/);
+  await addExercise(page, "barbell row", /Barbell Row/);
+  const cards = page.getByRole("article");
+  const timer = page.getByRole("timer", { name: "Rest remaining" });
+
+  await cards.first().getByRole("button", { name: /Exercise options for/ }).click();
+  await page.getByRole("button", { name: "Superset with next" }).click();
+  await expect(cards.nth(0).getByText("A1")).toBeVisible();
+  await expect(cards.nth(1).getByText("A2")).toBeVisible();
+
+  await cards.nth(0).getByLabel("Set 1 weight, kg").fill("80");
+  await cards.nth(0).getByLabel("Set 1 reps").fill("8");
+  await cards.nth(0).getByRole("button", { name: "Complete set 1" }).click();
+  await expect(page.getByRole("button", { name: "Start rest" })).toBeVisible();
+
+  await cards.nth(1).getByLabel("Set 1 weight, kg").fill("60");
+  await cards.nth(1).getByLabel("Set 1 reps").fill("10");
+  await cards.nth(1).getByRole("button", { name: "Complete set 1" }).click();
+  await expect(timer).toHaveText("1:30");
+
+  await page.reload();
+  await expect(cards.nth(0).getByText("A1")).toBeVisible();
+
+  await cards.nth(1).getByRole("button", { name: /Exercise options for/ }).click();
+  await page.getByRole("button", { name: "Remove from superset" }).click();
+  await expect(page.getByText("A1")).toHaveCount(0);
+  await expect(page.getByText("A2")).toHaveCount(0);
+});

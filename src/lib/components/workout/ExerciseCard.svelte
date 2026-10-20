@@ -1,5 +1,6 @@
 <script lang="ts">
   // Presentational exercise card (design.md §8): the page decides how to persist. Reused for past sessions (T4.06).
+  import Badge from "#lib/components/ui/Badge.svelte";
   import Button from "#lib/components/ui/Button.svelte";
   import Card from "#lib/components/ui/Card.svelte";
   import Dialog from "#lib/components/ui/Dialog.svelte";
@@ -9,7 +10,7 @@
   import TextField from "#lib/components/ui/TextField.svelte";
   import SetRow from "#lib/components/workout/SetRow.svelte";
   import { alignPrevious, prefillFor, type SetValues } from "#lib/logger/previousValues";
-  import type { SetPatch } from "#lib/logger/workout";
+  import type { SetPatch, SupersetInfo } from "#lib/logger/workout";
   import type { LoggedSet, SessionExercise, WeightUnit } from "#lib/types";
 
   let {
@@ -30,6 +31,10 @@
     onduplicateset,
     ontogglewarmup,
     ondeleteset,
+    superset,
+    canJoin = { previous: false, next: false },
+    onjoin,
+    onleave,
   }: {
     exercise: SessionExercise;
     index: number;
@@ -55,6 +60,12 @@
     onduplicateset: (setId: string) => void;
     ontogglewarmup: (setId: string) => void;
     ondeleteset: (setId: string) => void;
+    /** Set when this exercise is part of a superset; shows the A1/A2 label. */
+    superset?: SupersetInfo;
+    /** Whether "Superset with previous/next" applies (a neighbour exists and isn't already in this group). */
+    canJoin?: { previous: boolean; next: boolean };
+    onjoin?: (direction: -1 | 1) => void;
+    onleave?: () => void;
   } = $props();
 
   const previous = $derived(alignPrevious(exercise.sets, previousSets));
@@ -127,7 +138,7 @@
 <Card as="article" padding="none">
   {#snippet header()}
     <div class="head">
-      <h2 class="name">{exercise.exerciseNameSnapshot}</h2>
+      <h2 class="name">{#if superset}<span class="tag"><Badge variant="accent"><span class="visually-hidden">Superset </span>{superset.letter}{superset.position + 1}</Badge></span>{/if}{exercise.exerciseNameSnapshot}</h2>
       <IconButton icon="more-vertical" label="Exercise options for {exercise.exerciseNameSnapshot}" onclick={() => (menuOpen = true)} />
     </div>
   {/snippet}
@@ -179,6 +190,13 @@
   <div class="menu">
     <Button block icon="chevron-up" disabled={index === 0} onclick={() => act(() => onmove(-1))}>Move up</Button>
     <Button block icon="chevron-down" disabled={index === count - 1} onclick={() => act(() => onmove(1))}>Move down</Button>
+    {#if onjoin}
+      <Button block icon="link" disabled={!canJoin.previous} onclick={() => act(() => onjoin(-1))}>Superset with previous</Button>
+      <Button block icon="link" disabled={!canJoin.next} onclick={() => act(() => onjoin(1))}>Superset with next</Button>
+    {/if}
+    {#if superset && onleave}
+      <Button block icon="x" onclick={() => act(onleave)}>Remove from superset</Button>
+    {/if}
     <Button block icon="timer" onclick={openRest}>Rest time</Button>
     <Button block icon="edit" onclick={openNotes}>Notes</Button>
     <Button block variant="danger" icon="trash" onclick={() => act(onremove)}>Remove exercise</Button>
@@ -215,6 +233,8 @@
     min-inline-size: 0;
     overflow-wrap: anywhere;
   }
+  .visually-hidden { position: absolute; inline-size: 1px; block-size: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .tag { margin-inline-end: var(--space-2); }
   .notes {
     margin: 0 var(--space-4) var(--space-3);
     font-size: var(--text-sm);

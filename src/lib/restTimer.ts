@@ -1,4 +1,5 @@
-import type { RestTimer } from "#lib/types";
+import { supersetRuns } from "#lib/logger/workout";
+import type { RestTimer, SessionExercise } from "#lib/types";
 
 /** Timer state is a stored end instant, never interval ticks; the UI just re-reads `remainingSeconds`. */
 export function startRestTimer(durationSeconds: number, now = Date.now()): RestTimer {
@@ -36,4 +37,25 @@ export function restDurationFor(
   settings: { defaultRestSeconds: number },
 ): number {
   return exercise.restSeconds ?? settings.defaultRestSeconds;
+}
+
+/**
+ * Seconds of rest to start after completing `setId` of `exercises[exerciseIndex]`, or 0 for none.
+ * Outside a superset this is `restDurationFor`. In a superset, rounds are the sets at the same position of each
+ * member: the timer starts only once every member that has a set in that round is done, and uses the rest of
+ * the last such member in group order.
+ */
+export function restAfterSet(
+  exercises: readonly SessionExercise[],
+  exerciseIndex: number,
+  setId: string,
+  settings: { defaultRestSeconds: number },
+): number {
+  const exercise = exercises[exerciseIndex];
+  const run = supersetRuns(exercises).find((r) => r.includes(exerciseIndex));
+  if (!run) return restDurationFor(exercise, settings);
+  const round = exercise.sets.findIndex((s) => s.id === setId);
+  const members = run.map((i) => exercises[i]).filter((e) => e.sets[round]);
+  if (round < 0 || members.some((e) => !e.sets[round].completedAt)) return 0;
+  return restDurationFor(members.at(-1)!, settings);
 }
