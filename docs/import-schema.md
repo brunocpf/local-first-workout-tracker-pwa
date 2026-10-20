@@ -77,6 +77,10 @@ This is the single authoritative spec for the program import format, a public co
 | `equipment` | Optional free text (<=60) hint for custom exercises, e.g. `"landmine"`. |
 | `exerciseType` | Optional: `weighted_reps`, `bodyweight_reps`, `duration`, `distance`. Hint for custom exercises. |
 
+#### Matching (app side)
+
+`matchExerciseRef` (`src/lib/imports/matchExercises.ts`) resolves a reference in order: exact catalog `id` → alias → normalized name (case, diacritics, punctuation ignored) → fuzzy suggestions → unresolved. Archived exercises are never matched. An `id` that is unknown or archived falls through to `name`. An alias/name shared by several exercises is only ever *suggested*. Fuzzy matching (mean of token and trigram Dice similarity, threshold 0.45, +0.15 when `equipment` matches the candidate's equipment, max 3 candidates) never auto-applies; the user confirms in the preview.
+
 If both `id` and `name` are given, `id` wins; `name` is kept as the display fallback. A reference with no `id` is *unresolved* and must be settled in the preview. It is valid, not an error.
 
 ### Sets: `sets` or `setList`, exactly one
