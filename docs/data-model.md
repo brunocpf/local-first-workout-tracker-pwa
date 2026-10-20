@@ -38,7 +38,7 @@ Stored on the active session: `restTimer?: { endsAt, durationSeconds, pausedRema
 
 ### Time zones and weeks
 
-`WorkoutSession.timeZone` is an IANA name from `Intl` captured at start. `localDate(session)` (`src/lib/time.ts`) gives the calendar day (`YYYY-MM-DD`) the session started on **in that zone**, so a 22:30 workout in Los Angeles stays on its local day even though UTC rolled over, and travelling doesn't shift old workouts. An unknown zone (from an import) falls back to UTC. Week start is the `weekStartsOn` setting (0 Sun, 1 Mon default, 6 Sat); `localWeekStart(session, weekStartsOn)` returns the week's first day.
+`WorkoutSession.timeZone` is an IANA name from `Intl` captured at start. `localDate(session)` (`src/lib/time.ts`) gives the calendar day (`YYYY-MM-DD`) the session started on **in that zone**, so a 22:30 workout in Los Angeles stays on its local day even though UTC rolled over, and travelling doesn't shift old workouts. An unknown zone (from an import) falls back to UTC. Week start is the `weekStartsOn` setting (0 Sun, 1 Mon default, 6 Sat); `localWeekStart(session, weekStartsOn)` returns the week's first day. `monthlyStats(sessions)` (`src/lib/progress/monthly.ts`) groups completed sessions by that `YYYY-MM` local month and totals count, duration, volume and completed sets; it is derived on each call, never stored.
 
 ### Units
 
