@@ -93,6 +93,10 @@ Tables and indexes (Dexie version 1):
 
 `startSession`, `getActiveSession`, `saveSession`, `finishSession`, `discardSession`, `completedSessionsWithExercise`. `saveSession` is an upsert that recomputes `exerciseIds` + `updatedAt` and writes in one transaction. It **deep-copies via JSON before writing**, so it accepts Svelte `$state` proxies directly (IndexedDB's structured clone throws `DataCloneError` on proxies; tested). Anything else written to Dexie from a component (routines, settings) must be plain data: use `$state.snapshot()` or go through a repository function.
 
+### Routine and program repository (`routines.ts`)
+
+`listRoutinesGrouped` (programs with their routines sorted by `programOrder`, plus standalone routines; a routine whose program is missing is listed as standalone), `getRoutine`, `getProgram`, `saveRoutine` (plain copy, bumps `updatedAt`), `duplicateRoutine` (standalone copy with fresh routine, exercise and prescribed-set ids, name + " (copy)"), `deleteRoutine` (also removes it from its program's `schedule`), `deleteProgram(id, { deleteRoutines })` (default: routines become standalone). Multi-table writes run in one transaction. None of them read or write sessions: editing or deleting a routine or program never changes history.
+
 ### Persistence (`persistence.ts`)
 
 `requestPersistentStorage()` wraps `navigator.storage.persist()/persisted()/estimate()` with feature detection and returns `{ supported, persisted, usageBytes?, quotaBytes? }`; `getPersistenceStatus()` reads without prompting. Browsers differ:
