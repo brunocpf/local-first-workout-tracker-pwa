@@ -3,6 +3,8 @@
   import { resolve } from "$app/paths";
   import UpdateBanner from "#lib/components/UpdateBanner.svelte";
   import Icon from "#lib/components/ui/Icon.svelte";
+  import ConfirmDialog from "#lib/components/ui/ConfirmDialog.svelte";
+  import Toaster from "#lib/components/ui/Toaster.svelte";
   import "../app.css";
   let { children } = $props();
 
@@ -69,6 +71,8 @@
     </main>
   </div>
 </div>
+<ConfirmDialog />
+<Toaster />
 
 <style>
   :global(:root) {
