@@ -17,7 +17,24 @@ export type ProgramDraft = {
   /** Paths of exercise references that still have no resolution; saving is refused while any remain. */
   unresolved: string[];
   warnings: string[];
+  /** Per routine in `routines`: the index of its source routine and, per exercise, of its source exercise in the import. */
+  sources: { routine: number; exercises: number[] }[];
 };
+
+/**
+ * Preview edits, layered over the import by source position so they survive re-resolving exercises
+ * (draft ids are regenerated on every build).
+ */
+export type DraftEdits = {
+  /** Source routine index -> name. */
+  routineNames?: Record<number, string>;
+  /** Source routine index -> source exercise indices in the desired order. */
+  order?: Record<number, number[]>;
+  /** `${routine}.${exercise}` source indices -> edited prescription (only sets, rest and notes are used; ids are regenerated). */
+  exercises?: Record<string, RoutineExercise>;
+};
+
+export const editKey = (routineIndex: number, exerciseIndex: number) => `${routineIndex}.${exerciseIndex}`;
 
 type ImportSet = {
   setType?: PrescribedSet["type"];
@@ -44,7 +61,7 @@ const prescribed = (s: ImportSet): PrescribedSet => ({
 export function buildProgramDraft(
   data: ProgramImportV1,
   resolutions: Record<string, ExerciseResolution>,
-  options: { programName?: string } = {},
+  options: { programName?: string; edits?: DraftEdits } = {},
 ): ProgramDraft {
   const now = new Date().toISOString();
   const p = data.program;
@@ -54,9 +71,12 @@ export function buildProgramDraft(
   const programId = newId();
   const routineIds = new Map<string, string>(); // file-local id -> new id
   const routines: Routine[] = [];
+  const sources: ProgramDraft["sources"] = [];
+  const edits = options.edits ?? {};
 
   p.routines.forEach((r, ri) => {
     const exercises: RoutineExercise[] = [];
+    const exerciseSources: number[] = [];
     const groups = new Map<string, string>();
     r.exercises.forEach((e, ei) => {
       const path = `program.routines[${ri}].exercises[${ei}].exercise`;
@@ -92,15 +112,36 @@ export function buildProgramDraft(
         group = groups.get(e.supersetGroup) ?? newId();
         groups.set(e.supersetGroup, group);
       }
+      const edit = edits.exercises?.[editKey(ri, ei)];
+      const restSeconds = edit ? edit.restSeconds : e.restSeconds;
+      const notes = edit ? edit.notes : e.notes;
+      exerciseSources.push(ei);
       exercises.push({
         id: newId(),
         exerciseId,
-        prescribedSets: e.setList ? e.setList.map(prescribed) : Array.from({ length: e.sets ?? 0 }, () => prescribed(e)),
-        ...(e.restSeconds !== undefined && { restSeconds: e.restSeconds }),
-        ...(e.notes !== undefined && { notes: e.notes }),
+        prescribedSets: edit
+          ? edit.prescribedSets.map((s) => ({ ...s, ...(s.repRange && { repRange: [...s.repRange] as [number, number] }) }))
+          : e.setList
+            ? e.setList.map(prescribed)
+            : Array.from({ length: e.sets ?? 0 }, () => prescribed(e)),
+        ...(restSeconds !== undefined && { restSeconds }),
+        ...(notes !== undefined && notes !== "" && { notes }),
         ...(group !== undefined && { supersetGroupId: group }),
       });
     });
+
+    const order = edits.order?.[ri];
+    if (order) {
+      const rank = (i: number) => {
+        const at = order.indexOf(exerciseSources[i]);
+        return at === -1 ? order.length + i : at;
+      };
+      const idx = exercises.map((_, i) => i).sort((a, b) => rank(a) - rank(b));
+      const reordered = idx.map((i) => exercises[i]);
+      const reorderedSources = idx.map((i) => exerciseSources[i]);
+      exercises.splice(0, exercises.length, ...reordered);
+      exerciseSources.splice(0, exerciseSources.length, ...reorderedSources);
+    }
 
     if (exercises.length === 0 && !r.exercises.some((_, ei) => unresolved.includes(`program.routines[${ri}].exercises[${ei}].exercise`))) {
       warnings.push(`program.routines[${ri}]: routine "${r.name}" has no exercises left and was dropped`);
@@ -108,7 +149,9 @@ export function buildProgramDraft(
     }
     const id = newId();
     routineIds.set(r.id, id);
-    routines.push({ id, programId, programOrder: routines.length, name: r.name, exercises, createdAt: now, updatedAt: now });
+    sources.push({ routine: ri, exercises: exerciseSources });
+    const name = edits.routineNames?.[ri]?.trim() || r.name;
+    routines.push({ id, programId, programOrder: routines.length, name, exercises, createdAt: now, updatedAt: now });
   });
 
   let schedule: Program["schedule"];
@@ -137,7 +180,7 @@ export function buildProgramDraft(
     createdAt: now,
     updatedAt: now,
   };
-  return { program, routines, newExercises, unresolved, warnings };
+  return { program, routines, newExercises, unresolved, warnings, sources };
 }
 
 /**

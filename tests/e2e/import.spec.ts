@@ -83,3 +83,15 @@ test("cancel writes nothing", async ({ page }) => {
   );
   expect(counts.every((c) => c === 0)).toBe(true);
 });
+
+test("preview edits (rename, reorder) are what gets saved", async ({ page }) => {
+  const squat = { exercise: { name: "Barbell Back Squat" }, sets: 3, repRange: [5, 5] };
+  await check(page, plan([press, squat]));
+  await page.getByRole("button", { name: "Use Back Squat" }).click();
+  await page.getByLabel("Routine name").fill("Edited Day");
+  await page.getByRole("button", { name: "Move Barbell Bench Press down" }).click();
+  await page.getByRole("button", { name: "Confirm import" }).click();
+  await expect(page).toHaveURL(/\/routines$/);
+  await page.getByText("Edited Day").click();
+  await expect(page.getByRole("heading", { level: 2 }).filter({ hasText: /Squat|Bench/ })).toHaveText(["Back Squat", "Barbell Bench Press"]);
+});

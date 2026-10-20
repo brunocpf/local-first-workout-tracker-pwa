@@ -5,18 +5,20 @@
   import Badge from "#lib/components/ui/Badge.svelte";
   import Banner from "#lib/components/ui/Banner.svelte";
   import Button from "#lib/components/ui/Button.svelte";
+  import IconButton from "#lib/components/ui/IconButton.svelte";
   import Card from "#lib/components/ui/Card.svelte";
+  import PrescriptionEditor from "#lib/components/routines/PrescriptionEditor.svelte";
   import Dialog from "#lib/components/ui/Dialog.svelte";
   import Select from "#lib/components/ui/Select.svelte";
   import TextField from "#lib/components/ui/TextField.svelte";
-  import { buildProgramDraft, saveProgramImport, type ExerciseResolution } from "#lib/imports/saveProgram";
+  import { buildProgramDraft, editKey, saveProgramImport, type DraftEdits, type ExerciseResolution } from "#lib/imports/saveProgram";
   import { matchProgram, type MatchResult } from "#lib/imports/matchExercises";
   import type { ExerciseRefV1, ProgramImportV1 } from "#lib/imports/programSchema";
   import { settings } from "#lib/settings.svelte";
   import { listExercises } from "#lib/storage/exercises";
   import { toast } from "#lib/ui/toast.svelte";
   import { displayWeight } from "#lib/units";
-  import type { Exercise, ExerciseType } from "#lib/types";
+  import type { Exercise, ExerciseType, RoutineExercise } from "#lib/types";
 
   let {
     data,
@@ -45,6 +47,7 @@
   // svelte-ignore state_referenced_locally
   let programName = $state(data.program.name);
   let resolutions = $state<Record<string, ExerciseResolution>>({});
+  let edits = $state<Required<DraftEdits>>({ routineNames: {}, order: {}, exercises: {} });
   let saving = $state(false);
   let saveError = $state<string>();
 
@@ -72,7 +75,7 @@
     return { ...out, ...resolutions };
   });
 
-  const draft = $derived(buildProgramDraft(data, $state.snapshot(effective), { programName }));
+  const draft = $derived(buildProgramDraft(data, $state.snapshot(effective), { programName, edits: $state.snapshot(edits) }));
   const canConfirm = $derived(loaded && !loadError && !saving && draft.unresolved.length === 0 && draft.routines.length > 0 && programName.trim() !== "");
 
   const set = (path: string, r: ExerciseResolution) => (resolutions = { ...resolutions, [path]: r });
@@ -80,6 +83,49 @@
     const rest = { ...resolutions };
     delete rest[path];
     resolutions = rest;
+  }
+
+  /** Source exercise indices of a routine in the order the user arranged them. */
+  const orderOf = (ri: number): number[] => edits.order[ri] ?? data.program.routines[ri].exercises.map((_, i) => i);
+  function move(ri: number, from: number, to: number) {
+    const next = [...orderOf(ri)];
+    next.splice(to, 0, ...next.splice(from, 1));
+    edits.order[ri] = next;
+  }
+  const draftExercise = (ri: number, ei: number): RoutineExercise | undefined => {
+    const at = draft.sources.findIndex((x) => x.routine === ri);
+    const idx = at === -1 ? -1 : draft.sources[at].exercises.indexOf(ei);
+    return idx === -1 ? undefined : draft.routines[at].exercises[idx];
+  };
+
+  let editTarget = $state<{ ri: number; ei: number }>();
+  let editOpen = $state(false);
+  const editing = $derived(editTarget ? edits.exercises[editKey(editTarget.ri, editTarget.ei)] : undefined);
+  /** Seeds the edit layer from the current draft the first time an exercise is opened; the editor then mutates it in place. */
+  function startEdit(ri: number, ei: number) {
+    const key = editKey(ri, ei);
+    if (!edits.exercises[key]) {
+      const base = draftExercise(ri, ei);
+      if (!base) return;
+      edits.exercises[key] = $state.snapshot(base) as RoutineExercise;
+    }
+    editTarget = { ri, ei };
+    editOpen = true;
+  }
+  function typeOf(ri: number, ei: number): ExerciseType | undefined {
+    const res = effective[`program.routines[${ri}].exercises[${ei}].exercise`];
+    if (res?.kind === "create") return res.exerciseType;
+    if (res?.kind === "exercise") return byId.get(res.exerciseId)?.exerciseType;
+    return undefined;
+  }
+  function editedSummary(re: RoutineExercise): string {
+    const parts = re.prescribedSets.map(
+      (s) =>
+        [setTarget({ ...s, targetDistanceMeters: s.targetDistance }), s.targetWeight !== undefined ? `@ ${fmtWeight(s.targetWeight)}` : ""]
+          .filter(Boolean)
+          .join(" ") || "set",
+    );
+    return [`${re.prescribedSets.length} sets: ${parts.join(", ")}`, re.restSeconds !== undefined ? `rest ${fmtRest(re.restSeconds)}` : ""].filter(Boolean).join(" · ");
   }
 
   const fmtWeight = (kg: number) => `${displayWeight(kg, settings.weightUnit)} ${settings.weightUnit}`;
@@ -105,6 +151,10 @@
     return parts.join(" · ");
   }
 
+  const nameLabel = (path: string, ref: ExerciseRefV1) => {
+    const res = effective[path];
+    return res?.kind === "exercise" ? nameOf(res.exerciseId) : res?.kind === "create" ? res.name : refLabel(ref);
+  };
   const refLabel = (ref: ExerciseRefV1) => ref.name ?? ref.id ?? "Exercise";
 
   // Picker / create-custom target.
@@ -170,9 +220,14 @@
 
   {#each data.program.routines as routine, ri (ri)}
     <Card>
-      <h2>{routine.name}</h2>
+      <TextField
+        label="Routine name"
+        bind:value={() => edits.routineNames[ri] ?? routine.name, (v) => (edits.routineNames[ri] = v)}
+      />
       <ol class="exercises">
-        {#each routine.exercises as e, ei (ei)}
+        {#each orderOf(ri) as ei, pos (ei)}
+          {@const e = routine.exercises[ei]}
+          {@const edited = edits.exercises[editKey(ri, ei)]}
           {@const path = `program.routines[${ri}].exercises[${ei}].exercise`}
           {@const m = matches.get(path)}
           {@const res = effective[path]}
@@ -193,11 +248,24 @@
                 <Badge variant="danger" icon="alert-triangle">Unresolved</Badge>
               {/if}
             </div>
-            <p class="meta">{setsSummary(e)}</p>
-            {#if e.notes}<p class="meta">{e.notes}</p>{/if}
+            <p class="meta">{edited ? editedSummary(edited) : setsSummary(e)}</p>
+            {#if edited ? edited.notes : e.notes}<p class="meta">{edited ? edited.notes : e.notes}</p>{/if}
             {#if res?.kind === "exercise" && e.exercise.name && nameOf(res.exerciseId) !== e.exercise.name}
               <p class="meta">Imported as “{e.exercise.name}”</p>
             {/if}
+
+            <div class="resolve">
+              <IconButton icon="chevron-up" label={`Move ${nameLabel(path, e.exercise)} up`} disabled={pos === 0} onclick={() => move(ri, pos, pos - 1)} />
+              <IconButton
+                icon="chevron-down"
+                label={`Move ${nameLabel(path, e.exercise)} down`}
+                disabled={pos === routine.exercises.length - 1}
+                onclick={() => move(ri, pos, pos + 1)}
+              />
+              {#if res && res.kind !== "drop"}
+                <Button onclick={() => startEdit(ri, ei)}>Edit sets</Button>
+              {/if}
+            </div>
 
             {#if loaded && !loadError}
               <div class="resolve">
@@ -239,6 +307,16 @@
   </div>
 </div>
 
+{#if editing && editTarget}
+  <PrescriptionEditor
+    bind:open={editOpen}
+    exercise={editing}
+    name={nameLabel(`program.routines[${editTarget.ri}].exercises[${editTarget.ei}].exercise`, data.program.routines[editTarget.ri].exercises[editTarget.ei].exercise)}
+    exerciseType={typeOf(editTarget.ri, editTarget.ei)}
+    unit={settings.weightUnit}
+  />
+{/if}
+
 <ExercisePicker
   bind:open={pickerOpen}
   title="Choose exercise"
@@ -259,7 +337,6 @@
 
 <style>
   .preview { display: flex; flex-direction: column; gap: var(--space-4); }
-  h2 { margin: 0 0 var(--space-3); font-size: var(--text-lg); }
   p { margin: 0; }
   .exercises { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-4); }
   .exercise { display: flex; flex-direction: column; gap: var(--space-2); }
