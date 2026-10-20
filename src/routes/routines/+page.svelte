@@ -34,6 +34,7 @@
   const isEmpty = $derived(grouped.standalone.length === 0 && grouped.programs.every((p) => p.routines.length === 0));
   const count = (r: Routine) => `${r.exercises.length} ${r.exercises.length === 1 ? "exercise" : "exercises"}`;
   const importHref = resolve("/routines/import");
+  const generateHref = resolve("/routines/generate");
 
   function openMenu(r: Routine) {
     menuFor = r;
@@ -88,6 +89,7 @@
 
 <PageHeader title="Routines">
   {#snippet actions()}
+    <Button variant="secondary" size="sm" href={generateHref}>Generate with AI</Button>
     <Button variant="secondary" size="sm" icon="import" href={importHref}>Import</Button>
   {/snippet}
 </PageHeader>
@@ -99,6 +101,7 @@
     <EmptyState icon="list" title="No routines yet" body="Import a plan to start from a routine.">
       {#snippet action()}
         <Button variant="primary" icon="import" href={importHref}>Import routine</Button>
+        <Button variant="secondary" href={generateHref}>Generate with AI</Button>
       {/snippet}
     </EmptyState>
   {:else}

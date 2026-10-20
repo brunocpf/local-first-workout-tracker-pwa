@@ -216,7 +216,7 @@ This example illustrates the format and is not a medically validated training pr
 
 ## Prompt snippet for AI assistants
 
-The app's "Generate a plan with AI" helper should include text like this, plus the user's constraints and the allowed catalog ids/names:
+The app's "Generate a plan with AI" helper (`src/lib/imports/prompt.ts`, page `/routines/generate`) includes text like this, plus the user's constraints and the allowed catalog ids/names:
 
 ```text
 Create a training program as a single JSON object and return ONLY the JSON: no prose, no markdown fences.
@@ -236,3 +236,5 @@ Schema:
 Allowed catalog exercises (id: name):
 <list>
 ```
+
+The generated prompt is capped at 60,000 characters (`MAX_PROMPT_CHARS`); the catalog list is truncated beyond that. Workout history (last 4 weeks: exercise names, session counts, top sets in kg) is added only when the user opts in, and the page shows exactly that text first. The app makes no network request.
