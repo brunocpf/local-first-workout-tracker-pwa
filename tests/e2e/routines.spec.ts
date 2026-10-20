@@ -203,3 +203,15 @@ test("supersets: ungroup a middle member keeps the group contiguous", async ({ p
   await expect(page.getByRole("heading", { level: 3 })).toHaveText(["Barbell Bench Press", "Conventional Deadlift", "Back Squat"]);
   await expect(page.getByText("Superset", { exact: true })).toHaveCount(1);
 });
+
+test("routines page does not scroll horizontally with long names", async ({ page }) => {
+  const long = `${"Extremely long routine name ".repeat(4)}${"Supercalifragilisticexpialidocious".repeat(2)}`;
+  await createRoutine(page, long);
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/routines");
+    await expect(page.getByRole("list", { name: "Routines" })).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `width ${width}`).toBeLessThanOrEqual(0);
+  }
+});
