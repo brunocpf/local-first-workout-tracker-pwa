@@ -76,17 +76,11 @@ test("seeded history shows the chart and personal records", async ({ page }) => 
 });
 
 test("exercise detail page shows personal records", async ({ page }) => {
-  await seed(page);
-  const href = await page.evaluate(
-    () =>
-      new Promise<string>((resolve) => {
-        const open = indexedDB.open("workout-tracker");
-        open.onsuccess = () => {
-          const r = open.result.transaction("sessions").objectStore("sessions").get("p1");
-          r.onsuccess = () => resolve(`/exercises/${r.result.exerciseIds[0]}`);
-        };
-      }),
-  );
-  await page.goto(href);
+  const name = await seed(page);
+  // Reload the list, then navigate client-side: a hard load of /exercises/<id> can be answered by a service
+  // worker holding a root-relative shell under `vite preview` (see PR notes), which is unrelated to this feature.
+  await page.goto("/exercises");
+  await page.getByRole("link", { name: new RegExp(`^${name}`) }).first().click();
+  await expect(page).toHaveURL(/\/exercises\/[^/]+$/);
   await expect(page.getByRole("list", { name: "Personal records" })).toContainText("120 kg");
 });
