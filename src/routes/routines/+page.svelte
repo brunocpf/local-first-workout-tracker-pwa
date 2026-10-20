@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import StartRoutineButton from "#lib/components/routines/StartRoutineButton.svelte";
   import Button from "#lib/components/ui/Button.svelte";
@@ -8,7 +9,14 @@
   import ListRow from "#lib/components/ui/ListRow.svelte";
   import PageHeader from "#lib/components/ui/PageHeader.svelte";
   import Sheet from "#lib/components/ui/Sheet.svelte";
-  import { deleteRoutine, duplicateRoutine, listRoutinesGrouped, type RoutinesGrouped } from "#lib/storage/routines";
+  import TextField from "#lib/components/ui/TextField.svelte";
+  import {
+    createProgram,
+    deleteRoutine,
+    duplicateRoutine,
+    listRoutinesGrouped,
+    type RoutinesGrouped,
+  } from "#lib/storage/routines";
   import { confirm } from "#lib/ui/confirm.svelte";
   import { toast } from "#lib/ui/toast.svelte";
   import type { Routine } from "#lib/types";
@@ -18,6 +26,9 @@
   let failed = $state(false);
   let menuFor = $state<Routine>();
   let menuOpen = $state(false);
+  let programOpen = $state(false);
+  let programName = $state("");
+  let programError = $state<string>();
 
   async function load() {
     try {
@@ -31,7 +42,7 @@
   }
   onMount(load);
 
-  const isEmpty = $derived(grouped.standalone.length === 0 && grouped.programs.every((p) => p.routines.length === 0));
+  const isEmpty = $derived(grouped.standalone.length === 0 && grouped.programs.length === 0);
   const count = (r: Routine) => `${r.exercises.length} ${r.exercises.length === 1 ? "exercise" : "exercises"}`;
   const newHref = resolve("/routines/new");
   const importHref = resolve("/routines/import");
@@ -49,6 +60,21 @@
       await load();
     } catch {
       toast("Couldn't duplicate the routine");
+    }
+  }
+
+  async function addProgram() {
+    if (!programName.trim()) {
+      programError = "Enter a program name.";
+      return;
+    }
+    try {
+      const program = await createProgram(programName);
+      programOpen = false;
+      programName = "";
+      await goto(resolve(`/programs/${program.id}` as "/"));
+    } catch {
+      programError = "Couldn't create the program.";
     }
   }
 
@@ -70,9 +96,13 @@
   }
 </script>
 
-{#snippet group(title: string, routines: Routine[])}
+{#snippet group(title: string, routines: Routine[], programId?: string)}
   <section>
-    <h2>{title}</h2>
+    {#if programId}
+      <h2><a href={resolve(`/programs/${programId}` as "/")}>{title}</a></h2>
+    {:else}
+      <h2>{title}</h2>
+    {/if}
     <ul class="group" aria-label={title}>
       {#each routines as r (r.id)}
         <li>
@@ -93,6 +123,7 @@
   {#snippet actions()}
     <Button variant="primary" size="sm" icon="plus" href={newHref}>New routine</Button>
     <Button variant="secondary" size="sm" href={generateHref}>Generate with AI</Button>
+    <Button variant="secondary" size="sm" icon="plus" onclick={() => (programOpen = true)}>New program</Button>
     <Button variant="secondary" size="sm" icon="import" href={importHref}>Import</Button>
   {/snippet}
 </PageHeader>
@@ -109,11 +140,11 @@
       {/snippet}
     </EmptyState>
   {:else}
-    {#each grouped.programs.filter((p) => p.routines.length > 0) as { program, routines } (program.id)}
-      {@render group(program.name, routines)}
+    {#each grouped.programs as { program, routines } (program.id)}
+      {@render group(program.name, routines, program.id)}
     {/each}
     {#if grouped.standalone.length > 0}
-      {@render group(grouped.programs.some((p) => p.routines.length > 0) ? "Other routines" : "Routines", grouped.standalone)}
+      {@render group(grouped.programs.length > 0 ? "Other routines" : "Routines", grouped.standalone)}
     {/if}
   {/if}
 {/if}
@@ -128,7 +159,30 @@
   {/if}
 </Sheet>
 
+<Sheet bind:open={programOpen} title="New program">
+  <form
+    class="menu"
+    onsubmit={(e) => {
+      e.preventDefault();
+      void addProgram();
+    }}
+  >
+    <TextField label="Program name" bind:value={programName} error={programError} required enterkeyhint="done" />
+    <Button type="submit" variant="primary" block>Create program</Button>
+  </form>
+</Sheet>
+
 <style>
+  h2 a {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: var(--tap-min);
+    color: inherit;
+    text-decoration: none;
+  }
+  h2 a:hover {
+    text-decoration: underline;
+  }
   section {
     margin-block-start: var(--space-4);
   }
