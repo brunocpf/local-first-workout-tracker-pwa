@@ -69,6 +69,12 @@ All computed from raw sets (`src/lib/progress/metrics.ts`); **warm-up sets and s
   - **Best e1RM**: highest Epley value.
   - **Best session volume**: highest exercise volume in one session.
 
+## Catalog search (`src/lib/catalog/search.ts`)
+
+`normalizeName(s)` is the canonical form for search and import matching: NFKD with diacritics stripped, lowercased, `&` → `and`, punctuation and hyphens → spaces, whitespace collapsed and trimmed (`Pèc-Déck & Co.` → `pec deck and co`).
+
+`searchExercises(query, exercises, { limit?, includeArchived? })` is offline and runs over the in-memory catalog. Results rank: exact name or alias > name prefix > every query token starts a word of the name or an alias > substring; ties sort by normalized name. Archived exercises are excluded unless `includeArchived` is set. An empty query returns all non-archived exercises sorted by name.
+
 ## Storage (`src/lib/storage/`)
 
 Database name: `workout-tracker` (`DB_NAME`). The app is hosted on GitHub Pages (`brunocpf.github.io/local-first-workout-tracker-pwa/`) and all of a user's project sites share one origin and therefore one IndexedDB namespace, so the name must be app-specific and unique. It must also stay **stable**: renaming it later strands existing data in the old database. Tests use unique per-test names.
