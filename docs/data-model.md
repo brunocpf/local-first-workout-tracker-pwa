@@ -114,10 +114,14 @@ Version 1 was edited in place only because no user data existed. From now on:
 
 ## Exercise catalog seed (`src/lib/catalog/`)
 
-`vocab.ts` holds the controlled vocabularies (`MUSCLES`, `EQUIPMENT`, `MOVEMENT_PATTERNS`, each a const array with a derived union type). `seed.ts` holds `SEED_EXERCISES` (~107 built-in exercises, text written for this project, no instructions or media yet) and `SEED_EXERCISES_BY_ID`. Entries carry no timestamps; the loader that writes them to Dexie (T1.11) fills `createdAt`/`updatedAt` and `isCustom: false`. `Exercise.primaryMuscles`/`secondaryMuscles`/`equipment` stay `string[]` in storage (custom and imported exercises may use other values); only seed entries are checked against the vocab.
+`vocab.ts` holds the controlled vocabularies (`MUSCLES`, `EQUIPMENT`, `MOVEMENT_PATTERNS`, each a const array with a derived union type). `seed.ts` holds `SEED_EXERCISES` (~107 built-in exercises, text written for this project, no instructions or media yet) and `SEED_EXERCISES_BY_ID`. Entries carry no timestamps; the loader that writes them to Dexie (`ensureCatalogSeeded`) fills `createdAt`/`updatedAt` and `isCustom: false`. `Exercise.primaryMuscles`/`secondaryMuscles`/`equipment` stay `string[]` in storage (custom and imported exercises may use other values); only seed entries are checked against the vocab.
 
 **Catalog id policy:** ids are snake_case (`/^[a-z0-9_]+$/`), **permanent, and never renamed or reused** — history, backups and import files reference them. Renaming an exercise changes only `name`. Retiring one keeps its entry (so ids still resolve) and archives/hides it. New ids may be added at any time. Names and aliases are unique across the catalog (case/diacritic/punctuation-insensitive) so importer name resolution is unambiguous. A test (`tests/catalog-seed.test.ts`) also checks that every id used by `docs/import-schema.md` and `tests/fixtures/` resolves.
 
+### Catalog repository (`src/lib/storage/exercises.ts`)
+
+`ensureCatalogSeeded()` upserts every `SEED_EXERCISES` entry into `exercises` (memoized per database; retried after a failure). Seed fields (name, muscles, type, …) are refreshed from the seed; user state on existing rows is kept: `favorite`, `archivedAt`, and aliases (result = union of seed and existing aliases), plus `createdAt`. Rows are never deleted, so custom exercises and retired seed ids survive. Queries (`listExercises({includeArchived?})`, `getExercise`, `getExercisesByIds`) call it lazily; `createCustomExercise` (UUID id, `isCustom: true`), `setFavorite` and `setArchived` write plain objects. Functions take an optional trailing `AppDB` for tests.
+
 ## Not yet implemented
 
-Routine → session copying (the "start routine" logger slice), the exercise catalog repository (loading the seed into Dexie, T1.11), bodyweight measurements.
+Routine → session copying (the "start routine" logger slice), bodyweight measurements.
