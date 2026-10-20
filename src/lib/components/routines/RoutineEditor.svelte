@@ -4,6 +4,7 @@
   import { beforeNavigate, goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import ExercisePicker from "#lib/components/ExercisePicker.svelte";
+  import PrescriptionEditor from "#lib/components/routines/PrescriptionEditor.svelte";
   import Button from "#lib/components/ui/Button.svelte";
   import Card from "#lib/components/ui/Card.svelte";
   import EmptyState from "#lib/components/ui/EmptyState.svelte";
@@ -23,7 +24,7 @@
   import { confirm } from "#lib/ui/confirm.svelte";
   import { toast } from "#lib/ui/toast.svelte";
   import { displayWeight } from "#lib/units";
-  import type { Exercise, PrescribedSet, Routine, RoutineExercise } from "#lib/types";
+  import type { Exercise, ExerciseType, PrescribedSet, Routine, RoutineExercise } from "#lib/types";
 
   let { initial, isNew = false }: { initial: Routine; isNew?: boolean } = $props();
 
@@ -37,6 +38,10 @@
   let saving = $state(false);
   let pickerOpen = $state(false);
   let replacingId = $state<string>();
+  let types = $state<Record<string, ExerciseType>>({});
+  let editingId = $state<string>();
+  let editOpen = $state(false);
+  const editing = $derived(draft.exercises.find((e) => e.id === editingId));
 
   const dirty = $derived(JSON.stringify($state.snapshot(draft)) !== baseline);
   const validation = $derived(validateRoutine(draft));
@@ -52,6 +57,7 @@
     try {
       const found = await getExercisesByIds(ids);
       names = { ...names, ...Object.fromEntries(found.map((e) => [e.id, e.name])) };
+      types = { ...types, ...Object.fromEntries(found.map((e) => [e.id, e.exerciseType])) };
     } catch {
       // Names are display-only; the row falls back to "Unknown exercise".
     }
@@ -79,6 +85,7 @@
     replacingId = undefined;
     for (const ex of list) {
       names[ex.id] = ex.name;
+      types[ex.id] = ex.exerciseType;
       if (target) replaceRoutineExercise(draft, target, ex.id);
       else addRoutineExercise(draft, ex.id);
     }
@@ -200,6 +207,14 @@
               size="sm"
               variant="secondary"
               onclick={() => {
+                editingId = re.id;
+                editOpen = true;
+              }}>Edit sets for {name}</Button
+            >
+            <Button
+              size="sm"
+              variant="secondary"
+              onclick={() => {
                 replacingId = re.id;
                 pickerOpen = true;
               }}>Replace {name}</Button
@@ -230,6 +245,16 @@
   onpick={picked}
   oncancel={() => (replacingId = undefined)}
 />
+
+{#if editing}
+  <PrescriptionEditor
+    bind:open={editOpen}
+    exercise={editing}
+    name={names[editing.exerciseId] ?? "Unknown exercise"}
+    exerciseType={types[editing.exerciseId]}
+    {unit}
+  />
+{/if}
 
 <div class="footer">
   <Button variant="ghost" onclick={cancel}>Cancel</Button>
