@@ -11,7 +11,7 @@ Read [docs/PRD.md](docs/PRD.md) first (sections 24–25 are the build order and 
 - **Browser support:** Baseline *Widely available* features freely; *Newly available* ones only with feature detection and a working fallback (the allowed exceptions are listed in docs/design.md §1). Minimum iOS/iPadOS Safari 17.5.
 - Never use `{@html}` (enforced by ESLint `svelte/no-at-html-tags`). Imported content is untrusted: validate with Zod, never eval, size-limit.
 - Verify with `npm run check && npm run lint && npm test && npm run build && npm run test:e2e`.
-- No backend, accounts, paid APIs, or sync without a concrete requirement and an ADR.
+- No backend, accounts, paid APIs, or sync without a concrete requirement and an ADR. The one exception is the optional, minimal Web Push relay for rest-timer notifications in `relay/` ([ADR 0014](docs/decisions/0014-rest-timer-push.md)): it stores only a push subscription endpoint and a fire time, never workout data, and the app must work fully without it.
 - Data loss is a serious defect: test migrations, interrupted sessions, backup/restore. Service-worker updates never reload during an active workout.
 - Historical sessions snapshot exercise names and copy routine prescriptions; routine edits never rewrite history.
 - Store raw sets; compute aggregates (PR definitions: PRD §10.1). Weights in kg internally, ISO 8601 timestamps, session `timeZone`.

@@ -27,6 +27,10 @@ The active workout is an in-memory Svelte `$state` object. Every mutation is wri
 
 The service worker precaches the app shell with a navigation fallback. New versions are installed but **activated only on user action** via an "update available" banner, which is suppressed while a workout is active, so an update never reloads the page mid-session. `BASE_PATH` supports sub-path hosting (GitHub Pages project site). Details: ADR 0003 (PWA shell & updates) in [decisions/](decisions/).
 
+## Rest-timer push (optional)
+
+`src/lib/push.ts` subscribes through the service worker and asks the relay in `relay/` (Cloudflare Worker + Durable Object, [ADR 0014](decisions/0014-rest-timer-push.md)) to push at `endsAt`; `RestTimerBar` keeps that schedule in step with the timer and cancels it shortly before the end when the page is visible. The service worker's `push` handler shows a fixed "Rest over" notification and `notificationclick` focuses or opens the app. The relay holds only `{push endpoint, fireAt}`; the subscription is in `localStorage`, never in IndexedDB or a backup. `relay/` is outside the SvelteKit build and deployed separately.
+
 ## Migrations
 
 Explicit Dexie versions in `src/lib/storage/db.ts`. Never drop user data. Test against representative old DB states and failed upgrades. A tab running old code closes its connection for good when a newer tab upgrades and asks to reload; open failures and failed workout writes are shown by `AppStatus` (see [data-model.md](data-model.md#database-lifecycle-and-storage-errors-dbts-appstatussvelte)).

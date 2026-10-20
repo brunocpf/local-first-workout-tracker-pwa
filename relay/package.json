@@ -1,0 +1,18 @@
+{
+  "name": "workout-tracker-push-relay",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Optional Web Push relay for rest-timer notifications (ADR 0014). Stores only a push subscription and a fire time.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "vapid": "node scripts/generate-vapid.mjs"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

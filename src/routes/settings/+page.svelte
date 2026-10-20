@@ -4,6 +4,7 @@
   import { resolve } from "$app/paths";
   import InstallHint from "#lib/components/InstallHint.svelte";
   import BackupSection from "#lib/components/settings/BackupSection.svelte";
+  import NotificationsSection from "#lib/components/settings/NotificationsSection.svelte";
   import Banner from "#lib/components/ui/Banner.svelte";
   import Button from "#lib/components/ui/Button.svelte";
   import Card from "#lib/components/ui/Card.svelte";
@@ -85,6 +86,10 @@
         bind:checked={() => settings.autoStartRestTimer, (v) => save({ autoStartRestTimer: v })}
       />
     </div>
+  </Card>
+
+  <Card as="section" header={notifications}>
+    <NotificationsSection />
   </Card>
 
   <Card as="section" header={appearance}>
@@ -169,6 +174,7 @@
 
 {#snippet units()}Units{/snippet}
 {#snippet workout()}Workout{/snippet}
+{#snippet notifications()}Notifications{/snippet}
 {#snippet appearance()}Appearance{/snippet}
 {#snippet calendar()}Calendar{/snippet}
 {#snippet backup()}Backup{/snippet}

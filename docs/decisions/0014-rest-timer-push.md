@@ -1,0 +1,26 @@
+# 0014 – Rest-timer push notifications via a minimal Web Push relay
+
+**Status:** accepted · 2026-10-20 (amends the "no backend" rule for this one purpose)
+
+**Context:** A web page cannot run timers in the background: iOS suspends it (no background timers, no `navigator.vibrate`), Android throttles it, and service workers have no timed alarms (ADR 0005, docs/browser-limitations.md). The only web-native way to alert at a chosen moment is a Web Push sent at that moment by a server. Web Push works on iOS/iPadOS 16.4+ **only for a PWA added to the Home Screen** (permission requested from a user gesture), and in Android Chrome and desktop browsers. AGENTS.md and PRD §14.5 otherwise forbid a backend; the owner uses the installed PWA and wants locked-screen rest alerts, so there is now a concrete requirement. The alternative route (a native wrapper) is the separate decision in #103.
+
+**Options evaluated** (free-tier figures are from memory of each provider's published limits and must be re-checked at deploy time)
+
+1. **Cloudflare Workers + Durable Object alarm (chosen).** One Durable Object per scheduled push stores `{endpoint, fireAt}` and sets an `alarm()` for the exact time; the alarm sends the push and forgets everything. Alarms fire within about a second, need no polling or cron, and Durable Objects (SQLite-backed) are available on the Workers free plan; one user needs a few hundred requests a day against a 100k/day limit. Built-in rate-limit binding, simple `wrangler deploy`, no server to run. Cost: a Cloudflare account.
+2. **Cloudflare Cron Triggers / Queues.** Cron has minute granularity (too coarse for a 90 s rest); Queues delayed delivery is capped and needs a paid plan for useful volumes. Rejected.
+3. **Deno Deploy.** Works (`Deno.cron` is minute-level; `setTimeout` is not durable and isolates are recycled), so there is no reliable second-level scheduling without extra storage. Rejected.
+4. **Supabase Edge Functions + pg_cron.** pg_cron is minute-level (sub-minute schedules exist but are heavier), and it adds a database that stores rows. Rejected: coarser and heavier than option 1.
+5. **GitHub Actions.** Startup latency of tens of seconds to minutes; not viable. Rejected.
+6. **ntfy.sh or similar public services.** ntfy delivers through its own app / its own web client; it cannot send a Web Push to *this* PWA's subscription without being a relay for it, and its delayed delivery (`X-Delay`) puts the topic name and content on a public service. Rejected.
+7. **Do nothing** (foreground alerts only). Remains the fallback whenever the relay is missing or unreachable.
+
+**Decision:**
+1. Build the relay on Cloudflare Workers + Durable Objects in a top-level `relay/` folder, outside the SvelteKit build and deployed separately by the owner (`relay/README.md`).
+2. **The exception to the no-backend rule is exactly this relay.** AGENTS.md and PRD §14.5 now read: no backend except the minimal push relay of this ADR. Any other backend still needs its own ADR.
+3. **The relay stores nothing but a push endpoint and a fire time**, per random per-device id, deleted when it fires or is cancelled. It never receives workout data, exercise names, durations or user identity. The push has **no payload** (so no RFC 8291 encryption keys are even needed and the subscription's `keys` are not stored); the service worker shows a fixed "Rest over" notification. The relay and push services see the device's push endpoint, the IP address and the timing of rest timers.
+4. **Optional and opt-in.** Off by default; the app is fully functional without it. The relay URL and VAPID public key are build-time settings (`VITE_PUSH_RELAY_URL`, `VITE_PUSH_VAPID_PUBLIC_KEY`, repo variables in the deploy workflow); unset, the feature is hidden. The CSP `connect-src` is widened to that single relay host only when set (ADR 0003). The subscription is kept in `localStorage`, never logged and never in a backup; only the `restNotifications` flag is in settings and backups.
+5. **Abuse and limits:** requests only from the single allowed origin (CORS plus a server-side check), Zod validation, 4 KB body limit, `fireAt` at most 2 h ahead, endpoints restricted to https push-service hosts (FCM, Mozilla, Apple, Windows) so the relay cannot be aimed at arbitrary URLs, per-IP rate limit, no accounts. VAPID private key lives only as a Worker secret.
+6. **Duplicates and failure:** the app schedules at `endsAt`, cancels or reschedules on pause/skip/adjust/finish/discard, and cancels shortly (3 s) before the end while the page is visible (reverting to a schedule if the page is hidden again), so the foreground alert and the push do not both fire. A relay or network failure is ignored; a failed push is not retried (a late rest alert is worse than none).
+7. **Install requirement is explained in the app** (Settings section and a hint beside the timer): background notifications only work for the installed app, notably iOS Add to Home Screen first.
+
+**Consequences:** one small external service the owner must deploy (#196) and a service-worker `push`/`notificationclick` handler. Real-device verification (iPhone and Android, screen locked) is tracked in #196. If the relay is ever dropped, removing the feature touches `src/lib/push.ts`, the settings section, the timer bar effect, the service-worker handlers and `relay/`.

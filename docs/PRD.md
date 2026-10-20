@@ -343,7 +343,7 @@ Valid manifest with PNG and maskable icons; HTTPS; precached app shell with navi
 
 ### 14.5 Backend policy
 
-None. A backend (cloud backup, sync, shared plans, AI inference, push) needs a concrete requirement and an ADR.
+None, except the optional minimal Web Push relay for rest-timer notifications ([ADR 0014](decisions/0014-rest-timer-push.md)): it stores only a push endpoint and a fire time, never workout data, and the app works fully without it. Any other backend (cloud backup, sync, shared plans, AI inference) needs a concrete requirement and an ADR.
 
 ---
 
@@ -495,7 +495,7 @@ Also summarized in [AGENTS.md](../AGENTS.md).
 1. **Vertical slices.** Start routine → log set → persist → reload → recover → finish → history, then expand.
 2. **Inspect before editing.** Read the structure and ADRs; reuse tooling; avoid new dependencies; explain persistence decisions.
 3. **Testable logic.** Progress, matching, import validation and persistence live in `src/lib`, not in Svelte components, and have tests. Never use `{@html}` with imported text.
-4. **No premature infrastructure.** No backend, accounts, paid APIs or sync without a concrete requirement and an ADR.
+4. **No premature infrastructure.** No backend, accounts, paid APIs or sync without a concrete requirement and an ADR (the only backend is the optional push relay, ADR 0014).
 5. **Preserve data.** Data loss is a serious defect: test migrations, interrupted sessions, restore; use `$state.snapshot` before Dexie writes.
 6. **Keep the app usable** after each phase and run the full verification command.
 7. **Document** decisions (ADRs), data model, import schema, backup/restore, install steps, browser limitations, attribution — alongside the code.
@@ -508,7 +508,7 @@ Also summarized in [AGENTS.md](../AGENTS.md).
 1. **Name:** repo name only; final product name open.
 2. **Production origin:** currently GitHub Pages (`brunocpf.github.io`). A custom domain later would cost a manual export/restore, so decide before real data accumulates.
 3. **Hevy export format:** resolved. Real export inspected (CSV, no time zone, kg); mapping in [docs/hevy-import.md](hevy-import.md), decisions in ADR 0006. Still open: drop/failure/superset/RPE/distance/lb shapes, which the sample doesn't contain.
-4. **Timer alerts:** are foreground-only alerts enough? Decide after real use; otherwise ADR for a native wrapper.
+4. **Timer alerts:** are foreground-only alerts enough? Optional locked-screen notifications through a minimal push relay: [ADR 0014](decisions/0014-rest-timer-push.md) (device check tracked in #196); otherwise ADR for a native wrapper (#103).
 5. **wger or larger catalog:** evaluated in [ADR 0009](decisions/0009-wger-catalog.md): not bundled; optional text-only pack only on demand. Owner to confirm the CC-BY-SA question.
 6. **Previous values source** (recent vs same routine): default recent; revisit after use.
 7. **Cloud backup/sync, native app:** deferred until a concrete need.
