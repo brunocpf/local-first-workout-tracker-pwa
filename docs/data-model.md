@@ -70,6 +70,7 @@ All computed from raw sets (`src/lib/progress/metrics.ts`); **warm-up sets and s
   - **Rep PRs**: best weight for each exact rep count 1–12.
   - **Best e1RM**: highest Epley value.
   - **Best session volume**: highest exercise volume in one session.
+- PR timeline (`prTimeline(sessionsChronological)`, input = `{ startedAt, sets }` per session, oldest first): per session, the new PRs (`maxWeight`, `repMax` per rep count 1–12, `e1rm`, `sessionVolume`) with the achieving set (none for `sessionVolume`). A set is a PR only if it **strictly beats the best from earlier sessions**; ties and within-session progression don't count. **The first session with counted sets flags nothing** (no baseline); afterwards a rep count never done before is a PR. `prsBefore(sessions, beforeIso)` returns the `PersonalRecords` from sessions started strictly before `beforeIso` (live checks). Nothing is stored; edits/deletes take effect by recomputation.
 - Per-exercise time series (`exerciseSeries` in `src/lib/progress/series.ts`): one point per session with a counted set for the exercise, oldest first, with local `date`, `e1rm`, `maxWeight` (`weighted_reps`), `volume`, and `bestReps` (bodyweight types). `rangeStart` gives the 1M/3M/1Y/All lower bound.
 
 ## Catalog search (`src/lib/catalog/search.ts`)
