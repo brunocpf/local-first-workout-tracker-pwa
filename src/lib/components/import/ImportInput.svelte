@@ -98,11 +98,12 @@
     font-family: var(--font-mono);
     font-size: var(--text-sm);
     color: var(--color-text);
-    background: var(--color-surface);
-    border: var(--border-w) solid var(--color-border);
+    background: var(--color-surface-2);
+    border: var(--border-w) solid var(--color-border-strong);
     border-radius: var(--radius-md);
     resize: vertical;
   }
+  textarea:focus-visible { border-color: var(--color-accent); }
   .actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
   .file { display: none; }
   .messages:empty { display: none; }

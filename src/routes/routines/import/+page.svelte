@@ -12,7 +12,7 @@
 
 <PageHeader title="Import a plan" back={{ href: resolve("/routines"), label: "Back to routines" }} />
 
-<main class="page">
+<div class="page">
   <p>
     Paste a plan as JSON or open a <code>.json</code> file. Nothing is saved until you review it.
     <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external docs link -->
@@ -25,9 +25,9 @@
       <p>Preview coming soon.</p>
     </Card>
   {/if}
-</main>
+</div>
 
 <style>
-  .page { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--gutter); }
+  .page { display: flex; flex-direction: column; gap: var(--space-4); }
   p { margin: 0; }
 </style>
