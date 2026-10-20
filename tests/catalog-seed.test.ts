@@ -46,7 +46,26 @@ describe("seed exercise catalog", () => {
       expect(MOVEMENT_PATTERNS, x.id).toContain(x.movementPattern);
       expect(EXERCISE_TYPES, x.id).toContain(x.exerciseType);
       expect(x.isCustom, x.id).toBe(false);
-      expect(x.instructions, x.id).toBeUndefined();
+    }
+  });
+
+  it("gives every built-in 2–4 instruction sentences and 3–5 form cues", () => {
+    for (const x of SEED_EXERCISES) {
+      const sentences = (x.instructions ?? "").split(/(?<=[.!?])\s+/).filter((s) => s.trim() !== "");
+      expect(sentences.length, `${x.id} instructions`).toBeGreaterThanOrEqual(2);
+      expect(sentences.length, `${x.id} instructions`).toBeLessThanOrEqual(4);
+      expect(x.formCues?.length ?? 0, `${x.id} formCues`).toBeGreaterThanOrEqual(3);
+      expect(x.formCues?.length ?? 0, `${x.id} formCues`).toBeLessThanOrEqual(5);
+      for (const cue of x.formCues ?? []) expect(cue.trim(), `${x.id} cue`).not.toBe("");
+      expect(new Set(x.formCues).size, `${x.id} duplicate cues`).toBe(x.formCues?.length);
+    }
+  });
+
+  it("keeps guide text free of medical claims", () => {
+    const banned = /\b(cure|cures|heal|heals|treat|treats|therap\w*|diagnos\w*|prevent\w*|injur\w*|rehab\w*|medical)\b/i;
+    for (const x of SEED_EXERCISES) {
+      const text = [x.instructions ?? "", ...(x.formCues ?? [])].join(" ");
+      expect(banned.test(text), x.id).toBe(false);
     }
   });
 
