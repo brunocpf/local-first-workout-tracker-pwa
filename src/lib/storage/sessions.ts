@@ -250,3 +250,8 @@ export async function createCompletedSession(input: NewCompletedSession, now = n
   await db.sessions.add(session);
   return session;
 }
+
+/** Completed sessions with `from <= startedAt < to` (ISO instants), oldest first. Bounded by the `[status+startedAt]` index (calendar month). */
+export async function listCompletedSessionsBetween(from: string, to: string): Promise<WorkoutSession[]> {
+  return db.sessions.where("[status+startedAt]").between(["completed", from], ["completed", to], true, false).toArray();
+}

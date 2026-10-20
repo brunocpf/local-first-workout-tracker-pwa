@@ -131,3 +131,28 @@ test("keeping a just-created workout on cancel opens its detail page", async ({ 
   await page.getByRole("dialog", { name: "Delete this workout?" }).getByRole("button", { name: "Keep workout" }).click();
   await expect(page).toHaveURL(/\/history\/[^/]+$/);
 });
+
+test("calendar marks today's workout with a count and lists it when the day is selected", async ({ page }) => {
+  const id = await completedWorkout(page);
+  await page.getByRole("radio", { name: "Calendar" }).check({ force: true });
+  await expect(page).toHaveURL(/\/history\/calendar$/);
+  const day = page.getByRole("button", { name: /, 1 workout$/ });
+  await expect(day).toBeVisible();
+  await expect(day).toContainText("1");
+  await day.click();
+  await expect(day).toHaveAttribute("aria-pressed", "true");
+  await page.locator(`a[href$="/history/${id}"]`).click();
+  await expect(page).toHaveURL(new RegExp(`/history/${id}$`));
+});
+
+test("calendar month navigation has no horizontal overflow at 320px", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto("/history/calendar");
+  await expect(page.getByRole("heading", { level: 2 })).toBeVisible();
+  await page.getByRole("button", { name: "Previous month" }).click();
+  await expect(page.getByRole("button", { name: "Today" })).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+  expect(overflow).toBe(false);
+  await page.getByRole("button", { name: "Today" }).click();
+  await expect(page.getByRole("button", { name: "Today" })).toBeHidden();
+});

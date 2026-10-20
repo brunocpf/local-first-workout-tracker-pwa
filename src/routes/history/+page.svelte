@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { resolve } from "$app/paths";
+  import HistoryViewSwitch from "#lib/components/history/HistoryViewSwitch.svelte";
   import PastWorkoutDialog from "#lib/components/history/PastWorkoutDialog.svelte";
   import Button from "#lib/components/ui/Button.svelte";
   import EmptyState from "#lib/components/ui/EmptyState.svelte";
@@ -85,6 +86,7 @@
     <Button variant="secondary" size="md" icon="plus" onclick={() => (pastOpen = true)}>Log past workout</Button>
   {/snippet}
 </PageHeader>
+<HistoryViewSwitch current="list" />
 <PastWorkoutDialog bind:open={pastOpen} />
 
 {#if failed}
