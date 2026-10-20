@@ -638,6 +638,8 @@ Width check at 320 px with 200% text (1em = 32 px): the gutter is 24 px (the `cl
 - *Invalid entry:* revert + announce (§6.5).
 - *Row menu* (tap the set label): action Sheet with Duplicate, Toggle warm-up, Delete. Delete → Toast "Set deleted" [Undo].
 
+**Supersets** (PRD P1): consecutive exercises sharing a `supersetGroupId` render as a group: an accent rail on the left edge and an accent Badge "A1", "A2", … before the name (group letters in order of appearance; the Badge carries a visually hidden "Superset" prefix). Rounds are the sets at the same position in each member. Completing a set starts the rest timer only once every member's set of that round is done, using the last member's rest (override or default). Outside a superset nothing changes. The card menu adds "Superset with previous/next" (disabled when there is no neighbour or it is already in the group) and "Remove from superset" (a middle member splits the group). Building supersets in the routine editor is T8.07.
+
 **Exercise card menu** (⋮): Rest time (Dialog with Select), Replace exercise (picker Sheet), Notes (Dialog with multiline TextField), Remove exercise (Toast with Undo; no confirm, because it is undoable).
 
 **Discard workout** (header ⋮): ConfirmDialog `danger` ("Discard workout?", "All 7 completed sets will be deleted. This can't be undone.", "Discard workout") → Home + Toast "Workout discarded".
