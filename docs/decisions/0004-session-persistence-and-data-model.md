@@ -11,7 +11,7 @@
 - **One-directional relations**: `Routine.programId` + `programOrder`; `Program.routineIds` removed. Array order replaces `order` fields. Completed ⇔ `completedAt`.
 - **`exerciseIds` multi-entry index** on `sessions` (denormalized, maintained by the repository) plus `[status+startedAt]`, so previous-values and PR lookups don't scan history. PRs/aggregates are recomputed from raw sets.
 - **Time:** ISO 8601 UTC instants plus `timeZone` (IANA) per session; local day = `localDate(session)`; week start is a setting.
-- **Units:** kg numbers internally; lb converted without rounding on input; display rounded to 0.1 lb / 0.05 kg.
+- **Units:** kg numbers internally; lb converted without rounding on input; display rounded to 2 decimals (PRD §10.3; was 0.1 lb / 0.05 kg until T2.07, which hid typed values like 82.53 kg).
 - **Rest timer** is session state `{ endsAt, durationSeconds, pausedRemainingMs? }`, timestamp based.
 - **Database name:** `workout-tracker`, not a generic `app`: GitHub Pages project sites of one user share the origin `brunocpf.github.io` and its IndexedDB namespace. The name must never change, or existing data is stranded.
 - **Migrations:** future schema changes add new Dexie versions with `upgrade`, tested from frozen old-schema fixtures.

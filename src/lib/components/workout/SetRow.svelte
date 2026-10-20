@@ -88,7 +88,7 @@
       placeholder={prefill.weight === undefined ? undefined : fmtWeight(prefill.weight)}
       enterkeyhint="next"
       onchange={(n) => onweight(n === null ? undefined : toKg(n, unit))}
-      oninvalid={() => announce(`${name} weight not changed – enter a number`)}
+      oninvalid={(reason) => announce(`${name} weight not changed – ${reason.toLowerCase()}`)}
     />
   </div>
   <div class="reps">
@@ -100,7 +100,7 @@
       placeholder={prefill.reps === undefined ? undefined : String(prefill.reps)}
       enterkeyhint="done"
       onchange={(n) => onreps(n ?? undefined)}
-      oninvalid={() => announce(`${name} reps not changed – enter a whole number`)}
+      oninvalid={(reason) => announce(`${name} reps not changed – ${reason.toLowerCase()}`)}
     />
   </div>
   <button

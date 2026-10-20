@@ -74,7 +74,7 @@ describe("SetRow", () => {
     await rerender({ ...base, unit: "lb", set: { ...set, weight: kg } });
     expect(input("Set 2 weight, lb").value).toBe("135");
     await rerender({ ...base, unit: "kg", set: { ...set, weight: kg } });
-    expect(input("Set 2 weight, kg").value).toBe("61.25");
+    expect(input("Set 2 weight, kg").value).toBe("61.23");
   });
 
   it("focusing and leaving a field without typing writes nothing back", async () => {
@@ -114,6 +114,27 @@ describe("SetRow", () => {
     expect(el.value).toBe("80");
     expect(el.getAttribute("aria-invalid")).toBeNull();
     await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Set 2 weight not changed – enter a number"));
+  });
+
+  it("announces the actual reason for a rejected entry", async () => {
+    render(SetRow, { ...base, set: { ...set, reps: 5 } });
+    await type(input("Set 2 reps"), "-3");
+    expect(base.onreps).not.toHaveBeenCalled();
+    expect(input("Set 2 reps").value).toBe("5");
+    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Set 2 reps not changed – enter 0 or more"));
+  });
+
+  it("shows exactly what was typed with 2 decimals (82.53 kg, 135.25 lb)", async () => {
+    const { rerender } = render(SetRow, { ...base, set });
+    await type(input("Set 2 weight, kg"), "82.53");
+    expect(base.onweight).toHaveBeenLastCalledWith(82.53);
+    await rerender({ ...base, set: { ...set, weight: 82.53 } });
+    expect(input("Set 2 weight, kg").value).toBe("82.53");
+    await rerender({ ...base, unit: "lb", set });
+    await type(input("Set 2 weight, lb"), "135.25");
+    const kg = base.onweight.mock.lastCall![0] as number;
+    await rerender({ ...base, unit: "lb", set: { ...set, weight: kg } });
+    expect(input("Set 2 weight, lb").value).toBe("135.25");
   });
 
   it("Enter moves from weight to reps, then closes the keyboard", async () => {

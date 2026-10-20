@@ -44,7 +44,7 @@ Stored on the active session: `restTimer?: { endsAt, durationSeconds, pausedRema
 
 ### Units
 
-Stored in kg. `lbToKg`/`kgToLb`/`toKg` (`src/lib/units.ts`) convert; user input in lb is converted to kg **without rounding**. `displayWeight(kg, unit)` rounds only for display: **0.1 lb** or **0.05 kg**. 225 lb → 102.0582… kg → shown as 225. Never write a display value back to storage. Rep/duration/distance have no unit conversion yet (distance is metres when added).
+Stored in kg. `lbToKg`/`kgToLb`/`toKg` (`src/lib/units.ts`) convert; user input in lb is converted to kg **without rounding**. `displayWeight(kg, unit)` rounds only for display, to **2 decimals** (PRD §10.3), so anything typed with up to 2 decimals shows again exactly (82.53 kg, 135.25 lb). 225 lb → 102.0582… kg → shown as 225. Never write a display value back to storage. Rep/duration/distance have no unit conversion yet (distance is metres when added).
 
 ### Exercise types and volume
 
