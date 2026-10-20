@@ -1,7 +1,9 @@
 <script lang="ts">
   import { sessionSummary } from "#lib/progress/summary";
+  import { describePr, loadSessionPrs, type ExercisePrs } from "#lib/progress/sessionPrs";
   import { displayWeight } from "#lib/units";
   import Button from "#lib/components/ui/Button.svelte";
+  import Icon from "#lib/components/ui/Icon.svelte";
   import Sheet from "#lib/components/ui/Sheet.svelte";
   import { toast } from "#lib/ui/toast.svelte";
   import { getRoutine, saveRoutine } from "#lib/storage/routines";
@@ -27,6 +29,21 @@
     ["Sets", String(summary.completedSets)],
     ["Volume", `${volume} ${unit}`],
   ]);
+
+  // New PRs, computed from earlier sessions. Optional: the summary works without them.
+  let records = $state<ExercisePrs[]>([]);
+  $effect(() => {
+    let cancelled = false;
+    loadSessionPrs(session).then(
+      (found) => {
+        if (!cancelled) records = found;
+      },
+      () => {},
+    );
+    return () => {
+      cancelled = true;
+    };
+  });
 
   // Offer to save structural changes back, only if the routine still exists. Default is no change.
   let routine = $state<Routine>();
@@ -97,6 +114,21 @@
       </div>
     {/each}
   </dl>
+  {#if records.length > 0}
+    <section class="records" aria-labelledby="records-title">
+      <h3 id="records-title"><Icon name="star" size="1em" /> New personal records</h3>
+      <ul>
+        {#each records as r (r.exerciseId)}
+          <li>
+            <strong>{r.name}</strong>
+            {#each r.prs as pr (`${pr.kind}-${pr.reps ?? ""}`)}
+              <span class="pr">{describePr(pr, unit)}</span>
+            {/each}
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
   {#if diff && routine}
     <section class="update" aria-labelledby="update-title">
       <h3 id="update-title">Update routine “{routine.name}”?</h3>
@@ -118,8 +150,23 @@
 </Sheet>
 
 <style>
-  .update {
+  .update,
+  .records {
     margin-top: var(--space-4);
+  }
+  .records li {
+    display: flex;
+    flex-direction: column;
+    color: var(--color-text);
+  }
+  .records ul {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: var(--space-2);
+  }
+  .pr {
+    color: var(--color-text-muted);
   }
   h3 {
     margin: 0 0 var(--space-2);

@@ -19,6 +19,7 @@
     previous,
     prescribed,
     prefill = {},
+    pr = false,
     onweight,
     onreps,
     ontoggle,
@@ -35,6 +36,8 @@
     prescribed?: Pick<PrescribedSet, "repRange" | "targetWeight">;
     /** Shown as placeholders and stored by one-tap complete (kg). */
     prefill?: SetValues;
+    /** This completed set is a new personal record (PRD §10.1); computed by the page, never stored. */
+    pr?: boolean;
     /** Typed weight in kg (`undefined` when cleared). Never called with a value the user didn't type. */
     onweight: (kg: number | undefined) => void;
     onreps: (reps: number | undefined) => void;
@@ -95,6 +98,7 @@
   <span class="info">
     <span class="previous tabular"><span class="vh">Previous:</span> {previousText}</span>
     {#if targetText}<span class="target tabular"><span class="vh">Target:</span> {targetText}</span>{/if}
+    {#if pr && completed}<span class="pr"><Badge variant="success" icon="star">PR<span class="vh"> – new personal record</span></Badge></span>{/if}
   </span>
   <div class="weight">
     <NumberField
@@ -185,6 +189,8 @@
     color: var(--color-text-muted);
     overflow-wrap: anywhere;
   }
+
+  .pr { align-self: start; margin-block-start: var(--space-1); }
 
   .target {
     font-size: var(--text-xs);

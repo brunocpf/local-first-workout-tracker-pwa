@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { SvelteSet } from "svelte/reactivity";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
@@ -11,6 +12,7 @@
   import PageHeader from "#lib/components/ui/PageHeader.svelte";
   import { exerciseVolume, isCounted } from "#lib/progress/metrics";
   import { sessionSummary } from "#lib/progress/summary";
+  import { loadPriorPrSessions, prSetIds } from "#lib/progress/sessionPrs";
   import { settings } from "#lib/settings.svelte";
   import { deleteCompletedSession, getSession } from "#lib/storage/sessions";
   import { confirm } from "#lib/ui/confirm.svelte";
@@ -48,6 +50,30 @@
     const min = Math.round(ms / 60_000);
     return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")} min`;
   }
+
+  // Sets that were a new PR when logged: computed from sessions before this one, never stored.
+  let prIds = $state<ReadonlySet<string>>(new Set());
+  $effect(() => {
+    const s = session;
+    if (!s) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const ids = new SvelteSet<string>();
+        for (const exerciseId of new SvelteSet(s.exercises.filter((e) => e.exerciseTypeSnapshot === "weighted_reps").map((e) => e.exerciseId))) {
+          const prior = await loadPriorPrSessions(exerciseId, s);
+          const sets = s.exercises.filter((e) => e.exerciseId === exerciseId).flatMap((e) => e.sets);
+          for (const id of prSetIds(prior, { startedAt: s.startedAt, sets })) ids.add(id);
+        }
+        if (!cancelled) prIds = ids;
+      } catch {
+        // Badges are optional; the session still renders without them.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  });
 
   const unit = $derived(settings.weightUnit);
   const weight = (kg: number) => displayWeight(kg, unit).toLocaleString();
@@ -141,6 +167,7 @@
               </th>
               <td>
                 {setText(s)}
+                {#if prIds.has(s.id)}<Badge variant="success" icon="star">PR<span class="sr-only"> – new personal record</span></Badge>{/if}
                 {#if s.completedAt === undefined}<span class="note">not completed</span>{:else if !isCounted(s)}<span class="note">not counted</span>{/if}
               </td>
             </tr>
