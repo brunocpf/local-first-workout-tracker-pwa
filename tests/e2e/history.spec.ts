@@ -1,0 +1,7 @@
+import { expect, test } from "@playwright/test";
+
+test("history shows an empty state with a Start workout action", async ({ page }) => {
+  await page.goto("/history");
+  await expect(page.getByText("No workouts yet")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Start workout" })).toBeVisible();
+});
