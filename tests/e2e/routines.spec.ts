@@ -166,3 +166,15 @@ test("prescription editor: sets, reps, rest, notes; 135 lb round-trips", async (
   await page.getByRole("button", { name: "Edit sets for Barbell Bench Press" }).click();
   await expect(page.getByLabel("Set 1 weight")).toHaveValue("135");
 });
+
+test("routines page does not scroll horizontally with long names", async ({ page }) => {
+  const long = `${"Extremely long routine name ".repeat(4)}${"Supercalifragilisticexpialidocious".repeat(2)}`;
+  await createRoutine(page, long);
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/routines");
+    await expect(page.getByRole("list", { name: "Routines" })).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `width ${width}`).toBeLessThanOrEqual(0);
+  }
+});

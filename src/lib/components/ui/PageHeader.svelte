@@ -28,6 +28,7 @@
     inset-block-start: 0;
     z-index: var(--z-sticky);
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
     box-sizing: border-box;
@@ -48,7 +49,7 @@
     border-radius: var(--radius-md);
   }
   .heading {
-    flex: 1;
+    flex: 1 1 8rem;
     min-inline-size: 0;
   }
   h1 {
@@ -70,7 +71,8 @@
   .actions {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: var(--space-1);
-    flex: none;
+    max-inline-size: 100%;
   }
 </style>
