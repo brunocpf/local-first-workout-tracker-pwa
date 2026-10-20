@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { version } from "$app/env";
   import { resolve } from "$app/paths";
+  import InstallHint from "#lib/components/InstallHint.svelte";
   import BackupSection from "#lib/components/settings/BackupSection.svelte";
   import Banner from "#lib/components/ui/Banner.svelte";
   import Button from "#lib/components/ui/Button.svelte";
@@ -12,15 +13,18 @@
   import SegmentedControl from "#lib/components/ui/SegmentedControl.svelte";
   import Switch from "#lib/components/ui/Switch.svelte";
   import { formatBytes } from "#lib/diagnostics";
+  import { isStandalone } from "#lib/pwa/install";
   import { settings, updateSettings } from "#lib/settings.svelte";
   import { getPersistenceStatus, requestPersistentStorage, type PersistenceStatus } from "#lib/storage/persistence";
   import type { UserSettings } from "#lib/types";
 
+  let standalone = $state(false);
   let persistence = $state<PersistenceStatus>();
   let requesting = $state(false);
   let saveError = $state("");
 
   onMount(async () => {
+    standalone = isStandalone();
     persistence = await getPersistenceStatus();
   });
 
@@ -112,6 +116,14 @@
     <BackupSection />
   </Card>
 
+  <Card as="section" header={install}>
+    {#if standalone}
+      <p class="note">You're using the installed app.</p>
+    {:else}
+      <InstallHint dismissible={false} />
+    {/if}
+  </Card>
+
   <!-- Backup reminder goes here (T4.05, #73). -->
 
   <Card as="section" header={storage}>
@@ -160,6 +172,7 @@
 {#snippet appearance()}Appearance{/snippet}
 {#snippet calendar()}Calendar{/snippet}
 {#snippet backup()}Backup{/snippet}
+{#snippet install()}Install{/snippet}
 {#snippet storage()}Storage{/snippet}
 {#snippet about()}About{/snippet}
 
@@ -181,6 +194,10 @@
   dd {
     margin: 0;
     text-align: end;
+  }
+  .note {
+    margin: 0;
+    color: var(--color-text-muted);
   }
   .about {
     padding: var(--space-4);
