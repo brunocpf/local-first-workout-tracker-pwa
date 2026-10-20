@@ -504,3 +504,39 @@ test("superset: labels A1/A2, rest starts only after the last member's set, unli
   await expect(page.getByText("A1")).toHaveCount(0);
   await expect(page.getByText("A2")).toHaveCount(0);
 });
+
+test("replace an exercise: completed sets stay with the original, the rest move", async ({
+  page,
+}) => {
+  await startWorkout(page);
+  await addExercise(page, "barbell bench press", /Barbell Bench Press/);
+  const card = page.getByRole("article").first();
+  await card.getByLabel("Set 1 weight, kg").fill("80");
+  await card.getByLabel("Set 1 reps").fill("8");
+  await card.getByRole("button", { name: "Complete set 1" }).click();
+  await card.getByRole("button", { name: "Add set" }).click();
+
+  await card.getByRole("button", { name: /Exercise options for/ }).click();
+  await page.getByRole("button", { name: "Replace exercise" }).click();
+  await page.getByRole("button", { name: "Browse all exercises" }).click();
+  const picker = page.getByRole("dialog", { name: "Replace exercise" });
+  await picker.getByRole("searchbox", { name: "Search exercises" }).fill("back squat");
+  await picker.getByRole("button", { name: /Back Squat/ }).first().click();
+  await page.getByRole("button", { name: "Replace exercise", exact: true }).click();
+
+  const names = () => page.locator("article h2").allTextContents();
+  await expect.poll(names).toEqual(["Barbell Bench Press", "Back Squat"]);
+  await expect
+    .poll(async () =>
+      (await storedSessions(page)).find((x) => x.status === "active")?.exercises.map((e) => [
+        e.exerciseNameSnapshot,
+        e.sets.length,
+      ]),
+    )
+    .toEqual([
+      ["Barbell Bench Press", 1],
+      ["Back Squat", 1],
+    ]);
+  await page.reload();
+  await expect.poll(names).toEqual(["Barbell Bench Press", "Back Squat"]);
+});

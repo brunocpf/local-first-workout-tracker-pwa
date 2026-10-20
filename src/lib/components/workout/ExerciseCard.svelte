@@ -3,6 +3,8 @@
   import Badge from "#lib/components/ui/Badge.svelte";
   import Button from "#lib/components/ui/Button.svelte";
   import Card from "#lib/components/ui/Card.svelte";
+  import ExercisePicker from "#lib/components/ExercisePicker.svelte";
+  import ListRow from "#lib/components/ui/ListRow.svelte";
   import Dialog from "#lib/components/ui/Dialog.svelte";
   import IconButton from "#lib/components/ui/IconButton.svelte";
   import SegmentedControl from "#lib/components/ui/SegmentedControl.svelte";
@@ -12,7 +14,7 @@
   import SetRow from "#lib/components/workout/SetRow.svelte";
   import { alignPrevious, prefillFor, type SetValues } from "#lib/logger/previousValues";
   import type { SetPatch, SupersetInfo } from "#lib/logger/workout";
-  import type { LoggedSet, SessionExercise, SetType, WeightUnit } from "#lib/types";
+  import type { Exercise, LoggedSet, SessionExercise, SetType, WeightUnit } from "#lib/types";
 
   let {
     exercise,
@@ -35,6 +37,9 @@
     canJoin = { previous: false, next: false },
     onjoin,
     onleave,
+    onreplace,
+    loadSuggestions,
+    excludeIds = [],
   }: {
     exercise: SessionExercise;
     index: number;
@@ -65,6 +70,12 @@
     canJoin?: { previous: boolean; next: boolean };
     onjoin?: (direction: -1 | 1) => void;
     onleave?: () => void;
+    /** Shows "Replace exercise"; the page confirms if sets are completed and applies the swap. */
+    onreplace?: (to: Exercise) => void;
+    /** Substitutes for this exercise (`suggestSubstitutes` over the catalog); the sheet still offers the full picker if this fails. */
+    loadSuggestions?: () => Promise<Exercise[]>;
+    /** Exercises the picker hides (the exercise itself and the others in the workout). */
+    excludeIds?: string[];
   } = $props();
 
   const previous = $derived(alignPrevious(exercise.sets, previousSets));
@@ -117,6 +128,40 @@
     notesOpen = false;
     const notes = draft.trim();
     if (notes !== (exercise.notes ?? "")) onnotes(notes);
+  }
+
+  let replaceOpen = $state(false);
+  let pickerOpen = $state(false);
+  let suggestions = $state<Exercise[]>([]);
+  let suggestionsState = $state<"loading" | "ready" | "failed">("loading");
+
+  function openReplace() {
+    menuOpen = false;
+    replaceOpen = true;
+    suggestionsState = "loading";
+    (loadSuggestions?.() ?? Promise.resolve([])).then(
+      (found) => {
+        suggestions = found;
+        suggestionsState = "ready";
+      },
+      () => (suggestionsState = "failed"),
+    );
+  }
+
+  function replaceWith(to: Exercise) {
+    replaceOpen = false;
+    onreplace?.(to);
+  }
+
+  function browse() {
+    replaceOpen = false;
+    pickerOpen = true;
+  }
+
+  // "lower_back" → "lower back"; the first word of the line is capitalized.
+  function describe(e: Exercise) {
+    const text = [...e.primaryMuscles, ...e.equipment].map((id) => id.replaceAll("_", " ")).join(" · ");
+    return text.charAt(0).toUpperCase() + text.slice(1);
   }
 
   let restOpen = $state(false);
@@ -225,9 +270,34 @@
     {/if}
     <Button block icon="timer" onclick={openRest}>Rest time</Button>
     <Button block icon="edit" onclick={openNotes}>Notes</Button>
+    {#if onreplace}
+      <Button block icon="dumbbell" onclick={openReplace}>Replace exercise</Button>
+    {/if}
     <Button block variant="danger" icon="trash" onclick={() => act(onremove)}>Remove exercise</Button>
   </div>
 </Sheet>
+
+{#if onreplace}
+  <Sheet bind:open={replaceOpen} title="Replace {exercise.exerciseNameSnapshot}" description="Your sets and targets carry over.">
+    <div class="menu">
+      {#if suggestionsState === "loading"}
+        <p class="hint" role="status">Finding alternatives…</p>
+      {:else if suggestionsState === "failed"}
+        <p class="hint" role="alert">Couldn't load suggestions. You can still browse all exercises.</p>
+      {:else if suggestions.length === 0}
+        <p class="hint">No similar exercises found.</p>
+      {:else}
+        <ul class="suggestions" aria-label="Suggested alternatives">
+          {#each suggestions as s (s.id)}
+            <li><ListRow title={s.name} subtitle={describe(s)} onclick={() => replaceWith(s)} /></li>
+          {/each}
+        </ul>
+      {/if}
+      <Button block icon="search" onclick={browse}>Browse all exercises</Button>
+    </div>
+  </Sheet>
+  <ExercisePicker bind:open={pickerOpen} title="Replace exercise" excludeIds={[...excludeIds, exercise.exerciseId]} onpick={([to]) => to && replaceWith(to)} />
+{/if}
 
 <Dialog bind:open={restOpen} title="Rest time">
   <Select label="Rest after each set" bind:value={restDraft} options={restChoices} />
@@ -302,6 +372,16 @@
   .sets {
     display: grid;
     gap: var(--space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .hint {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+  .suggestions {
     margin: 0;
     padding: 0;
     list-style: none;

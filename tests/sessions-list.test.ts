@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "#lib/storage/db";
-import { finishSession, listCompletedSessions, startSession } from "#lib/storage/sessions";
+import { finishSession, listCompletedSessions, listCompletedSessionsBetween, startSession } from "#lib/storage/sessions";
 
 const at = (i: number) => new Date(Date.UTC(2026, 0, 1, 0, i));
 
@@ -36,5 +36,14 @@ describe("listCompletedSessions", () => {
   });
   it("is empty with no completed sessions", async () => {
     expect(await listCompletedSessions()).toEqual([]);
+  });
+});
+
+describe("listCompletedSessionsBetween", () => {
+  it("returns completed sessions in [from, to) oldest first, excluding active ones", async () => {
+    await makeCompleted(5);
+    await startSession({ name: "active" }, at(3));
+    const names = (await listCompletedSessionsBetween(at(1).toISOString(), at(4).toISOString())).map((s) => s.name);
+    expect(names).toEqual(["S1", "S2", "S3"]);
   });
 });

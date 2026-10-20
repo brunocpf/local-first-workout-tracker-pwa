@@ -417,6 +417,7 @@ Validate on real mid-range phones, not only desktop.
 - **Import fixtures:** valid; missing fields; unsupported version; bad rep ranges; non-positive sets; unknown/ambiguous exercises; duplicate routine ids; malformed JSON; oversize; unsupported fields; no schedule. Failed imports must not leave partial data.
 - **Persistence:** completed sets survive reload; active session resumes (with timer); routine edit doesn't touch history; backup → restore preserves data; failed restore changes nothing; migrations preserve data.
 - **E2E (Playwright):** projects for **Chromium desktop, Pixel emulation, and WebKit/iPhone emulation**; cover the vertical slice (import routine → start → log → reload → resume → finish → history), offline reload, and backup/restore.
+- **Accessibility (Playwright + axe):** `tests/e2e/a11y.spec.ts` runs `@axe-core/playwright` (WCAG 2.0–2.2 A/AA and best-practice rules) over every P0 screen in light and dark and fails on serious/critical violations; it also checks 320 px reflow (at 100% and 200% text size) and the desktop Tab order. Screen readers, real-device keyboard behavior and 200% OS text size still need the manual pass below.
 
 ### 22.2 Real-device checks (still required)
 
