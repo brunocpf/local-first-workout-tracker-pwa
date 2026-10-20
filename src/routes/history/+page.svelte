@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { resolve } from "$app/paths";
+  import PastWorkoutDialog from "#lib/components/history/PastWorkoutDialog.svelte";
   import Button from "#lib/components/ui/Button.svelte";
   import EmptyState from "#lib/components/ui/EmptyState.svelte";
   import ListRow from "#lib/components/ui/ListRow.svelte";
@@ -19,6 +20,7 @@
   let failed = $state(false);
   let loading = $state(false);
   let more = $state(false);
+  let pastOpen = $state(false);
 
   async function load(before?: string) {
     loading = true;
@@ -78,7 +80,12 @@
   });
 </script>
 
-<PageHeader title="History" />
+<PageHeader title="History">
+  {#snippet actions()}
+    <Button variant="secondary" size="md" icon="plus" onclick={() => (pastOpen = true)}>Log past workout</Button>
+  {/snippet}
+</PageHeader>
+<PastWorkoutDialog bind:open={pastOpen} />
 
 {#if failed}
   <EmptyState icon="alert-triangle" title="Couldn’t load history" body="Reload the app and try again." />

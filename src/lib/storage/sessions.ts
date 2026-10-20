@@ -3,7 +3,7 @@ import { z } from "zod";
 import { sessionSchema } from "#lib/backup/format";
 import { db } from "#lib/storage/db";
 import { newId } from "#lib/ids";
-import { currentTimeZone } from "#lib/time";
+import { currentTimeZone, isValidTimeZone } from "#lib/time";
 import type { SessionExercise, WorkoutSession } from "#lib/types";
 
 export class ActiveSessionExistsError extends Error {
@@ -214,4 +214,39 @@ export async function updateCompletedSession(session: WorkoutSession, now = new 
     await db.sessions.put(plain);
     return plain;
   });
+}
+
+export type NewCompletedSession = NewSession & {
+  startedAt: string;
+  endedAt: string;
+  /** IANA zone the workout was performed in; defaults to the device's current zone. */
+  timeZone?: string;
+};
+
+/**
+ * Creates a COMPLETED session for a workout that already happened (retroactive logging). It is never active, so it
+ * can't conflict with the one-active-session rule and never touches the active session. Validates the shape (the
+ * backup schema), a known time zone and `endedAt ≥ startedAt`. The caller then opens the edit screen to log sets.
+ */
+export async function createCompletedSession(input: NewCompletedSession, now = new Date()): Promise<WorkoutSession> {
+  const iso = now.toISOString();
+  const session: WorkoutSession = {
+    ...toPlain(input),
+    id: newId(),
+    exercises: toPlain(input.exercises ?? []),
+    status: "completed",
+    timeZone: input.timeZone ?? currentTimeZone(),
+    exerciseIds: [],
+    createdAt: iso,
+    updatedAt: iso,
+  };
+  session.exerciseIds = exerciseIdsOf(session);
+  if (!sessionSchema.safeParse(session).success) throw new InvalidSessionEditError("The session has invalid data");
+  if (!isValidTimeZone(session.timeZone)) throw new InvalidSessionEditError("Unknown time zone");
+  const start = Date.parse(session.startedAt);
+  const end = Date.parse(session.endedAt as string);
+  if (Number.isNaN(start) || Number.isNaN(end)) throw new InvalidSessionEditError("Start and end times must be valid");
+  if (end < start) throw new InvalidSessionEditError("A workout can't end before it starts");
+  await db.sessions.add(session);
+  return session;
 }
