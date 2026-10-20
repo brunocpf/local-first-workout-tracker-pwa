@@ -1,6 +1,6 @@
 # Program import schema (v1)
 
-This is the single authoritative spec for the program import format, a public contract between the app and external AI assistants. Code: `src/lib/imports/programSchema.ts` (Zod schema) and `src/lib/imports/parseProgram.ts` (parser, warnings). Tests: `tests/import.test.ts`; fixtures: `tests/fixtures/`. The format is independent of the internal domain types and the IndexedDB schema; mapping import → domain entities happens later, in the importer.
+This is the single authoritative spec for the program import format, a public contract between the app and external AI assistants. Code: `src/lib/imports/programSchema.ts` (Zod schema) and `src/lib/imports/parseProgram.ts` (parser, warnings). Tests: `tests/import.test.ts`; fixtures: `tests/fixtures/`. The format is independent of the internal domain types and the IndexedDB schema; mapping import → domain entities is `src/lib/imports/saveProgram.ts` (tests: `tests/saveProgram.test.ts`).
 
 ## Rules
 
@@ -93,6 +93,16 @@ If both `id` and `name` are given, `id` wins; `name` is kept as the display fall
 ### Supersets
 
 Give consecutive exercises in a routine the same `supersetGroup` value (e.g. `"A"`) to form a superset or circuit. Group names are local to the routine. Members must be adjacent; otherwise a warning is shown.
+
+## Mapping to domain entities
+
+`buildProgramDraft(data, resolutions, {programName?})` (pure) and `saveProgramImport(draft)`:
+
+- Fresh UUIDs for the program, routines, routine exercises, prescribed sets and superset groups (one id per `supersetGroup` label per routine); file routine ids are used only to remap `schedule` references. Importing a file twice yields two independent programs.
+- `sets: N` becomes N identical `PrescribedSet`s; `setList` one per entry. `targetDistanceMeters` → `targetDistance`, `rpe`/`rir` → `targetRpe`/`targetRir`. `programOrder` is the routine's position after drops. `schemaVersion` is stored as `1`.
+- Resolutions are keyed by the paths from `unresolvedExercises` (`program.routines[i].exercises[j].exercise`): `{kind:'exercise', exerciseId}`, `{kind:'create', name, exerciseType, equipment?}` or `{kind:'drop'}`. Catalog ids need no resolution (a resolution overrides them).
+- Routines left with no exercises are dropped with a warning; schedule days pointing at them are removed.
+- `saveProgramImport` refuses drafts with unresolved references or exercise ids missing from the database, and writes exercises, program and routines in one transaction (any failure writes nothing).
 
 ## Errors (block saving)
 
