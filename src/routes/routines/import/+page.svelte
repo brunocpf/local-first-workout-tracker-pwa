@@ -1,7 +1,8 @@
 <script lang="ts">
+  import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import ImportInput from "#lib/components/import/ImportInput.svelte";
-  import Card from "#lib/components/ui/Card.svelte";
+  import ImportPreview from "#lib/components/import/ImportPreview.svelte";
   import PageHeader from "#lib/components/ui/PageHeader.svelte";
   import type { ParseResult } from "#lib/imports/parseProgram";
 
@@ -20,10 +21,14 @@
   </p>
   <ImportInput onparsed={(r) => (parsed = r?.ok ? r : undefined)} />
   {#if parsed}
-    <Card>
-      <p><strong>{parsed.data.program.name}</strong> looks valid.</p>
-      <p>Preview coming soon.</p>
-    </Card>
+    {#key parsed}
+      <ImportPreview
+        data={parsed.data}
+        warnings={parsed.warnings}
+        oncancel={() => (parsed = undefined)}
+        onsaved={() => goto(resolve("/routines"))}
+      />
+    {/key}
   {/if}
 </div>
 
