@@ -138,4 +138,13 @@ describe("settings", () => {
     expect(await getSettings()).toEqual({ ...DEFAULT_SETTINGS, weightUnit: "lb", weekStartsOn: 0 });
     expect(await db.settings.count()).toBe(1);
   });
+
+  it("keeps every field when saves overlap (read-modify-write is atomic)", async () => {
+    await Promise.all([
+      saveSettings({ weightUnit: "lb" }),
+      saveSettings({ theme: "dark" }),
+      saveSettings({ defaultRestSeconds: 120 }),
+    ]);
+    expect(await getSettings()).toEqual({ ...DEFAULT_SETTINGS, weightUnit: "lb", theme: "dark", defaultRestSeconds: 120 });
+  });
 });

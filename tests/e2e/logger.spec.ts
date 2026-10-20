@@ -1,4 +1,21 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+type StoredSession = { status: string; exercises: { exerciseNameSnapshot: string }[] };
+
+/** Reads the sessions straight from IndexedDB, i.e. what survives a reload (the UI updates before the write lands). */
+const storedSessions = (page: Page) =>
+  page.evaluate(
+    () =>
+      new Promise<StoredSession[]>((resolve, reject) => {
+        const open = indexedDB.open("workout-tracker");
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const req = open.result.transaction("sessions").objectStore("sessions").getAll();
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        };
+      }),
+  );
 
 test("start → reload → resume → discard", async ({ page }) => {
   await page.goto("/");
@@ -35,9 +52,12 @@ test("a second tab adopts the active session instead of creating another", async
   await b.goto("/");
   await a.getByRole("button", { name: "Start workout" }).click();
   await expect(a).toHaveURL(/\/workout$/);
-  await b.getByRole("button", { name: "Start workout" }).click();
+  // Tab b either still shows "Start workout" (its start loses to a's and must adopt) or already saw a's
+  // session on load and shows "Resume workout"; which one depends on timing, and both must end up on a's session.
+  await b.getByRole("button", { name: /^(Start|Resume) workout$/ }).click();
   await expect(b).toHaveURL(/\/workout$/);
   await expect(b.getByRole("button", { name: "Finish" })).toBeVisible();
+  expect((await storedSessions(b)).filter((x) => x.status === "active")).toHaveLength(1);
 });
 
 test("add, reorder, remove + undo exercises; all survive reload", async ({ page }) => {
@@ -54,6 +74,8 @@ test("add, reorder, remove + undo exercises; all survive reload", async ({ page 
   await picker.getByRole("button", { name: "Add 2 exercises" }).click();
 
   const names = () => page.locator("article h2").allTextContents();
+  // Wait for the write-through before reloading; the UI is optimistic and reload doesn't flush.
+  const stored = async () => (await storedSessions(page)).find((x) => x.status === "active")?.exercises.map((e) => e.exerciseNameSnapshot);
   await expect(page.locator("article h2")).toHaveCount(2);
   const before = await names();
   expect(before).toHaveLength(2);
@@ -62,6 +84,7 @@ test("add, reorder, remove + undo exercises; all survive reload", async ({ page 
   await page.getByRole("button", { name: `Exercise options for ${before[1]}` }).click();
   await page.getByRole("button", { name: "Move up" }).click();
   await expect.poll(names).toEqual([before[1], before[0]]);
+  await expect.poll(stored).toEqual([before[1], before[0]]);
 
   await page.reload();
   await expect.poll(names).toEqual([before[1], before[0]]);
@@ -72,6 +95,7 @@ test("add, reorder, remove + undo exercises; all survive reload", async ({ page 
   await page.getByRole("button", { name: "Undo" }).click();
   await expect.poll(names).toEqual([before[1], before[0]]);
   await expect(page.getByRole("list", { name: "Sets" })).toHaveCount(2);
+  await expect.poll(stored).toEqual([before[1], before[0]]);
 
   await page.reload();
   await expect.poll(names).toEqual([before[1], before[0]]);

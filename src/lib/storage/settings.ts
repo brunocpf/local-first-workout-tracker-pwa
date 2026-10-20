@@ -16,8 +16,11 @@ export async function getSettings(): Promise<UserSettings> {
   return { ...DEFAULT_SETTINGS, ...stored };
 }
 
+/** Read-modify-write in one transaction, so overlapping saves (rapid changes, other tabs) can't overwrite each other's fields. */
 export async function saveSettings(patch: Partial<UserSettings>): Promise<UserSettings> {
-  const next = { ...(await getSettings()), ...JSON.parse(JSON.stringify(patch)) };
-  await db.settings.put({ ...next, key: SETTINGS_KEY });
-  return next;
+  return db.transaction("rw", db.settings, async () => {
+    const next = { ...(await getSettings()), ...JSON.parse(JSON.stringify(patch)) };
+    await db.settings.put({ ...next, key: SETTINGS_KEY });
+    return next;
+  });
 }

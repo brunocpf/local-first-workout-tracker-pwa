@@ -65,6 +65,8 @@ describe("updateCustomExercise", () => {
 
   it("edits muscles, equipment, aliases and type on custom exercises", async () => {
     const c = await createCustomExercise({ name: "Sled Push", exerciseType: "distance" }, d);
+    // create and update would otherwise often land in the same millisecond
+    await new Promise((r) => setTimeout(r, 5));
     const updated = await updateCustomExercise(
       c.id,
       {
