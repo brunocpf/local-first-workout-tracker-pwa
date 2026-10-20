@@ -5,6 +5,7 @@
   import EmptyState from "#lib/components/ui/EmptyState.svelte";
   import IconButton from "#lib/components/ui/IconButton.svelte";
   import ListRow from "#lib/components/ui/ListRow.svelte";
+  import PrSummary from "#lib/components/progress/PrSummary.svelte";
   import PageHeader from "#lib/components/ui/PageHeader.svelte";
   import { bestSet } from "#lib/progress/bestSet";
   import { settings } from "#lib/settings.svelte";
@@ -15,6 +16,7 @@
 
   let exercise = $state<Exercise>();
   let sessions = $state<WorkoutSession[]>([]);
+  let allSessions = $state<WorkoutSession[]>([]);
   let loaded = $state(false);
   let failed = $state(false);
 
@@ -22,7 +24,10 @@
     try {
       const id = page.params.id ?? "";
       exercise = await getExercise(id);
-      if (exercise) sessions = await completedSessionsWithExercise(id, 10);
+      if (exercise) {
+        allSessions = await completedSessionsWithExercise(id);
+        sessions = allSessions.slice(0, 10);
+      }
     } catch {
       failed = true;
     } finally {
@@ -124,6 +129,13 @@
     <section>
       <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external URL, validated http(s) -->
       <a class="guide" href={guideUrl} target="_blank" rel="noopener noreferrer">External guide (opens in browser)</a>
+    </section>
+  {/if}
+
+  {#if allSessions.length}
+    <section>
+      <h2>Personal records</h2>
+      <PrSummary sessions={allSessions} exerciseId={exercise.id} exerciseType={exercise.exerciseType} {unit} />
     </section>
   {/if}
 
