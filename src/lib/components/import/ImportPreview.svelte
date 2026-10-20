@@ -242,6 +242,7 @@
 <ExercisePicker
   bind:open={pickerOpen}
   title="Choose exercise"
+  allowCreate={false}
   onpick={(picked) => {
     if (pickPath !== undefined && picked[0]) set(pickPath, { kind: "exercise", exerciseId: picked[0].id });
   }}

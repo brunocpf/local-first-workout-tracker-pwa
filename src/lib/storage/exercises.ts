@@ -88,6 +88,8 @@ export async function createCustomExercise(
     exerciseType: ExerciseType;
     equipment?: string[];
     primaryMuscles?: string[];
+    secondaryMuscles?: string[];
+    isUnilateral?: boolean;
     aliases?: string[];
   },
   database: AppDB = defaultDb,
@@ -99,9 +101,10 @@ export async function createCustomExercise(
     name: input.name.trim(),
     aliases: [...(input.aliases ?? [])],
     primaryMuscles: [...(input.primaryMuscles ?? [])],
-    secondaryMuscles: [],
+    secondaryMuscles: [...(input.secondaryMuscles ?? [])],
     equipment: [...(input.equipment ?? [])],
     exerciseType: input.exerciseType,
+    ...(input.isUnilateral ? { isUnilateral: true } : {}),
     isCustom: true,
     createdAt: now,
     updatedAt: now,
@@ -160,6 +163,7 @@ export type ExercisePatch = {
   secondaryMuscles?: string[];
   equipment?: string[];
   exerciseType?: ExerciseType;
+  isUnilateral?: boolean;
   favorite?: boolean;
   archived?: boolean;
 };
@@ -179,7 +183,7 @@ export async function updateCustomExercise(
     const e = await database.exercises.get(id);
     if (!e) throw new Error(`Unknown exercise: ${id}`);
     if (!e.isCustom) {
-      const rejected = (["name", "primaryMuscles", "secondaryMuscles", "equipment", "exerciseType"] as const).filter(
+      const rejected = (["name", "primaryMuscles", "secondaryMuscles", "equipment", "exerciseType", "isUnilateral"] as const).filter(
         (k) => patch[k] !== undefined,
       );
       if (rejected.length > 0) {
@@ -192,6 +196,10 @@ export async function updateCustomExercise(
       e.name = name;
     }
     if (patch.exerciseType !== undefined) e.exerciseType = patch.exerciseType;
+    if (patch.isUnilateral !== undefined) {
+      if (patch.isUnilateral) e.isUnilateral = true;
+      else delete e.isUnilateral;
+    }
     if (patch.primaryMuscles !== undefined) e.primaryMuscles = [...patch.primaryMuscles];
     if (patch.secondaryMuscles !== undefined) e.secondaryMuscles = [...patch.secondaryMuscles];
     if (patch.equipment !== undefined) e.equipment = [...patch.equipment];

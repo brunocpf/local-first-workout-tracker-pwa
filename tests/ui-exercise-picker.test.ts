@@ -24,7 +24,13 @@ const catalog = [
   ex("curl", "Curl", { equipment: ["dumbbell"], primaryMuscles: ["biceps"] }),
 ];
 
-vi.mock("#lib/storage/exercises", () => ({ listExercises: vi.fn(async () => catalog) }));
+const createCustomExercise = vi.fn(async (input: { name: string }) =>
+  ex("new-1", input.name, { isCustom: true, primaryMuscles: [], equipment: [] }),
+);
+vi.mock("#lib/storage/exercises", () => ({
+  listExercises: vi.fn(async () => catalog),
+  createCustomExercise: (input: { name: string }) => createCustomExercise(input),
+}));
 
 // jsdom has no <dialog> modal API; stand in for the parts the components use.
 beforeAll(() => {
@@ -103,5 +109,22 @@ describe("ExercisePicker", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Close" }));
     await waitFor(() => expect(oncancel).toHaveBeenCalledTimes(1));
     expect(onpick).not.toHaveBeenCalled();
+  });
+
+  it("creates a custom exercise from the query and returns it as the pick", async () => {
+    render(ExercisePicker, { open: true, onpick });
+    await screen.findByText("Bench Press");
+    await fireEvent.input(screen.getByRole("searchbox", { name: "Search exercises" }), { target: { value: "Zercher squat" } });
+    await fireEvent.click(await screen.findByRole("button", { name: "Create “Zercher squat”" }));
+    await fireEvent.click(await screen.findByRole("button", { name: "Create and add" }));
+    await waitFor(() => expect(onpick).toHaveBeenCalledTimes(1));
+    expect(createCustomExercise).toHaveBeenCalledWith(expect.objectContaining({ name: "Zercher squat" }));
+    expect(onpick.mock.calls[0][0][0].name).toBe("Zercher squat");
+  });
+
+  it("hides the create row when allowCreate is false", async () => {
+    render(ExercisePicker, { open: true, onpick, allowCreate: false });
+    await screen.findByText("Bench Press");
+    expect(screen.queryByRole("button", { name: /^Create/ })).toBeNull();
   });
 });
