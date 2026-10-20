@@ -26,9 +26,9 @@
     onmenu,
   }: {
     set: LoggedSet;
-    /** Visible label: `1`, `2`, … (warm-ups show a "W" badge instead). */
+    /** Visible label: `1`, `2`, … for normal sets, or `W` / `D` / `F` (shown as a badge). */
     label: string;
-    /** Accessible name of the set, e.g. "Set 2" or "Warm-up 1". */
+    /** Accessible name of the set, e.g. "Set 2", "Warm-up 1" or "Drop set 1". */
     name: string;
     unit: WeightUnit;
     previous?: Pick<LoggedSet, "weight" | "reps">;
@@ -47,7 +47,7 @@
   } = $props();
 
   const completed = $derived(set.completedAt !== undefined);
-  const warmup = $derived(set.type === "warmup");
+  const typeVariant = { warmup: "warning", drop: "info", failure: "danger" } as const;
   const fmtWeight = (kg: number) => formatNumber(displayWeight(kg, unit));
   const previousText = $derived.by(() => {
     const w = previous?.weight;
@@ -93,7 +93,7 @@
 
 <li class="row" class:completed {@attach keepAboveKeyboard} {@attach enterKeys}>
   <button class="label tabular" type="button" aria-label="{name} options" onclick={onmenu}>
-    {#if warmup}<Badge variant="warning">W</Badge>{:else}{label}{/if}
+    {#if set.type !== "normal"}<Badge variant={typeVariant[set.type]}>{label}</Badge>{:else}{label}{/if}
   </button>
   <span class="info">
     <span class="previous tabular"><span class="vh">Previous:</span> {previousText}</span>

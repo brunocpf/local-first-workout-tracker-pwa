@@ -612,7 +612,7 @@ The wireframes are drawn at **320 px** (≈ 34 columns). `[ … ]` = Button, `(�
 
 | Column | Width | Content |
 |---|---|---|
-| Set label | `--tap-min` | A ghost button showing `1`, `2`, … in `--text-sm` semibold tabular (warm-up → Badge "W"), label "Set 2 options". It opens the row's action Sheet. |
+| Set label | `--tap-min` | A ghost button showing `1`, `2`, … in `--text-sm` semibold tabular (other set types → Badge "W" warning, "D" info, "F" danger; only normal sets are numbered), label "Set 2 options" ("Warm-up 1", "Drop set 1", "Failure set 1" for the others). It opens the row's action Sheet. |
 | Previous | `minmax(3.5rem, 1fr)` (`minmax(0, 1fr)` when stacked) | `80 × 8` in `--text-sm` muted tabular (display unit, §8.2); `–` when none. Wraps rather than truncate. |
 | Weight | `4rem` | NumberField decimal, `labelVisible=false`, label "Set 2 weight, kg", `enterkeyhint="next"` |
 | Reps | `3.25rem` | NumberField integer, label "Set 2 reps", `enterkeyhint="done"` |
@@ -636,7 +636,7 @@ Width check at 320 px with 200% text (1em = 32 px): the gutter is 24 px (the `cl
 - *Prefilled:* empty fields show the prefill as `--color-text-muted` placeholder. One tap on Complete stores those values and completes the set ([PRD §8.3](PRD.md)). Editing a value never completes it.
 - *Completed:* row fill `--color-success-subtle`. The Complete button turns into a filled `--color-success` circle with a `--color-on-success` `check` (shape change; the mark pops with `--duration-fast`). `aria-pressed="true"`, label "Set 2 completed, undo". Values stay editable. Tapping the button again un-completes the set (a toggle, so there is no toast and no confirm; the button itself is the undo). Not color alone: a filled vs outline icon plus `aria-pressed`.
 - *Invalid entry:* revert + announce (§6.5).
-- *Row menu* (tap the set label): action Sheet with Duplicate, Toggle warm-up, Delete. Delete → Toast "Set deleted" [Undo].
+- *Row menu* (tap the set label): action Sheet with Duplicate, a "Set type" SegmentedControl (Normal / Warm-up / Drop / Failure; choosing one applies it and closes the Sheet, so previous values re-align per PRD §8.4), Delete. The same Sheet is used in history edit mode. Delete → Toast "Set deleted" [Undo].
 
 **Supersets** (PRD P1): consecutive exercises sharing a `supersetGroupId` render as a group: an accent rail on the left edge and an accent Badge "A1", "A2", … before the name (group letters in order of appearance; the Badge carries a visually hidden "Superset" prefix). Rounds are the sets at the same position in each member. Completing a set starts the rest timer only once every member's set of that round is done, using the last member's rest (override or default). Outside a superset nothing changes. The card menu adds "Superset with previous/next" (disabled when there is no neighbour or it is already in the group) and "Remove from superset" (a middle member splits the group). Building supersets in the routine editor is T8.07.
 

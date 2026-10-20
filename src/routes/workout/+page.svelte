@@ -164,7 +164,7 @@
 
   // Typed values are 'deferred' (coalesced); completion and structural changes are written now.
   const changeSet = (id: string, setId: string, patch: SetPatch) =>
-    withExercise(id, "deferred", (e) => updateSet(e, setId, patch));
+    withExercise(id, "type" in patch ? "now" : "deferred", (e) => updateSet(e, setId, patch));
 
   function toggleSet(id: string, setId: string, prefill: SetValues) {
     let prName: string | undefined;
@@ -193,12 +193,6 @@
     withExercise(id, "now", (e) => {
       if (seconds === undefined) delete e.restSeconds;
       else e.restSeconds = seconds;
-    });
-
-  const toggleWarmup = (id: string, setId: string) =>
-    withExercise(id, "now", (e) => {
-      const set = e.sets.find((x) => x.id === setId);
-      if (set) updateSet(e, setId, { type: set.type === "warmup" ? "normal" : "warmup" });
     });
 
   function deleteSet(id: string, setId: string) {
@@ -317,7 +311,6 @@
           onsetchange={(setId, patch) => changeSet(exercise.id, setId, patch)}
           ontoggleset={(setId, prefill) => toggleSet(exercise.id, setId, prefill)}
           onduplicateset={(setId) => withExercise(exercise.id, "now", (e) => duplicateSet(e, setId))}
-          ontogglewarmup={(setId) => toggleWarmup(exercise.id, setId)}
           ondeleteset={(setId) => deleteSet(exercise.id, setId)}
           superset={group}
           canJoin={{

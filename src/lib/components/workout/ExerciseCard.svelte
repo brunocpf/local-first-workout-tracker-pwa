@@ -5,13 +5,14 @@
   import Card from "#lib/components/ui/Card.svelte";
   import Dialog from "#lib/components/ui/Dialog.svelte";
   import IconButton from "#lib/components/ui/IconButton.svelte";
+  import SegmentedControl from "#lib/components/ui/SegmentedControl.svelte";
   import Select from "#lib/components/ui/Select.svelte";
   import Sheet from "#lib/components/ui/Sheet.svelte";
   import TextField from "#lib/components/ui/TextField.svelte";
   import SetRow from "#lib/components/workout/SetRow.svelte";
   import { alignPrevious, prefillFor, type SetValues } from "#lib/logger/previousValues";
   import type { SetPatch, SupersetInfo } from "#lib/logger/workout";
-  import type { LoggedSet, SessionExercise, WeightUnit } from "#lib/types";
+  import type { LoggedSet, SessionExercise, SetType, WeightUnit } from "#lib/types";
 
   let {
     exercise,
@@ -29,7 +30,6 @@
     onsetchange,
     ontoggleset,
     onduplicateset,
-    ontogglewarmup,
     ondeleteset,
     superset,
     canJoin = { previous: false, next: false },
@@ -58,7 +58,6 @@
     /** Completes the set (filling empty fields from `prefill`) or un-completes it. */
     ontoggleset: (setId: string, prefill: SetValues) => void;
     onduplicateset: (setId: string) => void;
-    ontogglewarmup: (setId: string) => void;
     ondeleteset: (setId: string) => void;
     /** Set when this exercise is part of a superset; shows the A1/A2 label. */
     superset?: SupersetInfo;
@@ -69,18 +68,35 @@
   } = $props();
 
   const previous = $derived(alignPrevious(exercise.sets, previousSets));
-  /** Warm-ups are numbered apart from working sets: W, 1, 2, 3 (design.md §7.2). */
+  const setTypes: { value: SetType; label: string }[] = [
+    { value: "normal", label: "Normal" },
+    { value: "warmup", label: "Warm-up" },
+    { value: "drop", label: "Drop" },
+    { value: "failure", label: "Failure" },
+  ];
+  /** Only normal sets are numbered; the others show W / D / F and are counted per type (design.md §7.2). */
   const labels = $derived.by(() => {
-    let working = 0;
-    let warmups = 0;
-    return exercise.sets.map((s) =>
-      s.type === "warmup" ? { label: "W", name: `Warm-up ${++warmups}` } : { label: String(++working), name: `Set ${working}` },
-    );
+    const count: Record<SetType, number> = { normal: 0, warmup: 0, drop: 0, failure: 0 };
+    return exercise.sets.map((s) => {
+      const n = ++count[s.type];
+      switch (s.type) {
+        case "warmup":
+          return { label: "W", name: `Warm-up ${n}` };
+        case "drop":
+          return { label: "D", name: `Drop set ${n}` };
+        case "failure":
+          return { label: "F", name: `Failure set ${n}` };
+        default:
+          return { label: String(n), name: `Set ${n}` };
+      }
+    });
   });
   const prescribed = (set: LoggedSet) => exercise.prescribedSets?.find((p) => p.id === set.prescribedSetId);
 
   let setMenu = $state<{ id: string; name: string } | undefined>();
   let setMenuOpen = $state(false);
+
+  const menuSet = $derived(exercise.sets.find((x) => x.id === setMenu?.id));
 
   function setAct(fn: (id: string) => void) {
     setMenuOpen = false;
@@ -181,7 +197,17 @@
 <Sheet bind:open={setMenuOpen} title="{setMenu?.name ?? 'Set'} · {exercise.exerciseNameSnapshot}">
   <div class="menu">
     <Button block icon="copy" onclick={() => setAct(onduplicateset)}>Duplicate set</Button>
-    <Button block onclick={() => setAct(ontogglewarmup)}>Toggle warm-up</Button>
+    {#if menuSet}
+      <SegmentedControl
+        legend="Set type"
+        legendVisible
+        bind:value={() => menuSet.type, (type) => {
+          setMenuOpen = false;
+          onsetchange(menuSet.id, { type: type as SetType });
+        }}
+        options={setTypes}
+      />
+    {/if}
     <Button block variant="danger" icon="trash" onclick={() => setAct(ondeleteset)}>Delete set</Button>
   </div>
 </Sheet>
