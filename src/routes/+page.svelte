@@ -138,17 +138,4 @@
     font-weight: var(--weight-semibold);
     color: var(--color-text-muted);
   }
-  .group {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    background: var(--color-surface-1);
-    border: var(--border-w) solid var(--color-border);
-    border-radius: var(--radius-md);
-    overflow: hidden;
-  }
-  li + li {
-    border-block-start: var(--border-w) solid var(--color-border);
-    margin-inline-start: var(--space-4);
-  }
 </style>

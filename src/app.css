@@ -168,3 +168,25 @@ button:disabled { cursor: not-allowed; color: var(--color-text-disabled); }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 }
+
+/* List group (design.md list rows): a bordered surface of rows separated by dividers
+   inset from the leading edge. The divider is a pseudo-element so rows stay full width. */
+.group {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--color-surface-1);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.group > li { position: relative; }
+.group > li + li::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: var(--space-4) 0;
+  border-block-start: var(--border-w) solid var(--color-border);
+  pointer-events: none;
+  z-index: 1;
+}

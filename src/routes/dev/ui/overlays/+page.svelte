@@ -151,17 +151,6 @@
     flex-wrap: wrap;
     gap: var(--space-2);
   }
-  .group {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    background: var(--color-surface-1);
-    border: var(--border-w) solid var(--color-border);
-    border-radius: var(--radius-md);
-  }
-  .group li + li {
-    border-block-start: var(--border-w) solid var(--color-border);
-  }
   .filler {
     color: var(--color-text-muted);
   }
