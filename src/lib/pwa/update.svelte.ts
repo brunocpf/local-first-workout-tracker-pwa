@@ -1,8 +1,7 @@
 import { updated } from "$app/state";
 
-// Seam for later: the active-workout code should call setCanUpdate(false) while a session is in
-// progress and setCanUpdate(true) afterwards, so the "Update available" banner never invites a
-// reload mid-workout. No session logic exists yet, so this is always true for now.
+// The active-session store (`#lib/logger/activeSession.svelte`) sets this to false while a workout is
+// in progress, so the "Update available" banner never invites a reload mid-workout.
 let canUpdate = $state(true);
 
 export function setCanUpdate(value: boolean) {

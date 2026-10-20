@@ -30,7 +30,7 @@ A `LoggedSet` is completed ⇔ `completedAt` is present. Sets without it are pla
 
 `status` is `active | completed`. **Discard = delete the active session** after UI confirmation (`discardSession`, which refuses non-active sessions so it can never delete history). There is no `abandoned` state: an abandoned workout is either finished (it has real sets) or discarded. Deleting a completed workout from history is a separate, explicit user action.
 
-At most **one active session** exists. `startSession` and `saveSession` check this inside the same IndexedDB `readwrite` transaction as the write, which also serializes against a second tab.
+At most **one active session** exists. `startSession` and `saveSession` check this inside the same IndexedDB `readwrite` transaction as the write, which also serializes against a second tab. `saveSession` also refuses (`SessionNotActiveError`) to write an active session whose stored row is missing or no longer active, so a stale tab can't resurrect a workout that another tab finished or discarded; create active sessions with `startSession`.
 
 ### Rest timer
 

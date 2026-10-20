@@ -11,6 +11,14 @@ export class ActiveSessionExistsError extends Error {
   }
 }
 
+/** A write of an active session whose stored row was finished or discarded meanwhile (e.g. in another tab). */
+export class SessionNotActiveError extends Error {
+  constructor(public readonly sessionId: string) {
+    super(`Session ${sessionId} was finished or discarded`);
+    this.name = "SessionNotActiveError";
+  }
+}
+
 export type NewSession = {
   name: string;
   routineId?: string;
@@ -60,7 +68,9 @@ export async function startSession(input: NewSession, now = new Date()): Promise
 
 /**
  * Upsert. Recomputes `exerciseIds` and `updatedAt`, writes atomically, and returns what was stored.
- * Accepts `$state` proxies. Refuses to make a second session active.
+ * Accepts `$state` proxies. Refuses to make a second session active, and refuses (`SessionNotActiveError`) to
+ * write an active session whose stored row is gone or no longer active, so a stale tab can't resurrect it.
+ * Create active sessions with `startSession`.
  */
 export async function saveSession(session: WorkoutSession, now = new Date()): Promise<WorkoutSession> {
   const plain = toPlain(session);
@@ -70,6 +80,8 @@ export async function saveSession(session: WorkoutSession, now = new Date()): Pr
     if (plain.status === "active") {
       const other = await activeRange().filter((s) => s.id !== plain.id).first();
       if (other) throw new ActiveSessionExistsError(other.id);
+      const stored = await db.sessions.get(plain.id);
+      if (stored?.status !== "active") throw new SessionNotActiveError(plain.id);
     }
     await db.sessions.put(plain);
     return plain;

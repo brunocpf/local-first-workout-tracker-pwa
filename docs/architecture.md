@@ -21,7 +21,7 @@ Planned homes (created when needed): `storage/db.ts` (Dexie schema + migrations)
 
 ## Active session write-through
 
-The active workout is an in-memory Svelte `$state` object. Every mutation is written through to Dexie (using `$state.snapshot` so no proxies reach IndexedDB), so a reload, suspension or crash loses nothing; there's at most one active session, and the rest timer (`endsAt` + pause) lives on it. No unload handlers. Details: ADR 0004 (session persistence & data model) in [decisions/](decisions/); entities in [data-model.md](data-model.md).
+The active workout is an in-memory Svelte `$state` object. Every mutation is written through to Dexie (using `$state.snapshot` so no proxies reach IndexedDB), so a reload, suspension or crash loses nothing; there's at most one active session, and the rest timer (`endsAt` + pause) lives on it. No unload handlers. The store is `src/lib/logger/activeSession.svelte.ts` (`active`, loaded in the root `+layout.ts`): `mutate(fn, { persist: 'now' | 'deferred' })` applies a change in place; all writes go through one promise queue (in order; a queued put can't resurrect a finished/discarded session); `'deferred'` writes (typing) coalesce and flush on the next `'now'` write, after 500 ms, or on `visibilitychange → hidden`/`pagehide`. A failed write keeps memory, sets `active.error` and is retried on the next write; `finish()` refuses while the latest state is unsaved. If another tab finished or discarded the session, the next write fails with `SessionNotActiveError` and the stale copy is dropped (`active.error` says why) instead of resurrecting it. Details: ADR 0004 (session persistence & data model) in [decisions/](decisions/); entities in [data-model.md](data-model.md).
 
 ## Service worker updates
 
