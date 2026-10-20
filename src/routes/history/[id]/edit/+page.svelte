@@ -27,7 +27,7 @@
   } from "#lib/logger/workout";
   import { settings } from "#lib/settings.svelte";
   import { getSession, InvalidSessionEditError, updateCompletedSession } from "#lib/storage/sessions";
-  import { utcToZonedLocal, zonedLocalToUtc } from "#lib/time";
+  import { isValidTimeZone, utcToZonedLocal, zonedLocalToUtc } from "#lib/time";
   import { confirm } from "#lib/ui/confirm.svelte";
   import { toast } from "#lib/ui/toast.svelte";
   import type { Exercise, SessionExercise, WorkoutSession } from "#lib/types";
@@ -37,7 +37,8 @@
   let failed = $state(false);
   let saving = $state(false);
   let pickerOpen = $state(false);
-  let baseline = "";
+  // `$state` so `dirty` re-derives after a save or a confirmed discard resets it.
+  let baseline = $state("");
 
   // Start/duration are edited as form fields (in the session's zone) and applied to the timestamps on save.
   let startLocal = $state("");
@@ -53,7 +54,7 @@
       const s = await getSession(page.params.id ?? "");
       if (s?.status === "completed" && s.endedAt) {
         draft = s;
-        startLocal = utcToZonedLocal(s.startedAt, s.timeZone);
+        startLocal = utcToZonedLocal(s.startedAt, s.timeZone) ?? "";
         minutes = Math.round((Date.parse(s.endedAt) - Date.parse(s.startedAt)) / 60_000);
         baseline = snapshot();
       }
@@ -95,9 +96,12 @@
     });
   }
 
+  // An unknown zone (e.g. from an import) can't be converted, so times stay as stored rather than being read as UTC.
+  const timesEditable = $derived(draft !== undefined && isValidTimeZone(draft.timeZone));
+
   async function save() {
     if (!draft || saving) return;
-    const startedAt = zonedLocalToUtc(startLocal, draft.timeZone);
+    const startedAt = timesEditable ? zonedLocalToUtc(startLocal, draft.timeZone) : draft.startedAt;
     if (!startedAt || minutes === null) {
       error = "Enter a start date and time and a duration.";
       return;
@@ -133,9 +137,13 @@
     await goto(resolve(`/history/${page.params.id}` as "/"));
   }
 
+  let prompting = false;
+
   beforeNavigate(async (nav) => {
     if (!dirty || nav.type === "leave") return;
     nav.cancel();
+    if (prompting) return; // one "Discard changes?" at a time
+    prompting = true;
     const to = nav.to?.url;
     const ok = await confirm({
       title: "Discard changes?",
@@ -144,6 +152,7 @@
       cancelLabel: "Keep editing",
       danger: true,
     });
+    prompting = false;
     if (ok && to) {
       baseline = snapshot();
       // `to` is the already-resolved URL the user was heading to.
@@ -152,6 +161,8 @@
     }
   });
 
+  // Only asks the browser to show its "leave site?" prompt on reload/close; nothing is saved here (edits are
+  // written solely by Save).
   function onbeforeunload(e: BeforeUnloadEvent) {
     if (dirty) e.preventDefault();
   }
@@ -180,15 +191,19 @@
 
   <div class="form">
     <TextField label="Name" bind:value={draft.name} required />
-    <TextField
-      label="Start"
-      type="datetime-local"
-      bind:value={startLocal}
-      required
-      hint="In the time zone of the workout ({draft.timeZone})."
-      {error}
-    />
-    <NumberField label="Duration" bind:value={minutes} mode="integer" suffix="min" min={0} />
+    {#if timesEditable}
+      <TextField
+        label="Start"
+        type="datetime-local"
+        bind:value={startLocal}
+        required
+        hint="In the time zone of the workout ({draft.timeZone})."
+        {error}
+      />
+      <NumberField label="Duration" bind:value={minutes} mode="integer" suffix="min" min={0} />
+    {:else}
+      <p class="hint">Start time and duration can’t be edited: unknown time zone “{draft.timeZone}”.</p>
+    {/if}
     <TextField label="Notes" multiline bind:value={() => draft?.notes ?? "", (v) => draft && (draft.notes = v)} />
   </div>
 
@@ -230,6 +245,11 @@
 {/if}
 
 <style>
+  .hint {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
   .form,
   .exercises {
     display: flex;

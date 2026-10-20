@@ -7,8 +7,9 @@ describe("utcToZonedLocal", () => {
     expect(utcToZonedLocal("2026-03-10T23:30:00.000Z", "America/New_York")).toBe("2026-03-10T19:30");
     expect(utcToZonedLocal("2026-03-10T00:05:00.000Z", "UTC")).toBe("2026-03-10T00:05");
   });
-  it("falls back to UTC for an unknown zone", () => {
-    expect(utcToZonedLocal("2026-03-10T10:00:00.000Z", "Nope/Zone")).toBe("2026-03-10T10:00");
+  it("refuses an unknown zone instead of reading it as UTC", () => {
+    expect(utcToZonedLocal("2026-03-10T10:00:00.000Z", "Nope/Zone")).toBeUndefined();
+    expect(zonedLocalToUtc("2026-03-10T10:00", "Nope/Zone")).toBeUndefined();
   });
 });
 
@@ -25,7 +26,7 @@ describe("zonedLocalToUtc", () => {
     for (let h = 0; h < 48; h++) {
       const iso = new Date(Date.UTC(2026, 2, 7, 12) + h * 3_600_000).toISOString();
       const local = utcToZonedLocal(iso, "America/New_York");
-      expect(zonedLocalToUtc(local, "America/New_York")).toBe(iso);
+      expect(zonedLocalToUtc(local!, "America/New_York")).toBe(iso);
     }
   });
   it("round-trips the fall-back day, resolving the repeated hour to the earlier instant (New York, 2026-11-01)", () => {
@@ -33,7 +34,7 @@ describe("zonedLocalToUtc", () => {
     // The second 01:30 (EST) shows the same wall time; the edit field cannot tell them apart.
     expect(utcToZonedLocal("2026-11-01T06:30:00.000Z", "America/New_York")).toBe("2026-11-01T01:30");
     for (const iso of ["2026-11-01T03:30:00.000Z", "2026-11-01T07:30:00.000Z", "2026-11-01T12:00:00.000Z"]) {
-      expect(zonedLocalToUtc(utcToZonedLocal(iso, "America/New_York"), "America/New_York")).toBe(iso);
+      expect(zonedLocalToUtc(utcToZonedLocal(iso, "America/New_York")!, "America/New_York")).toBe(iso);
     }
   });
   it("shifts a non-existent time forward by the gap", () => {
@@ -41,7 +42,7 @@ describe("zonedLocalToUtc", () => {
   });
   it("handles a half-hour DST zone (Lord Howe)", () => {
     for (const iso of ["2026-04-04T13:00:00.000Z", "2026-04-04T16:00:00.000Z", "2026-10-03T15:45:00.000Z"]) {
-      expect(zonedLocalToUtc(utcToZonedLocal(iso, "Australia/Lord_Howe"), "Australia/Lord_Howe")).toBe(iso);
+      expect(zonedLocalToUtc(utcToZonedLocal(iso, "Australia/Lord_Howe")!, "Australia/Lord_Howe")).toBe(iso);
     }
   });
 });

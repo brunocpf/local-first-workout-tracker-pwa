@@ -63,3 +63,33 @@ describe("updateCompletedSession", () => {
     expect((await db.routines.get("r1"))?.name).toBe("R");
   });
 });
+
+describe("updateCompletedSession validation", () => {
+  it("clamps completed set times into the session range", async () => {
+    const s = await completed();
+    const edited = structuredClone(s);
+    const sets = edited.exercises[0].sets;
+    sets.push({ id: "early", type: "normal", reps: 5, completedAt: at(-10).toISOString() });
+    sets.push({ id: "late", type: "normal", reps: 5, completedAt: at(90).toISOString() });
+    sets.push({ id: "inside", type: "normal", reps: 5, completedAt: at(10).toISOString() });
+    sets.push({ id: "open", type: "normal", reps: 5 });
+    const saved = await updateCompletedSession(edited);
+    const byId = Object.fromEntries(saved.exercises[0].sets.map((x) => [x.id, x.completedAt]));
+    expect(byId).toEqual({ early: s.startedAt, late: s.endedAt, inside: at(10).toISOString(), open: undefined });
+  });
+
+  it("rejects out-of-range weight or reps and malformed shapes", async () => {
+    const s = await completed();
+    const withSet = (set: object) => {
+      const e = structuredClone(s);
+      e.exercises[0].sets = [{ id: "x", type: "normal", ...set }];
+      return e;
+    };
+    for (const bad of [{ weight: -1 }, { weight: 5000 }, { reps: 2.5 }, { reps: -3 }, { reps: 1e6 }]) {
+      await expect(updateCompletedSession(withSet(bad))).rejects.toBeInstanceOf(InvalidSessionEditError);
+    }
+    await expect(updateCompletedSession({ ...s, name: "x".repeat(300) })).rejects.toBeInstanceOf(InvalidSessionEditError);
+    await expect(updateCompletedSession(withSet({ weight: 100, reps: 5 }))).resolves.toBeTruthy();
+    expect(await getSession(s.id)).toMatchObject({ exercises: [{ sets: [{ weight: 100, reps: 5 }] }] });
+  });
+});

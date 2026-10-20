@@ -83,8 +83,22 @@ function wallClockMs(ms: number, timeZone: string): number {
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
-/** An instant as `YYYY-MM-DDTHH:mm` wall-clock time in `timeZone` (the value format of `<input type="datetime-local">`). */
-export function utcToZonedLocal(iso: string, timeZone: string): string {
+/** Whether `Intl` knows the IANA zone. */
+export function isValidTimeZone(timeZone: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * An instant as `YYYY-MM-DDTHH:mm` wall-clock time in `timeZone` (the value format of `<input type="datetime-local">`).
+ * `undefined` for an unknown zone, so callers never silently treat it as UTC.
+ */
+export function utcToZonedLocal(iso: string, timeZone: string): string | undefined {
+  if (!isValidTimeZone(timeZone)) return undefined;
   const d = new Date(wallClockMs(Date.parse(iso), timeZone));
   return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}T${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
 }
@@ -92,9 +106,10 @@ export function utcToZonedLocal(iso: string, timeZone: string): string {
 /**
  * Inverse of `utcToZonedLocal`: the ISO instant for a `YYYY-MM-DDTHH:mm` wall-clock time in `timeZone`.
  * An ambiguous time (clocks go back) resolves to the earlier instant; a non-existent one (clocks go forward)
- * is shifted forward by the gap. Returns `undefined` for malformed input.
+ * is shifted forward by the gap. Returns `undefined` for malformed input or an unknown zone.
  */
 export function zonedLocalToUtc(local: string, timeZone: string): string | undefined {
+  if (!isValidTimeZone(timeZone)) return undefined;
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(local);
   if (!m) return undefined;
   const wall = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
