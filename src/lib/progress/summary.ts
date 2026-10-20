@@ -1,4 +1,5 @@
 import { exerciseVolume, isCounted } from "#lib/progress/metrics";
+import { currentTimeZone, localWeekStart } from "#lib/time";
 import type { WorkoutSession } from "#lib/types";
 
 export type SessionSummary = {
@@ -24,4 +25,18 @@ export function sessionSummary(session: WorkoutSession): SessionSummary {
   }
   const ms = session.endedAt ? Date.parse(session.endedAt) - Date.parse(session.startedAt) : 0;
   return { durationMs: Number.isFinite(ms) && ms > 0 ? ms : 0, exerciseCount, completedSets, volumeKg };
+}
+
+/**
+ * Sessions whose local start date falls in the same week as `now`. Each session is placed in the week of
+ * the date it was performed (its own `timeZone`); `now` is read in `timeZone` (default: the device's).
+ */
+export function countSessionsThisWeek(
+  sessions: Pick<WorkoutSession, "startedAt" | "timeZone">[],
+  now: Date,
+  weekStartsOn: 0 | 1 | 6,
+  timeZone = currentTimeZone(),
+): number {
+  const current = localWeekStart({ startedAt: now.toISOString(), timeZone }, weekStartsOn);
+  return sessions.filter((s) => localWeekStart(s, weekStartsOn) === current).length;
 }
