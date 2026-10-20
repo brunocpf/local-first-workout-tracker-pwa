@@ -76,6 +76,24 @@ function integrityErrors({ data }: BackupV1): string[] {
   });
   if (data.sessions.filter((s) => s.status === "active").length > 1)
     errors.push("data.sessions: more than one active session");
+
+  // References the app follows must resolve. Sessions are not checked: they snapshot exercise and
+  // routine names, so history stays readable even if the referenced row is gone. A routine's
+  // `programId` is not checked either: the app already lists such routines as standalone.
+  const exerciseIds = new Set([...SEED_IDS, ...data.customExercises.map((e) => e.id)]);
+  data.routines.forEach((r, ri) =>
+    r.exercises.forEach((x, xi) => {
+      if (!exerciseIds.has(x.exerciseId))
+        errors.push(`data.routines[${ri}].exercises[${xi}].exerciseId: unknown exercise ${x.exerciseId}`);
+    }),
+  );
+  const routineIds = new Set(data.routines.map((r) => r.id));
+  data.programs.forEach((p, pi) =>
+    p.schedule?.days.forEach((d, di) => {
+      if (!routineIds.has(d.routineId))
+        errors.push(`data.programs[${pi}].schedule.days[${di}].routineId: unknown routine ${d.routineId}`);
+    }),
+  );
   return errors;
 }
 
@@ -121,8 +139,9 @@ export async function summarizeCurrentData(database: AppDB = defaultDb): Promise
  * Replaces ALL user data with the backup in one `rw` transaction: either everything is written or,
  * on any error, nothing changed. The input is re-validated first (it may not come from `parseBackup`).
  * Built-in exercises are rewritten from the app's catalog with the backup's user state applied, inside
- * the same transaction, so the catalog is never missing (this is the re-seed). State for built-in ids
- * this app version does not know is ignored. Session `exerciseIds` is recomputed.
+ * the same transaction, so the catalog is never missing (this is the re-seed). Stored built-ins missing
+ * from the current catalog are kept, never deleted. State for built-in ids that exist in neither is
+ * ignored. Session `exerciseIds` is recomputed.
  * Callers must not hold an in-memory active session across a restore (reload state afterwards).
  */
 export async function restoreBackup(backup: BackupV1, database: AppDB = defaultDb): Promise<void> {
@@ -133,21 +152,27 @@ export async function restoreBackup(backup: BackupV1, database: AppDB = defaultD
 
   const tables = [database.exercises, database.programs, database.routines, database.sessions, database.settings];
   await database.transaction("rw", tables, async () => {
-    const previous = new Map(
-      (await database.exercises.bulkGet(SEED_EXERCISES.map((s) => s.id))).map((r) => [r?.id, r]),
-    );
+    const previous = new Map((await database.exercises.filter((e) => !e.isCustom).toArray()).map((r) => [r.id, r]));
     const now = new Date().toISOString();
     const state = new Map(data.builtinExerciseState.map((s) => [s.id, s]));
-    const builtins: Exercise[] = SEED_EXERCISES.map((s) => {
-      const row: Exercise = JSON.parse(JSON.stringify({ ...s, isCustom: false }));
-      const user = state.get(s.id);
-      row.aliases = [...new Set([...s.aliases, ...(user?.aliases ?? [])])];
+    /** Base built-in row (no user state) with the backup's user state applied. */
+    const withState = (base: Exercise, seedAliases: string[]): Exercise => {
+      const row: Exercise = JSON.parse(JSON.stringify(base));
+      delete row.favorite;
+      delete row.archivedAt;
+      const user = state.get(row.id);
+      row.aliases = [...new Set([...seedAliases, ...(user?.aliases ?? [])])];
       if (user?.favorite !== undefined) row.favorite = user.favorite;
       if (user?.archivedAt !== undefined) row.archivedAt = user.archivedAt;
-      row.createdAt = previous.get(s.id)?.createdAt ?? now;
       row.updatedAt = now;
       return row;
-    });
+    };
+    const builtins: Exercise[] = SEED_EXERCISES.map((s) =>
+      withState({ ...s, isCustom: false, createdAt: previous.get(s.id)?.createdAt ?? now, updatedAt: now }, s.aliases),
+    );
+    // Built-ins this app version no longer ships are kept, like catalog seeding does: retired ids must
+    // still resolve. Their seed aliases are unknown, so the stored aliases are kept.
+    for (const row of previous.values()) if (!SEED_IDS.has(row.id)) builtins.push(withState(row, row.aliases));
 
     await Promise.all(tables.map((t) => t.clear()));
     await database.exercises.bulkAdd([...builtins, ...data.customExercises]);

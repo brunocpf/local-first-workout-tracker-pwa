@@ -150,6 +150,26 @@ describe("parseBackup", () => {
       );
   });
 
+  it("rejects routine and schedule references that don't resolve", () => {
+    const raw = JSON.parse(FIXTURE_TEXT);
+    raw.data.routines[0].exercises[0].exerciseId = "does_not_exist";
+    raw.data.programs[0].schedule.days[1].routineId = "rt-gone";
+    const r = parseBackup(JSON.stringify(raw));
+    expect(r.ok).toBe(false);
+    if (!r.ok)
+      expect(r.errors).toEqual([
+        "data.routines[0].exercises[0].exerciseId: unknown exercise does_not_exist",
+        "data.programs[0].schedule.days[1].routineId: unknown routine rt-gone",
+      ]);
+  });
+
+  it("accepts sessions that reference exercises not in the backup (history is self-describing)", () => {
+    const raw = JSON.parse(FIXTURE_TEXT);
+    raw.data.sessions[0].exercises[0].exerciseId = "deleted_custom";
+    raw.data.routines[0].programId = "deleted_program";
+    expect(parseBackup(JSON.stringify(raw)).ok).toBe(true);
+  });
+
   it("strips unknown keys and never keeps derived exerciseIds from the file", () => {
     const raw = JSON.parse(FIXTURE_TEXT);
     raw.data.sessions[0].exerciseIds = ["bogus"];
@@ -217,6 +237,28 @@ describe("restoreBackup", () => {
     // Catalog seeding after a restore keeps the restored state.
     await ensureCatalogSeeded(d);
     expect((await d.exercises.get("barbell_bench_press"))?.favorite).toBe(true);
+  });
+
+  it("keeps stored built-ins the current catalog no longer ships, with the backup's state", async () => {
+    await ensureCatalogSeeded(d);
+    const retired = {
+      ...(await d.exercises.get("plank"))!,
+      id: "retired_lift",
+      name: "Retired Lift",
+      aliases: ["Old Name"],
+      favorite: true,
+    };
+    await d.exercises.add(retired);
+    await d.exercises.add({ ...retired, id: "retired_other", favorite: true });
+    const b = fixture();
+    b.data.builtinExerciseState.push({ id: "retired_other", archivedAt: T, aliases: ["Mine"] });
+    await restoreBackup(b, d);
+    const kept = (await d.exercises.get("retired_lift"))!;
+    expect(kept).toMatchObject({ name: "Retired Lift", isCustom: false, aliases: ["Old Name"] });
+    expect(kept.favorite).toBeUndefined();
+    const other = (await d.exercises.get("retired_other"))!;
+    expect(other).toMatchObject({ archivedAt: T, aliases: ["Old Name", "Mine"] });
+    expect(other.favorite).toBeUndefined();
   });
 
   it("ignores state for built-in ids this app does not know", async () => {
