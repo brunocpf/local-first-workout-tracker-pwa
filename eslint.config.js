@@ -4,7 +4,7 @@ import svelte from "eslint-plugin-svelte";
 import globals from "globals";
 
 export default ts.config(
-  { ignores: ["build/", ".svelte-kit/", "node_modules/", "playwright-report/", "test-results/"] },
+  { ignores: [".claude/", "build/", ".svelte-kit/", "node_modules/", "playwright-report/", "test-results/"] },
   js.configs.recommended,
   ts.configs.recommended,
   svelte.configs.recommended,
@@ -19,6 +19,8 @@ export default ts.config(
     rules: {
       // Imported content is untrusted: never render it as HTML.
       "svelte/no-at-html-tags": "error",
+      // `_`-prefixed names and rest siblings are intentionally unused (e.g. `const { key: _key, ...rest } = row`).
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", ignoreRestSiblings: true }],
     },
   },
 );

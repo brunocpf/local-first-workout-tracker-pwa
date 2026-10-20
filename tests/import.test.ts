@@ -228,7 +228,10 @@ describe("parseProgramImport", () => {
       const high = valid((j) => (j.program.routines[0].exercises[0].sets = 31));
       expect(high.ok).toBe(true);
       expect(warningsOf(high).join("\n")).toContain("unusually high");
-      const warmups = valid((j) => (j.program.routines[0].exercises[0].setType = "warmup") && (j.program.routines[0].exercises[0].sets = 40));
+      const warmups = valid((j) => {
+        j.program.routines[0].exercises[0].setType = "warmup";
+        j.program.routines[0].exercises[0].sets = 40;
+      });
       expect(warningsOf(warmups)).toEqual([]);
     });
 
