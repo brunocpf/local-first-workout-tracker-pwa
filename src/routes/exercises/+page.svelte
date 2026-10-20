@@ -1,10 +1,12 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { resolve } from "$app/paths";
   import { searchExercises } from "#lib/catalog/search";
+  import Badge from "#lib/components/ui/Badge.svelte";
+  import Button from "#lib/components/ui/Button.svelte";
   import EmptyState from "#lib/components/ui/EmptyState.svelte";
   import ListRow from "#lib/components/ui/ListRow.svelte";
   import PageHeader from "#lib/components/ui/PageHeader.svelte";
+  import Switch from "#lib/components/ui/Switch.svelte";
   import TextField from "#lib/components/ui/TextField.svelte";
   import { listExercises } from "#lib/storage/exercises";
   import type { Exercise } from "#lib/types";
@@ -14,14 +16,25 @@
   let failed = $state(false);
   let query = $state("");
 
-  onMount(async () => {
+  let showArchived = $state(false);
+
+  // Reloads when the toggle changes; a stale response from an earlier toggle is dropped.
+  let loadToken = 0;
+  async function load() {
+    const token = ++loadToken;
     try {
-      exercises = await listExercises();
+      const all = await listExercises({ includeArchived: showArchived });
+      if (token === loadToken) exercises = all;
     } catch {
-      failed = true;
+      if (token === loadToken) failed = true;
     } finally {
-      loaded = true;
+      if (token === loadToken) loaded = true;
     }
+  }
+  // Runs on mount and whenever the toggle changes.
+  $effect(() => {
+    void showArchived;
+    void load();
   });
 
   // "lower_back" → "lower back"; the first word of the line is capitalized below.
@@ -30,10 +43,14 @@
   const secondary = (e: Exercise) =>
     capitalize([...words(e.equipment), ...words(e.primaryMuscles)].join(" · "));
 
-  const results = $derived(searchExercises(query, exercises));
+  const results = $derived(searchExercises(query, exercises, { includeArchived: showArchived }));
 </script>
 
-<PageHeader title="Exercises" />
+<PageHeader title="Exercises">
+  {#snippet actions()}
+    <Button variant="primary" size="sm" icon="plus" href={resolve("/exercises/new")}>New exercise</Button>
+  {/snippet}
+</PageHeader>
 
 <div class="search">
   <TextField
@@ -44,6 +61,7 @@
     autocomplete="off"
     enterkeyhint="search"
   />
+  <Switch label="Show archived" bind:checked={showArchived} />
 </div>
 
 {#if failed}
@@ -54,7 +72,9 @@
   {:else}
     <ul class="group" aria-label="Exercises">
       {#each results as e (e.id)}
-        <li><ListRow title={e.name} subtitle={secondary(e)} href={resolve(`/exercises/${e.id}` as "/")} /></li>
+        <li><ListRow title={e.name} subtitle={secondary(e)} href={resolve(`/exercises/${e.id}` as "/")}>
+            {#snippet trailing()}{#if e.archivedAt}<Badge>Archived</Badge>{/if}{/snippet}
+          </ListRow></li>
       {/each}
     </ul>
   {/if}

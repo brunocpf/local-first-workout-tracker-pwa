@@ -3,12 +3,13 @@
   import type { Snippet } from "svelte";
   import { searchExercises } from "#lib/catalog/search";
   import Button from "#lib/components/ui/Button.svelte";
+  import ExerciseForm, { type ExerciseValues } from "#lib/components/exercises/ExerciseForm.svelte";
   import EmptyState from "#lib/components/ui/EmptyState.svelte";
   import Icon from "#lib/components/ui/Icon.svelte";
   import ListRow from "#lib/components/ui/ListRow.svelte";
   import Sheet from "#lib/components/ui/Sheet.svelte";
   import TextField from "#lib/components/ui/TextField.svelte";
-  import { listExercises } from "#lib/storage/exercises";
+  import { createCustomExercise, listExercises } from "#lib/storage/exercises";
   import type { Exercise } from "#lib/types";
 
   let {
@@ -19,6 +20,7 @@
     onpick,
     oncancel,
     createRow,
+    allowCreate = true,
   }: {
     open?: boolean;
     multiple?: boolean;
@@ -26,8 +28,10 @@
     title?: string;
     onpick: (exercises: Exercise[]) => void;
     oncancel?: () => void;
-    /** Reserved slot for the "Create custom exercise" row (T6.03). Receives the current query. */
+    /** Replaces the built-in "Create “query”" row. Receives the current query. */
     createRow?: Snippet<[string]>;
+    /** Show the built-in create row. Turn off where creating must not write straight to the catalog. */
+    allowCreate?: boolean;
   } = $props();
 
   let exercises = $state<Exercise[]>([]);
@@ -100,6 +104,28 @@
     finish(selectedIds.map((id) => byId.get(id)).filter((e): e is Exercise => e !== undefined));
   }
 
+  let creating = $state(false);
+  let createName = $state("");
+  let createError = $state("");
+
+  function startCreate() {
+    createName = query.trim();
+    createError = "";
+    creating = true;
+  }
+
+  // The new exercise is returned like a pick, so the caller adds it to the workout right away.
+  async function create(values: ExerciseValues) {
+    createError = "";
+    try {
+      const created = await createCustomExercise(values);
+      creating = false;
+      finish([created]);
+    } catch {
+      createError = "Couldn’t save the exercise. Try again.";
+    }
+  }
+
   function onclose() {
     if (!picked) oncancel?.();
   }
@@ -147,7 +173,15 @@
         {/each}
       </ul>
     {/if}
-    {#if createRow}<div class="create">{@render createRow(query.trim())}</div>{/if}
+    {#if createRow}
+      <div class="create">{@render createRow(query.trim())}</div>
+    {:else if allowCreate}
+      <div class="create">
+        <Button variant="secondary" block icon="plus" onclick={startCreate}>
+          {query.trim() ? `Create “${query.trim()}”` : "Create custom exercise"}
+        </Button>
+      </div>
+    {/if}
   {/if}
 
   <p class="vh" role="status" aria-live="polite">{announcement}</p>
@@ -170,7 +204,25 @@
   </Sheet>
 {/if}
 
+{#if allowCreate && !createRow}
+  <Sheet bind:open={creating} title="New exercise" size="full">
+    {#if createError}<p class="error" role="alert">{createError}</p>{/if}
+    {#key createName}
+      <ExerciseForm
+        initial={{ name: createName }}
+        submitLabel="Create and add"
+        onsubmit={create}
+        oncancel={() => (creating = false)}
+      />
+    {/key}
+  </Sheet>
+{/if}
+
 <style>
+  .error {
+    margin: 0 0 var(--space-3);
+    color: var(--color-danger-text);
+  }
   .search {
     margin-block-end: var(--space-3);
   }
