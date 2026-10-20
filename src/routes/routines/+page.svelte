@@ -74,12 +74,13 @@
     <ul class="group" aria-label={title}>
       {#each routines as r (r.id)}
         <li>
-          <ListRow title={r.name} subtitle={count(r)}>
-            {#snippet trailing()}
+          <div class="item">
+            <div class="link"><ListRow title={r.name} subtitle={count(r)} href={resolve(`/routines/${r.id}` as "/")} /></div>
+            <div class="actions">
               <StartRoutineButton routine={r} />
               <IconButton icon="more-vertical" label={`Options for ${r.name}`} onclick={() => openMenu(r)} />
-            {/snippet}
-          </ListRow>
+            </div>
+          </div>
         </li>
       {/each}
     </ul>
@@ -142,6 +143,20 @@
   li + li {
     border-block-start: var(--border-w) solid var(--color-border);
     margin-inline-start: var(--space-4);
+  }
+  .item {
+    display: flex;
+    align-items: center;
+  }
+  .link {
+    flex: 1;
+    min-inline-size: 0;
+  }
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding-inline-end: var(--space-2);
   }
   .menu {
     display: flex;
