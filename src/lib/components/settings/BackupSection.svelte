@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { backupFileName, buildBackup, serializeBackup } from "#lib/backup/export";
-  import { MAX_BACKUP_BYTES, parseBackup, restoreBackup, summarizeBackup, summarizeCurrentData, type DataSummary } from "#lib/backup/restore";
+    import { MAX_BACKUP_BYTES, parseBackup, restoreBackup, summarizeBackup, summarizeCurrentData, type DataSummary } from "#lib/backup/restore";
+  import { exportAndRecord } from "#lib/backup/run";
   import Banner from "#lib/components/ui/Banner.svelte";
   import Button from "#lib/components/ui/Button.svelte";
-  import { readTextFile, saveFile } from "#lib/files";
+  import NumberField from "#lib/components/ui/NumberField.svelte";
+  import { readTextFile } from "#lib/files";
   import { active } from "#lib/logger/activeSession.svelte";
-  import { initSettings, settings } from "#lib/settings.svelte";
-  import { saveSettings } from "#lib/storage/settings";
+  import { initSettings, settings, updateSettings } from "#lib/settings.svelte";
   import { confirm } from "#lib/ui/confirm.svelte";
   import { toast } from "#lib/ui/toast.svelte";
 
@@ -26,26 +26,16 @@
   let restoreFailure = $state("");
   let fileInput = $state<HTMLInputElement>();
 
-  /** Builds and hands off a backup. Records `lastBackupAt` only when the file was actually saved or shared. */
+  /** Runs the export and reports the outcome. */
   async function exportBackup(): Promise<boolean> {
     exportError = "";
     exportNote = "";
     exporting = true;
     try {
-      const now = new Date();
-      const blob = serializeBackup(await buildBackup({ now }));
-      const name = backupFileName(now);
-      const result = await saveFile(blob, name);
-      if (result === "cancelled") return false;
-      const stamp = now.toISOString();
-      try {
-        settings.lastBackupAt = stamp;
-        await saveSettings({ lastBackupAt: stamp });
-      } catch {
-        // The file is saved; only the "last backup" note is lost.
-      }
-      exportNote = `${result === "shared" ? "Shared" : "Saved"} ${name} · ${size(blob.size)} · ${day(stamp)}`;
-      toast(`Backup saved · ${size(blob.size)}`);
+      const r = await exportAndRecord();
+      if (r.status === "cancelled") return false;
+      exportNote = `${r.status === "shared" ? "Shared" : "Saved"} ${r.name} · ${size(r.bytes)} · ${day(r.at)}`;
+      toast(`Backup saved · ${size(r.bytes)}`);
       return true;
     } catch (e) {
       exportError = `Backup failed: ${message(e)}`;
@@ -120,6 +110,27 @@
   <Button onclick={exportBackup} loading={exporting} icon="export">Export backup</Button>
   {#if exportNote}<p class="note" role="status" data-testid="export-note">{exportNote}</p>{/if}
   {#if exportError}<Banner variant="danger" urgent>{exportError}</Banner>{/if}
+
+  <NumberField
+    label="Remind after (days)"
+    mode="integer"
+    suffix="days"
+    min={0}
+    max={365}
+    hint="0 turns this reminder off."
+    value={settings.backupReminderDays ?? 14}
+    onchange={(n) => n !== null && updateSettings({ backupReminderDays: n })}
+  />
+  <NumberField
+    label="Remind after (workouts)"
+    mode="integer"
+    suffix="workouts"
+    min={0}
+    max={1000}
+    hint="0 turns this reminder off."
+    value={settings.backupReminderSessions ?? 10}
+    onchange={(n) => n !== null && updateSettings({ backupReminderSessions: n })}
+  />
 
   <input bind:this={fileInput} type="file" accept="application/json,.json" hidden onchange={onfile} data-testid="restore-input" />
   <Button onclick={() => fileInput?.click()} loading={restoring} disabled={active.isActive}>Restore from backup…</Button>

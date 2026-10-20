@@ -215,6 +215,9 @@ describe("restoreBackup", () => {
     // The fixture predates `timerSound`: an old backup restores, and export fills in the default.
     const expected = JSON.parse(FIXTURE_TEXT);
     expected.data.settings.timerSound = true;
+    // Settings added after the fixture was frozen come back as defaults.
+    expected.data.settings.backupReminderDays = 14;
+    expected.data.settings.backupReminderSessions = 10;
     expect(out).toEqual(expected);
   });
 

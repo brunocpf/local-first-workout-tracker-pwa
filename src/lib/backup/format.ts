@@ -183,6 +183,8 @@ export const settingsSchema = z.object({
   weekStartsOn: z.union([z.literal(0), z.literal(1), z.literal(6)]),
   theme: z.enum(["system", "light", "dark"]),
   lastBackupAt: iso.optional(),
+  backupReminderDays: nonneg.optional(),
+  backupReminderSessions: nonneg.optional(),
 });
 
 /** User state on a built-in (seed) exercise; the exercise itself comes from the app catalog. */

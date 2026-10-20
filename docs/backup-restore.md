@@ -1,6 +1,6 @@
 # Backup & restore
 
-_Status: **format v1, export builder and restore logic implemented** (`src/lib/backup/format.ts`, `export.ts`, `restore.ts`). The Settings backup/restore UI is implemented (`BackupSection.svelte`); the reminder is not yet (T4.05)._
+_Status: **format v1, export builder and restore logic implemented** (`src/lib/backup/format.ts`, `export.ts`, `restore.ts`). The Settings backup/restore UI (`BackupSection.svelte`) and the reminder banner (T4.05) are implemented._
 
 IndexedDB is persistent but not a backup: browsers can evict it, and it is bound to the origin and (on iOS) to installed-app vs Safari-tab storage.
 
@@ -62,7 +62,7 @@ Notes:
 
 ## Reminder policy
 
-Non-blocking banner when the last backup is older than 14 days or 10 sessions ago (whichever first; both configurable). Never shown during an active workout. Last-backup date is stored in settings.
+Non-blocking banner on Home when the last backup is older than `settings.backupReminderDays` (default 14) or `settings.backupReminderSessions` (default 10) completed workouts were started since it (whichever first; 0 disables each; both are in the backup's `settings`). It needs at least one completed workout since the last backup (all of them if never backed up) and is only on Home, never while a workout is active. "Back up now" runs the export (`exportAndRecord` in `src/lib/backup/run.ts`); "Later" hides it until the next app launch. Policy is the pure `shouldRemindBackup` in `src/lib/backup/reminder.ts`; the count is `countCompletedSince` (index count, no rows loaded). Thresholds are edited in the Backup section of Settings.
 
 ## Moving between origins/installs
 

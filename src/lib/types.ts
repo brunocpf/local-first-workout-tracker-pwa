@@ -150,4 +150,8 @@ export type UserSettings = {
   theme: "system" | "light" | "dark";
   /** ISO 8601 time of the last successful backup export (not set until the first one). */
   lastBackupAt?: string;
+  /** Remind to back up after this many days (0 = off). */
+  backupReminderDays?: number;
+  /** Remind to back up after this many completed workouts (0 = off). */
+  backupReminderSessions?: number;
 };

@@ -5,6 +5,7 @@
   import { active } from "#lib/logger/activeSession.svelte";
   import { ActiveSessionExistsError } from "#lib/storage/sessions";
   import { defaultWorkoutName, formatElapsed } from "#lib/time";
+  import { backupReminderLater } from "#lib/backup/reminderState.svelte";
   import { toast } from "#lib/ui/toast.svelte";
   import Banner from "#lib/components/ui/Banner.svelte";
   import PageHeader from "#lib/components/ui/PageHeader.svelte";
@@ -12,6 +13,8 @@
   import ListRow from "#lib/components/ui/ListRow.svelte";
   import StartRoutineButton from "#lib/components/routines/StartRoutineButton.svelte";
   import { countSessionsThisWeek } from "#lib/progress/summary";
+  import { backupReminderDue } from "#lib/backup/reminder";
+  import { exportAndRecord } from "#lib/backup/run";
   import { settings } from "#lib/settings.svelte";
   import { listRoutinesGrouped } from "#lib/storage/routines";
   import { listCompletedSessions } from "#lib/storage/sessions";
@@ -22,6 +25,34 @@
     const id = setInterval(() => (now = Date.now()), 1000);
     return () => clearInterval(id);
   });
+
+  // "Later" hides the reminder until the app is launched again (module state, not persisted).
+  let remindDue = $state(false);
+  let backingUp = $state(false);
+  const showReminder = $derived(remindDue && !active.session && !backupReminderLater.hidden);
+
+  onMount(async () => {
+    try {
+      remindDue = await backupReminderDue(settings);
+    } catch {
+      // optional
+    }
+  });
+
+  async function backUpNow() {
+    backingUp = true;
+    try {
+      const r = await exportAndRecord();
+      if (r.status !== "cancelled") {
+        remindDue = false;
+        toast("Backup saved");
+      }
+    } catch {
+      toast("Backup failed");
+    } finally {
+      backingUp = false;
+    }
+  }
 
   const QUICK_START_MAX = 3;
   const RECENT_MAX = 3;
@@ -84,6 +115,15 @@
   </Banner>
 {/if}
 
+{#if showReminder}
+  <div class="reminder" data-testid="backup-reminder">
+    <Banner variant="info" title="Time for a backup" action={{ label: backingUp ? "Backing up…" : "Back up now", onclick: backUpNow }}>
+      Your data lives only on this device.
+      <Button variant="ghost" size="sm" onclick={() => (backupReminderLater.hidden = true)}>Later</Button>
+    </Banner>
+  </div>
+{/if}
+
 <div class="start">
   <Button variant="primary" size="lg" block icon="plus" loading={starting} onclick={start}>
     {active.session ? "Resume workout" : "Start workout"}
@@ -121,6 +161,9 @@
 {/if}
 
 <style>
+  .reminder {
+    margin-block-start: var(--space-3);
+  }
   .start {
     margin-block: var(--space-4);
   }

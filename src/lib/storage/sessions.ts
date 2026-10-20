@@ -137,6 +137,14 @@ export async function listCompletedSessions({ before, limit = 20 }: { before?: s
     .toArray();
 }
 
+/** Completed workouts started after `iso` (all completed ones when omitted). Counts via the `[status+startedAt]` index; loads no rows. */
+export async function countCompletedSince(iso?: string): Promise<number> {
+  return db.sessions
+    .where("[status+startedAt]")
+    .between(["completed", iso ?? Dexie.minKey], ["completed", Dexie.maxKey], false, true)
+    .count();
+}
+
 export async function getSession(id: string): Promise<WorkoutSession | undefined> {
   return db.sessions.get(id);
 }
