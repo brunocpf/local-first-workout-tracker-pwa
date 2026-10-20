@@ -214,6 +214,14 @@ At most 50 messages of each kind are returned; the rest is summarized as `…and
 
 This example illustrates the format and is not a medically validated training prescription.
 
+## Share links
+
+A routine or program can be shared as a URL whose fragment carries the plan: `…/routines/import#p=<payload>` (`src/lib/imports/shareLink.ts`, tests: `tests/shareLink.test.ts`). The payload is the schema v1 JSON → `CompressionStream('deflate-raw')` → base64url (no padding). The fragment is never sent to a server.
+
+- The Share button on a routine page exports the routine's whole program (or just the routine when it has none). Identical sets use `sets: N`; otherwise `setList`. Custom exercises are exported by name (with equipment/type hints where schema v1 can express them), catalog exercises by `id` plus `name`. Routines or exercises without sets are left out. Links are generated through the same validation as imports.
+- Shared with the Web Share API (`url`) when available, otherwise copied. Links over 2,000 characters get a warning, since messaging apps may truncate them.
+- Opening a link runs the normal import path: decoded text is capped at 1,000,000 bytes while inflating (decompression bombs are cut off), then parsed and validated like pasted JSON. Damaged, truncated, oversize or invalid links show an error and no preview. Nothing is saved without the usual confirmation in the preview.
+
 ## Prompt snippet for AI assistants
 
 The app's "Generate a plan with AI" helper (`src/lib/imports/prompt.ts`, page `/routines/generate`) includes text like this, plus the user's constraints and the allowed catalog ids/names:
