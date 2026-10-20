@@ -138,6 +138,12 @@ export type WorkoutSession = {
 
 export type WeightUnit = "kg" | "lb";
 
+/** One plate size in the user's inventory. `weight` is in that unit's system (45 for lb, 25 for kg); `count` is how many are available per side. */
+export type PlateStock = { weight: number; count: number };
+
+/** Plates the user owns, per plate system (`kg` plates for kg, `lb` plates for lb). */
+export type PlateInventory = Record<WeightUnit, PlateStock[]>;
+
 export type UserSettings = {
   weightUnit: WeightUnit;
   defaultRestSeconds: number;
@@ -158,4 +164,8 @@ export type UserSettings = {
   backupReminderSessions?: number;
   /** Hevy `exercise_title` → exercise id, remembered from past imports so a re-import maps the same way (docs/hevy-import.md). */
   hevyExerciseMap?: Record<string, string>;
+  /** Empty bar weight in kg for the plate calculator (default 20). */
+  barWeightKg?: number;
+  /** Plate calculator inventory (defaults in `#lib/tools/plates`). */
+  plateInventory?: PlateInventory;
 };

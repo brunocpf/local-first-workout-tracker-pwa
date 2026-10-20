@@ -1,5 +1,6 @@
 import type { UserSettings } from "#lib/types";
 import { db, SETTINGS_KEY } from "#lib/storage/db";
+import { DEFAULT_BAR_KG, DEFAULT_PLATE_INVENTORY } from "#lib/tools/plates";
 
 export const DEFAULT_SETTINGS: UserSettings = {
   weightUnit: "kg",
@@ -11,6 +12,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
   theme: "system",
   backupReminderDays: 14,
   backupReminderSessions: 10,
+  barWeightKg: DEFAULT_BAR_KG,
+  plateInventory: DEFAULT_PLATE_INVENTORY,
 };
 
 /** Stored settings merged over defaults, so fields added later get a value for existing users. */
