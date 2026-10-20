@@ -186,6 +186,10 @@ export const settingsSchema = z.object({
   lastBackupAt: iso.optional(),
   backupReminderDays: nonneg.optional(),
   backupReminderSessions: nonneg.optional(),
+  hevyExerciseMap: z
+    .record(name, id)
+    .refine((m) => Object.keys(m).length <= 10_000, "too many mappings")
+    .optional(),
 });
 
 /** User state on a built-in (seed) exercise; the exercise itself comes from the app catalog. */

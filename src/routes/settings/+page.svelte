@@ -133,6 +133,10 @@
     {/if}
   </Card>
 
+  <Card as="section" header={importData} padding="none">
+    <ListRow title="Import from Hevy" subtitle="Bring in your workout history from a Hevy CSV export" href={resolve("/settings/import-hevy")} />
+  </Card>
+
   <!-- Backup reminder goes here (T4.05, #73). -->
 
   <Card as="section" header={storage}>
@@ -183,6 +187,7 @@
 {#snippet calendar()}Calendar{/snippet}
 {#snippet backup()}Backup{/snippet}
 {#snippet install()}Install{/snippet}
+{#snippet importData()}Import{/snippet}
 {#snippet storage()}Storage{/snippet}
 {#snippet about()}About{/snippet}
 
