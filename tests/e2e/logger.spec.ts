@@ -39,3 +39,40 @@ test("a second tab adopts the active session instead of creating another", async
   await expect(b).toHaveURL(/\/workout$/);
   await expect(b.getByRole("button", { name: "Finish" })).toBeVisible();
 });
+
+test("add, reorder, remove + undo exercises; all survive reload", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Start workout" }).click();
+  await expect(page.getByText("No exercises yet")).toBeVisible();
+
+  await page.getByRole("button", { name: "Add exercise" }).click();
+  const picker = page.getByRole("dialog", { name: "Add exercise" });
+  await picker.getByRole("searchbox", { name: "Search exercises" }).fill("barbell bench press");
+  await picker.getByRole("button", { name: /Barbell Bench Press/ }).first().click();
+  await picker.getByRole("searchbox", { name: "Search exercises" }).fill("back squat");
+  await picker.getByRole("button", { name: /Back Squat/ }).first().click();
+  await picker.getByRole("button", { name: "Add 2 exercises" }).click();
+
+  const names = () => page.locator("article h2").allTextContents();
+  await expect(page.locator("article h2")).toHaveCount(2);
+  const before = await names();
+  expect(before).toHaveLength(2);
+  await expect(page.getByRole("list", { name: "Sets" })).toHaveCount(2);
+
+  await page.getByRole("button", { name: `Exercise options for ${before[1]}` }).click();
+  await page.getByRole("button", { name: "Move up" }).click();
+  await expect.poll(names).toEqual([before[1], before[0]]);
+
+  await page.reload();
+  await expect.poll(names).toEqual([before[1], before[0]]);
+
+  await page.getByRole("button", { name: `Exercise options for ${before[1]}` }).click();
+  await page.getByRole("button", { name: "Remove exercise" }).click();
+  await expect.poll(names).toEqual([before[0]]);
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect.poll(names).toEqual([before[1], before[0]]);
+  await expect(page.getByRole("list", { name: "Sets" })).toHaveCount(2);
+
+  await page.reload();
+  await expect.poll(names).toEqual([before[1], before[0]]);
+});
