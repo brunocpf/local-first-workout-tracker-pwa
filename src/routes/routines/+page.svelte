@@ -134,19 +134,6 @@
     font-size: var(--text-md);
     font-weight: var(--weight-semibold);
   }
-  .group {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    background: var(--color-surface-1);
-    border: var(--border-w) solid var(--color-border);
-    border-radius: var(--radius-md);
-    overflow: hidden;
-  }
-  li + li {
-    border-block-start: var(--border-w) solid var(--color-border);
-    margin-inline-start: var(--space-4);
-  }
   .item {
     display: flex;
     align-items: center;

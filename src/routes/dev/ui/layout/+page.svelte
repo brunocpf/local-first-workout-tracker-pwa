@@ -28,7 +28,7 @@
 
 <h2>List rows</h2>
 <Card padding="none">
-  <ul class="list">
+  <ul class="group">
     <li><ListRow title="Link row" subtitle="Renders an anchor" href="/dev/ui" /></li>
     <li><ListRow title="Button row" onclick={() => clicks++} /></li>
     <li><ListRow title="Selected row" subtitle="With check" selected onclick={() => clicks++} /></li>
@@ -68,15 +68,6 @@
   .stack {
     display: grid;
     gap: var(--space-3);
-  }
-  .list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-  .list > li + li {
-    border-block-start: var(--border-w) solid var(--color-border);
-    margin-inline-start: var(--space-4);
   }
   .row {
     display: flex;

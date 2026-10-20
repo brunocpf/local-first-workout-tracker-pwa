@@ -252,17 +252,6 @@
     color: var(--color-text-muted);
     font-weight: 600;
   }
-  .group {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    border: var(--border-w) solid var(--color-border);
-    border-radius: var(--radius-md);
-    overflow: hidden;
-  }
-  .group li + li {
-    border-block-start: var(--border-w) solid var(--color-border);
-  }
   .fav {
     display: flex;
     color: var(--color-accent-text);
