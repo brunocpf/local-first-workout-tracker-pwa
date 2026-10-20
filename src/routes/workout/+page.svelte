@@ -13,12 +13,22 @@
   import ExercisePicker from "#lib/components/ExercisePicker.svelte";
   import {
     addExercise,
+    addSet,
+    completeSet,
     createSessionExercise,
+    duplicateSet,
     moveExercise,
     removeExercise,
+    removeSet,
     restoreExercise,
+    restoreSet,
+    uncompleteSet,
+    updateSet,
+    type SetPatch,
   } from "#lib/logger/workout";
-  import type { Exercise } from "#lib/types";
+  import { loadPreviousSets, type SetValues } from "#lib/logger/previousValues";
+  import { settings } from "#lib/settings.svelte";
+  import type { Exercise, LoggedSet, SessionExercise } from "#lib/types";
 
   let pickerOpen = $state(false);
 
@@ -70,6 +80,71 @@
       },
       { persist: "now" },
     );
+  }
+
+  // Previous sets per exercise id, loaded once per exercise. Reads only `exerciseId`s, so typing never reruns it.
+  let previous = $state<Record<string, LoggedSet[]>>({});
+  // Bookkeeping only: nothing renders from it.
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity
+  const requested = new Set<string>();
+  $effect(() => {
+    const s = active.session;
+    if (!s) return;
+    for (const e of s.exercises) {
+      const id = e.exerciseId;
+      if (requested.has(id)) continue;
+      requested.add(id);
+      loadPreviousSets(id, { excludeSessionId: s.id }).then(
+        (sets) => {
+          previous[id] = sets;
+        },
+        () => requested.delete(id), // retried when the exercise list next changes
+      );
+    }
+  });
+
+  /** Runs `fn` on the exercise (if it still exists) inside one write-through mutation. */
+  function withExercise(id: string, persist: "now" | "deferred", fn: (e: SessionExercise) => void) {
+    void active.mutate(
+      (s) => {
+        const e = s.exercises.find((x) => x.id === id);
+        if (e) fn(e);
+      },
+      { persist },
+    );
+  }
+
+  // Typed values are 'deferred' (coalesced); completion and structural changes are written now.
+  const changeSet = (id: string, setId: string, patch: SetPatch) =>
+    withExercise(id, "deferred", (e) => updateSet(e, setId, patch));
+
+  const toggleSet = (id: string, setId: string, prefill: SetValues) =>
+    withExercise(id, "now", (e) => {
+      const set = e.sets.find((x) => x.id === setId);
+      if (!set) return;
+      if (set.completedAt) uncompleteSet(set);
+      else completeSet(set, prefill, new Date().toISOString());
+    });
+
+  const toggleWarmup = (id: string, setId: string) =>
+    withExercise(id, "now", (e) => {
+      const set = e.sets.find((x) => x.id === setId);
+      if (set) updateSet(e, setId, { type: set.type === "warmup" ? "normal" : "warmup" });
+    });
+
+  function deleteSet(id: string, setId: string) {
+    let removed: ReturnType<typeof removeSet>;
+    withExercise(id, "now", (e) => (removed = removeSet(e, setId)));
+    if (!removed) return;
+    const undo = removed;
+    toast("Set deleted", {
+      action: {
+        label: "Undo",
+        run: () => {
+          if (active.session) withExercise(id, "now", (e) => restoreSet(e, undo));
+        },
+      },
+    });
   }
 
   // No active session (never started, or finished/discarded here or in another tab): back to Home.
@@ -140,6 +215,14 @@
           onremove={() => remove(exercise.id)}
           onmove={(d) => move(exercise.id, d)}
           onnotes={(n) => setNotes(exercise.id, n)}
+          unit={settings.weightUnit}
+          previousSets={previous[exercise.exerciseId]}
+          onaddset={() => withExercise(exercise.id, "now", (e) => addSet(e))}
+          onsetchange={(setId, patch) => changeSet(exercise.id, setId, patch)}
+          ontoggleset={(setId, prefill) => toggleSet(exercise.id, setId, prefill)}
+          onduplicateset={(setId) => withExercise(exercise.id, "now", (e) => duplicateSet(e, setId))}
+          ontogglewarmup={(setId) => toggleWarmup(exercise.id, setId)}
+          ondeleteset={(setId) => deleteSet(exercise.id, setId)}
         />
       {/each}
       <Button block icon="plus" onclick={() => (pickerOpen = true)}>Add exercise</Button>

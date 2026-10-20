@@ -71,7 +71,8 @@ export function addSet(se: SessionExercise): LoggedSet {
 export function duplicateSet(se: SessionExercise, setId: string): LoggedSet | undefined {
   const index = se.sets.findIndex((s) => s.id === setId);
   if (index < 0) return undefined;
-  const { completedAt: _c, prescribedSetId: _p, ...rest } = structuredClone(se.sets[index]);
+  // A shallow copy (all fields are primitives): `structuredClone` throws on `$state` proxies.
+  const { completedAt: _c, prescribedSetId: _p, ...rest } = { ...se.sets[index] };
   const copy: LoggedSet = { ...rest, id: newId() };
   se.sets.splice(index + 1, 0, copy);
   return copy;
