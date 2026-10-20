@@ -2,7 +2,11 @@ import { self as sw } from "$app/service-worker";
 import { immutable, assets, prerendered } from "$app/manifest";
 import { version } from "$app/env";
 
-const CACHE = `cache-${version}`;
+// Cache Storage is per origin, and other apps (e.g. other GitHub Pages project sites under the same
+// user.github.io origin) share it. Name ours with an app-specific prefix and only ever delete caches that
+// carry it, so activating a new version never wipes another app's caches.
+const CACHE_PREFIX = "workout-tracker-";
+const CACHE = `${CACHE_PREFIX}${version}`;
 // Manifest paths are relative to the base path, so resolve everything against the SW scope (works at any base).
 const url = (path: string) => new URL(path, sw.registration.scope).href;
 // adapter-static's SPA fallback page is the app shell; every navigation is answered with it.
@@ -35,7 +39,7 @@ sw.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE).map((k) => caches.delete(k))))
       .then(() => sw.clients.claim()),
   );
 });
