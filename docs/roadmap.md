@@ -20,4 +20,4 @@ Scaffold status: SvelteKit/Svelte 5/TS, service worker + manifest, Dexie schema,
 
 ## Later
 
-- [ ] **Phase 8 – Rest of P1/P2.** CSV, online-plan import, supersets, set-type/RPE UI, plate calculator, muscle-group volume, measurements, folders, scheduling, progression rules, wger catalog evaluation, etc.
+- [ ] **Phase 8 – Rest of P1/P2.** CSV, online-plan import, supersets, set-type/RPE UI, plate calculator, muscle-group volume, measurements, folders, scheduling, progression rules, wger catalog evaluation (decided: ADR 0009, no implementation planned), etc.

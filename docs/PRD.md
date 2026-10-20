@@ -509,7 +509,7 @@ Also summarized in [AGENTS.md](../AGENTS.md).
 2. **Production origin:** currently GitHub Pages (`brunocpf.github.io`). A custom domain later would cost a manual export/restore, so decide before real data accumulates.
 3. **Hevy export format:** resolved. Real export inspected (CSV, no time zone, kg); mapping in [docs/hevy-import.md](hevy-import.md), decisions in ADR 0006. Still open: drop/failure/superset/RPE/distance/lb shapes, which the sample doesn't contain.
 4. **Timer alerts:** are foreground-only alerts enough? Decide after real use; otherwise ADR for a native wrapper.
-5. **wger or larger catalog:** after P0.
+5. **wger or larger catalog:** evaluated in [ADR 0009](decisions/0009-wger-catalog.md): not bundled; optional text-only pack only on demand. Owner to confirm the CC-BY-SA question.
 6. **Previous values source** (recent vs same routine): default recent; revisit after use.
 7. **Cloud backup/sync, built-in AI, native app:** deferred until a concrete need.
 8. **Online-plan extraction:** paste text first, URL later.
