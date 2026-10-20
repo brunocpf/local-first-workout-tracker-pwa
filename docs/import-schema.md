@@ -5,7 +5,7 @@ This is the single authoritative spec for the program import format, a public co
 ## Rules
 
 - `schemaVersion` must be `1`; other versions are rejected with a clear message.
-- Raw JSON only. Fenced-block / prose extraction is an explicit P1 step.
+- The parser takes raw JSON. Input that isn't plain JSON is searched only for explicit candidates: the whole text when it starts with `{`, or the body of ```` ```json ```` / ```` ``` ```` fenced blocks (`src/lib/imports/extract.ts`). When there are several blocks, the user picks one; prose is never scanned for JSON.
 - Max input size is 1,000,000 **bytes** (UTF-8), not characters. Every string field has a length limit. Imports are never executed or rendered as HTML.
 - **Errors** block saving. **Warnings** never do (see below).
 - Unknown fields do not fail the import. They are dropped and reported as warnings with their path.
