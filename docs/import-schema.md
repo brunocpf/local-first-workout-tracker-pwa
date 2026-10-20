@@ -237,4 +237,6 @@ Allowed catalog exercises (id: name):
 <list>
 ```
 
+"Convert a plan" (`buildConvertPrompt`) uses the same schema and catalog rules but takes pasted plan text (capped at 30,000 characters) and an optional http(s) source URL, and asks the assistant to fill `program.source`. Nothing is fetched or uploaded; the user copies the prompt.
+
 The generated prompt is capped at 60,000 characters (`MAX_PROMPT_CHARS`); the catalog list is truncated beyond that. Workout history (last 4 weeks: exercise names, session counts, top sets in kg) is added only when the user opts in, and the page shows exactly that text first. The app makes no network request.
