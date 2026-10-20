@@ -506,7 +506,7 @@ Also summarized in [AGENTS.md](../AGENTS.md).
 ## 26. Open Decisions
 
 1. **Name:** repo name only; final product name open.
-2. **Production domain:** needed before real data is entered; changing it later costs a manual export/restore.
+2. **Production origin:** must be fixed before real data is entered; changing it later costs a manual export/restore.
 3. **Hevy export format:** inspect a real file in Phase 0.
 4. **Timer alerts:** are foreground-only alerts enough? Decide after real use; otherwise ADR for a native wrapper.
 5. **wger or larger catalog:** after P0.
