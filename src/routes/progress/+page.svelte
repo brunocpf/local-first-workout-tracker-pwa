@@ -9,10 +9,14 @@
   import PageHeader from "#lib/components/ui/PageHeader.svelte";
   import SegmentedControl from "#lib/components/ui/SegmentedControl.svelte";
   import Select from "#lib/components/ui/Select.svelte";
+  import IconButton from "#lib/components/ui/IconButton.svelte";
+  import { monthlyStats } from "#lib/progress/monthly";
+  import { weeklySetsByMuscle } from "#lib/progress/muscles";
   import { exerciseSeries, rangeStart, type RangePreset } from "#lib/progress/series";
   import { settings } from "#lib/settings.svelte";
   import { getExercisesByIds } from "#lib/storage/exercises";
   import { completedSessionsWithExercise, listCompletedSessions } from "#lib/storage/sessions";
+  import { currentTimeZone, localDate, localWeekStart } from "#lib/time";
   import { displayWeight } from "#lib/units";
   import type { Exercise, WorkoutSession } from "#lib/types";
 
@@ -26,13 +30,19 @@
   let pickerOpen = $state(false);
   let metric = $state("e1rm");
   let range = $state<string>("3M");
+  let allSessions = $state<WorkoutSession[]>([]);
+  let catalog = $state(new Map<string, Exercise>());
+  let weeks = $state("4");
+  let monthOffset = $state(0);
 
   onMount(async () => {
     try {
-      const latest = await listCompletedSessions({ limit: 100 });
+      allSessions = await listCompletedSessions({ limit: 10_000 });
       const ids: string[] = [];
-      for (const s of latest) for (const e of s.exercises) if (!ids.includes(e.exerciseId)) ids.push(e.exerciseId);
+      for (const s of allSessions.slice(0, 100)) for (const e of s.exercises) if (!ids.includes(e.exerciseId)) ids.push(e.exerciseId);
       recent = await getExercisesByIds(ids.slice(0, RECENT));
+      const every = new Set(allSessions.flatMap((s) => s.exercises.map((e) => e.exerciseId)));
+      catalog = new Map((await getExercisesByIds([...every])).map((e) => [e.id, e]));
       if (recent[0]) await choose(recent[0]);
     } catch {
       failed = true;
@@ -91,6 +101,52 @@
     return out;
   });
   const latest = $derived(points.at(-1));
+
+  // Weekly sets per muscle over the last N weeks (current week included), shown as weekly average.
+  const WEEK_MS = 7 * 86_400_000;
+  const muscleLabel = (m: string) => `${m[0].toUpperCase()}${m.slice(1).replaceAll("_", " ")}`;
+  const muscleRows = $derived.by(() => {
+    const n = Number(weeks);
+    const tz = currentTimeZone();
+    const startOf = (t: number) => localWeekStart({ startedAt: new Date(t).toISOString(), timeZone: tz }, settings.weekStartsOn);
+    const now = Date.now();
+    const keys = new Set(Array.from({ length: n }, (_, i) => startOf(now - i * WEEK_MS)));
+    const byWeek = weeklySetsByMuscle(allSessions, catalog, settings.weekStartsOn);
+    const totals: Record<string, number> = {};
+    for (const [week, sets] of Object.entries(byWeek)) {
+      if (!keys.has(week)) continue;
+      for (const [m, v] of Object.entries(sets)) totals[m] = (totals[m] ?? 0) + (v ?? 0);
+    }
+    const rows = Object.entries(totals).map(([m, total]) => ({ muscle: m, total, avg: total / n }));
+    rows.sort((a, b) => b.total - a.total || a.muscle.localeCompare(b.muscle));
+    const max = Math.max(...rows.map((r) => r.avg), 1);
+    return rows.map((r) => ({ ...r, pct: (r.avg / max) * 100 }));
+  });
+  const fmt1 = (v: number) => Number(v.toFixed(1)).toLocaleString();
+
+  // Monthly stats with navigation; month keys are local "YYYY-MM".
+  const thisMonth = localDate({ startedAt: new Date().toISOString(), timeZone: currentTimeZone() }).slice(0, 7);
+  const monthKey = $derived.by(() => {
+    const [y, m] = thisMonth.split("-").map(Number);
+    const d = new Date(Date.UTC(y, m - 1 + monthOffset, 1));
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  });
+  const monthName = $derived(
+    new Intl.DateTimeFormat(undefined, { timeZone: "UTC", month: "long", year: "numeric" }).format(new Date(`${monthKey}-01T00:00:00Z`)),
+  );
+  const monthly = $derived(monthlyStats(allSessions));
+  const month = $derived(monthly.find((m) => m.month === monthKey));
+  const earliest = $derived(monthly[0]?.month ?? thisMonth);
+  const duration = (s: number) => {
+    const mins = Math.round(s / 60);
+    return mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${mins % 60} min`;
+  };
+  const monthTiles = $derived([
+    { label: "Workouts", value: String(month?.sessions ?? 0) },
+    { label: "Total time", value: duration(month?.durationSeconds ?? 0) },
+    { label: `Volume (${unit})`, value: displayWeight(month?.volume ?? 0, unit).toLocaleString() },
+    { label: "Sets", value: String(month?.completedSets ?? 0) },
+  ]);
 </script>
 
 <PageHeader title="Progress" />
@@ -100,6 +156,64 @@
 {:else if loaded && !exercise}
   <EmptyState icon="chart" title="No data yet" body="Complete a workout to see progress." />
 {:else if exercise}
+  <h2>Weekly sets per muscle</h2>
+  <div class="controls">
+    <SegmentedControl
+      legend="Period"
+      bind:value={weeks}
+      options={[
+        { value: "4", label: "Last 4 weeks" },
+        { value: "8", label: "Last 8 weeks" },
+      ]}
+    />
+  </div>
+  {#if muscleRows.length === 0}
+    <p class="muted">No sets in the last {weeks} weeks.</p>
+  {:else}
+    <Card>
+      <ul class="bars" aria-label="Average weekly sets per muscle">
+        {#each muscleRows as r (r.muscle)}
+          <li>
+            <span class="name">{muscleLabel(r.muscle)}</span>
+            <span class="track" aria-hidden="true"><span class="fill" style:inline-size="{r.pct}%"></span></span>
+            <span class="val tabular">{fmt1(r.avg)}<span class="muted">/wk</span></span>
+          </li>
+        {/each}
+      </ul>
+      <details class="data">
+        <summary>View as table</summary>
+        <table>
+          <caption>Weekly sets per muscle, last {weeks} weeks</caption>
+          <thead><tr><th scope="col">Muscle</th><th scope="col">Avg / week</th><th scope="col">Total</th></tr></thead>
+          <tbody>
+            {#each muscleRows as r (r.muscle)}
+              <tr><th scope="row">{muscleLabel(r.muscle)}</th><td class="tabular">{fmt1(r.avg)}</td><td class="tabular">{fmt1(r.total)}</td></tr>
+            {/each}
+          </tbody>
+        </table>
+      </details>
+      <p class="muted small">Estimate: a set counts 1 for each primary muscle and 0.5 for each secondary muscle. Warm-ups are excluded.</p>
+    </Card>
+  {/if}
+
+  <h2>Monthly statistics</h2>
+  <div class="months">
+    <IconButton icon="chevron-left" label="Previous month" disabled={monthKey <= earliest} onclick={() => monthOffset--} />
+    <p class="month-name" aria-live="polite">{monthName}</p>
+    <IconButton icon="chevron-right" label="Next month" disabled={monthOffset >= 0} onclick={() => monthOffset++} />
+  </div>
+  <ul class="tiles" aria-label="Statistics for {monthName}">
+    {#each monthTiles as t (t.label)}
+      <li>
+        <Card>
+          <p class="tv tabular">{t.value}</p>
+          <p class="muted small">{t.label}</p>
+        </Card>
+      </li>
+    {/each}
+  </ul>
+
+  <h2>Exercise progress</h2>
   <div class="controls">
     <Select label="Exercise" bind:value={selectedId.value} {options} />
     <Button variant="secondary" onclick={() => (pickerOpen = true)}>Choose another exercise</Button>
@@ -177,5 +291,90 @@
     margin: var(--space-5) 0 var(--space-2);
     font-size: var(--text-md);
     font-weight: var(--weight-semibold);
+  }
+  .bars {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-2);
+  }
+  .bars li {
+    display: grid;
+    grid-template-columns: minmax(5rem, 8rem) 1fr auto;
+    align-items: center;
+    gap: var(--space-2);
+    min-block-size: var(--tap-min);
+    font-size: var(--text-sm);
+  }
+  .track {
+    block-size: 0.75rem;
+    background: var(--color-surface-2);
+    border: var(--border-w) solid var(--color-border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .fill {
+    display: block;
+    block-size: 100%;
+    background: var(--color-accent);
+  }
+  .val {
+    text-align: end;
+    font-weight: var(--weight-semibold);
+  }
+  .data {
+    margin-block-start: var(--space-3);
+    font-size: var(--text-sm);
+  }
+  .data summary {
+    min-block-size: var(--tap-min);
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+  }
+  table {
+    inline-size: 100%;
+    border-collapse: collapse;
+  }
+  caption {
+    text-align: start;
+    color: var(--color-text-muted);
+    padding-block-end: var(--space-1);
+  }
+  th,
+  td {
+    text-align: start;
+    padding: var(--space-1) var(--space-2) var(--space-1) 0;
+    border-block-end: var(--border-w) solid var(--color-border);
+    font-weight: var(--weight-regular);
+  }
+  thead th {
+    font-weight: var(--weight-semibold);
+  }
+  .months {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: var(--space-2);
+    margin-block-end: var(--space-3);
+  }
+  .month-name {
+    margin: 0;
+    text-align: center;
+    font-weight: var(--weight-semibold);
+  }
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: var(--space-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .tv {
+    margin: 0;
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-bold);
   }
 </style>
