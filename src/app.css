@@ -1,10 +1,188 @@
-:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
-body { margin: 0; background: #0b0b0f; color: #f4f4f5; }
-.app { min-height: 100dvh; display: flex; flex-direction: column;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
-main { flex: 1; padding: 1rem; }
-nav { display: flex; border-top: 1px solid #27272a; }
-nav a { flex: 1; min-height: 48px; display: grid; place-items: center; color: inherit; text-decoration: none; }
-nav a[aria-current="page"] { color: #4ade80; font-weight: 600; }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+/* Tokens and base styles. Source of truth: docs/design.md §3–§4. Raw colors appear only in this token block. */
+:root {
+  color-scheme: light dark;
+
+  /* Color (design.md §3.1) */
+  --color-bg: light-dark(#f4f4f5, #0b0b0f);
+  --color-surface-1: light-dark(#ffffff, #17171c);
+  --color-surface-2: light-dark(#ececee, #222228);
+  --color-surface-3: light-dark(#e0e0e4, #2e2e36);
+  --color-text: light-dark(#18181b, #f4f4f5);
+  --color-text-muted: light-dark(#52525b, #a1a1aa);
+  --color-text-disabled: light-dark(#a1a1aa, #5c5c66);
+  --color-border: light-dark(#e0e0e4, #2e2e36);
+  --color-border-strong: light-dark(#7d7d87, #7d7d87);
+  --color-accent: light-dark(#1d4ed8, #60a5fa);
+  --color-accent-hover: light-dark(#1e40af, #93c5fd);
+  --color-accent-active: light-dark(#1e3a8a, #bfdbfe);
+  --color-on-accent: light-dark(#ffffff, #0b0b0f);
+  --color-accent-subtle: light-dark(#dbeafe, #172554);
+  --color-accent-text: light-dark(#1e40af, #93c5fd);
+  --color-success: light-dark(#15803d, #4ade80);
+  --color-success-subtle: light-dark(#dcfce7, #052e16);
+  --color-success-text: light-dark(#166534, #86efac);
+  --color-on-success: light-dark(#ffffff, #0b0b0f);
+  --color-warning: light-dark(#b45309, #fbbf24);
+  --color-warning-subtle: light-dark(#fef3c7, #422006);
+  --color-warning-text: light-dark(#92400e, #fcd34d);
+  --color-danger: light-dark(#b91c1c, #f87171);
+  --color-danger-hover: light-dark(#991b1b, #fca5a5);
+  --color-on-danger: light-dark(#ffffff, #0b0b0f);
+  --color-danger-subtle: light-dark(#fee2e2, #450a0a);
+  --color-danger-text: light-dark(#991b1b, #fca5a5);
+  --color-info: light-dark(#0369a1, #38bdf8);
+  --color-info-subtle: light-dark(#e0f2fe, #082f49);
+  --color-info-text: light-dark(#075985, #7dd3fc);
+  --color-focus: light-dark(#2563eb, #93c5fd);
+  --color-backdrop: light-dark(rgb(24 24 27 / 0.4), rgb(0 0 0 / 0.6));
+  --color-shadow: light-dark(rgb(0 0 0 / 0.16), rgb(0 0 0 / 0.6));
+
+  /* Typography (§3.2). Never set font-size on :root. */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+  --leading-xs: 1.333;
+  --leading-sm: 1.43;
+  --leading-md: 1.5;
+  --leading-lg: 1.33;
+  --leading-xl: 1.27;
+  --leading-2xl: 1.14;
+  --leading-3xl: 1.11;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Spacing, size, radius, border (§3.3) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --gutter: clamp(0.75rem, 4vw, 1.5rem);
+  --tap-min: max(44px, 2.75rem);
+  --control-h: var(--tap-min);
+  --control-h-lg: max(52px, 3.25rem);
+  --content-max: 42rem;
+  --tabbar-h: max(56px, 3.5rem);
+  --header-h: max(56px, 3.5rem);
+  --rail-w: 5.5rem;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
+  --border-w: 1px;
+  --focus-w: 2px;
+  --focus-offset: 2px;
+
+  /* Elevation (§3.4) */
+  --shadow-overlay: 0 8px 32px var(--color-shadow);
+
+  /* Motion (§3.5) */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 300ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-exit: cubic-bezier(0.3, 0, 0.8, 0.15);
+
+  /* Z-layers (§3.6) */
+  --z-sticky: 10;
+  --z-nav: 20;
+  --z-banner: 30;
+  --z-toast: 100;
+
+  /* Safe areas (§5.3) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+/* Theme override (§4); the theme setting sets data-theme on <html>. */
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+
+@media (prefers-contrast: more) {
+  :root {
+    --color-border: var(--color-border-strong);
+    --color-text-muted: var(--color-text);
+  }
+}
+
+/* Base elements */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: var(--leading-md);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overflow-wrap: anywhere;
+}
+
+h1, h2, h3, h4 { margin: 0; font-weight: var(--weight-semibold); text-wrap: balance; }
+h1 { font-size: var(--text-lg); line-height: var(--leading-lg); }
+h2 { font-size: var(--text-md); line-height: var(--leading-md); }
+h3, h4 { font-size: var(--text-sm); line-height: var(--leading-sm); }
+p { margin: 0; text-wrap: pretty; }
+
+a { color: var(--color-accent-text); }
+
+:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+input, select, textarea { font-size: max(1rem, 16px); }
+button {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+button:disabled { cursor: not-allowed; color: var(--color-text-disabled); }
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* App shell (placeholder until T1.07) */
 #app { display: contents; }
+.app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+main { flex: 1; padding: var(--space-4); }
+nav { display: flex; border-top: var(--border-w) solid var(--color-border); }
+nav a {
+  flex: 1;
+  min-height: var(--tap-min);
+  display: grid;
+  place-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+nav a[aria-current="page"] { color: var(--color-accent-text); font-weight: var(--weight-semibold); }
+
+/* Components set their own reduced-motion rules (design.md §3.5); no global transition kill. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
