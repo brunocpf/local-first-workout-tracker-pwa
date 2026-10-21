@@ -14,6 +14,7 @@ import {
 import { SEED_EXERCISES } from "#lib/catalog/seed";
 import { AppDB, SETTINGS_KEY } from "#lib/storage/db";
 import { createCustomExercise, ensureCatalogSeeded, isExerciseReferenced, setArchived, setFavorite } from "#lib/storage/exercises";
+import { DEFAULT_BAR_KG, DEFAULT_PLATE_INVENTORY } from "#lib/tools/plates";
 import type { WorkoutSession } from "#lib/types";
 
 const FIXTURE_TEXT = readFileSync("tests/fixtures/backup-v1.json", "utf8");
@@ -218,6 +219,8 @@ describe("restoreBackup", () => {
     // Settings added after the fixture was frozen come back as defaults.
     expected.data.settings.backupReminderDays = 14;
     expected.data.settings.backupReminderSessions = 10;
+    expected.data.settings.barWeightKg = DEFAULT_BAR_KG;
+    expected.data.settings.plateInventory = DEFAULT_PLATE_INVENTORY;
     expect(out).toEqual(expected);
   });
 

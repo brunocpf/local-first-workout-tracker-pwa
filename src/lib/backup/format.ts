@@ -174,6 +174,11 @@ export const sessionSchema = z.object({
   updatedAt: iso,
 });
 
+const plateStock = z.object({
+  weight: num.positive().max(1000),
+  count: z.number().int().nonnegative().max(100),
+});
+
 export const settingsSchema = z.object({
   weightUnit: z.enum(["kg", "lb"]),
   defaultRestSeconds: nonneg,
@@ -189,6 +194,10 @@ export const settingsSchema = z.object({
   hevyExerciseMap: z
     .record(name, id)
     .refine((m) => Object.keys(m).length <= 10_000, "too many mappings")
+    .optional(),
+  barWeightKg: nonneg.max(1000).optional(),
+  plateInventory: z
+    .object({ kg: z.array(plateStock).max(50), lb: z.array(plateStock).max(50) })
     .optional(),
 });
 
