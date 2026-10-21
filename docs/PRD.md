@@ -210,7 +210,7 @@ Each set row shows the previous value from the most recent *completed* session c
 
 ### 8.5 Set types
 
-The model and import format support normal, warm-up, drop and failure sets **from v1**. Tapping the set label opens a menu to choose normal, warm-up, drop (D) or failure (F) in the logger and in history edit; only normal sets are numbered. Warm-ups never count toward volume or PRs.
+The model and import format support normal, warm-up, drop and failure sets **from v1**. Tapping the set label opens a menu to choose normal, warm-up, drop (D) or failure (F) in the logger and in history edit; only normal sets are numbered. Warm-ups never count toward volume or PRs. "Add warm-up sets" in the exercise menu inserts a configurable ramp (default: empty bar × 10, 40 % × 5, 60 % × 3, 80 % × 2 of the first working weight), rounded down to loadable weights; steps are edited in Settings.
 
 ### 8.6 Finish
 

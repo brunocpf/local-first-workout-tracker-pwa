@@ -13,15 +13,28 @@
   import NumberField from "#lib/components/ui/NumberField.svelte";
   import PageHeader from "#lib/components/ui/PageHeader.svelte";
   import SegmentedControl from "#lib/components/ui/SegmentedControl.svelte";
+  import TextField from "#lib/components/ui/TextField.svelte";
   import Switch from "#lib/components/ui/Switch.svelte";
   import { playTestAlert, vibrationSupported } from "#lib/alerts";
   import { formatBytes } from "#lib/diagnostics";
   import { isPushConfigured } from "#lib/push";
   import { isStandalone } from "#lib/pwa/install";
   import { DEFAULT_PROGRESSION_INCREMENT } from "#lib/progress/progression";
+  import { DEFAULT_WARMUP_SCHEME, formatScheme, parseScheme } from "#lib/tools/warmup";
   import { settings, updateSettings } from "#lib/settings.svelte";
   import { getPersistenceStatus, requestPersistentStorage, type PersistenceStatus } from "#lib/storage/persistence";
   import type { EffortInput, LengthUnit, UserSettings } from "#lib/types";
+
+  // Warm-up scheme is edited as text ("bar x 10, 40 x 5") and saved only when it parses.
+  const savedScheme = $derived(formatScheme(settings.warmupScheme ?? DEFAULT_WARMUP_SCHEME));
+  let schemeEdit = $state<string>();
+  const schemeText = $derived(schemeEdit ?? savedScheme);
+  const schemeParsed = $derived(parseScheme(schemeText));
+  async function saveScheme() {
+    if (!schemeParsed) return;
+    await save({ warmupScheme: schemeParsed });
+    schemeEdit = undefined;
+  }
 
   const pushConfigured = isPushConfigured();
   let standalone = $state(false);
@@ -160,6 +173,17 @@
             save({ progressionIncrement: { ...DEFAULT_PROGRESSION_INCREMENT, ...settings.progressionIncrement, [settings.weightUnit]: n } })}
         />
       {/if}
+      <TextField
+        label="Warm-up sets"
+        hint="Each step is a percent of your working weight × reps; bar is the empty bar. Example: bar x 10, 40 x 5, 60 x 3, 80 x 2."
+        bind:value={() => schemeText, (v) => (schemeEdit = v)}
+        error={schemeParsed ? undefined : "Use steps like 40 x 5, separated by commas."}
+        enterkeyhint="done"
+      />
+      <div class="row">
+        <Button variant="primary" disabled={!schemeParsed || schemeText === savedScheme} onclick={saveScheme}>Save warm-ups</Button>
+        <Button variant="ghost" onclick={() => { schemeEdit = undefined; void save({ warmupScheme: DEFAULT_WARMUP_SCHEME }); }}>Reset</Button>
+      </div>
     </div>
   </Card>
 
@@ -271,6 +295,11 @@
 {#snippet about()}About{/snippet}
 
 <style>
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
   .sections,
   .stack {
     display: grid;

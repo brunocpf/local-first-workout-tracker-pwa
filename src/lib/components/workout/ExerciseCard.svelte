@@ -15,6 +15,7 @@
   import { settings } from "#lib/settings.svelte";
   import { suggestProgression } from "#lib/progress/progression";
   import { DEFAULT_BAR_KG, DEFAULT_PLATE_INVENTORY } from "#lib/tools/plates";
+  import { DEFAULT_WARMUP_SCHEME, warmupSets, workingWeight, type WarmupSet } from "#lib/tools/warmup";
   import TextField from "#lib/components/ui/TextField.svelte";
   import SetRow from "#lib/components/workout/SetRow.svelte";
   import { alignPrevious, prefillFor, type SetValues } from "#lib/logger/previousValues";
@@ -47,6 +48,7 @@
     loadSuggestions,
     excludeIds = [],
     barbell = false,
+    onaddwarmups,
   }: {
     exercise: SessionExercise;
     index: number;
@@ -87,6 +89,8 @@
     excludeIds?: string[];
     /** Barbell exercise: the set menu offers the plate calculator. */
     barbell?: boolean;
+    /** Adds the generated warm-up sets before the working sets; omit where it doesn't apply. */
+    onaddwarmups?: (sets: WarmupSet[]) => void;
   } = $props();
 
   const previous = $derived(alignPrevious(exercise.sets, previousSets));
@@ -222,6 +226,19 @@
     if (next !== exercise.restSeconds) onrest(next);
   }
 
+  /** First working weight: typed, else what the first working set would be prefilled with. */
+  const warmups = $derived.by(() => {
+    const i = exercise.sets.findIndex((s) => s.type !== "warmup");
+    const first = exercise.sets[i];
+    const kg = workingWeight(exercise.sets) ?? (first ? prefillFor(first, previous[i], prescribed(first)).weight : undefined);
+    if (!kg) return [];
+    return warmupSets(kg, settings.warmupScheme ?? DEFAULT_WARMUP_SCHEME, {
+      unit,
+      barKg: settings.barWeightKg ?? DEFAULT_BAR_KG,
+      inventory: settings.plateInventory ?? DEFAULT_PLATE_INVENTORY,
+    });
+  });
+
   function act(fn: () => void) {
     menuOpen = false;
     fn();
@@ -318,6 +335,10 @@
     {/if}
     {#if superset && onleave}
       <Button block icon="x" onclick={() => act(onleave)}>Remove from superset</Button>
+    {/if}
+    {#if onaddwarmups}
+      <Button block icon="plus" disabled={warmups.length === 0} onclick={() => act(() => onaddwarmups(warmups))}>Add warm-up sets</Button>
+      {#if warmups.length === 0}<p class="hint">Enter a working weight first (heavier than the empty bar).</p>{/if}
     {/if}
     <Button block icon="timer" onclick={openRest}>Rest time</Button>
     <Button block icon="edit" onclick={openNotes}>Notes</Button>
