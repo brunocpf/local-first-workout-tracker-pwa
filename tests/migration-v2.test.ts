@@ -95,13 +95,13 @@ async function writeV1(name: string) {
 }
 
 describe("migration v1 → v2 (measurements)", () => {
-  it("opens a v1 database as v2 with every row intact and an empty measurements table", async () => {
+  it("opens a v1 database at the current version with every row intact and an empty measurements table", async () => {
     const name = uniqueName();
     await writeV1(name);
 
     const current = new AppDB(name);
     opened.push(current);
-    expect(current.verno).toBe(2);
+    expect(current.verno).toBeGreaterThanOrEqual(2);
     expect(await current.exercises.toArray()).toEqual([EXERCISE]);
     expect(await current.programs.toArray()).toEqual([PROGRAM]);
     expect(await current.routines.toArray()).toEqual([ROUTINE]);

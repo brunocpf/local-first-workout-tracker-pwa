@@ -3,12 +3,13 @@ import { z } from "zod";
 import { measurementSchema } from "#lib/measurements";
 
 /**
- * Backup file format v2 (docs/backup-restore.md is the spec). Independent of the Dexie schema:
+ * Backup file format v3 (docs/backup-restore.md is the spec). Independent of the Dexie schema:
  * it mirrors the domain types in #lib/types, so a future IndexedDB migration never changes the file.
  * Unknown keys are stripped on parse. Limits are generous; they only exist to bound untrusted input.
- * v1 files (no `measurements`) are migrated forward by `migrateBackup` in restore.ts before this schema runs.
+ * v1 files (no `measurements`) and v2 files (no `folders`) are migrated forward by `migrateBackup` in
+ * restore.ts before this schema runs.
  */
-export const BACKUP_VERSION = 2;
+export const BACKUP_VERSION = 3;
 
 const id = z.string().min(1).max(100);
 const iso = z.iso.datetime().max(40);
@@ -98,6 +99,14 @@ export const routineSchema = z.object({
   description: text().optional(),
   exercises: z.array(routineExercise).max(200),
   folderId: id.optional(),
+  favorite: z.boolean().optional(),
+  createdAt: iso,
+  updatedAt: iso,
+});
+
+export const folderSchema = z.object({
+  id,
+  name,
   createdAt: iso,
   updatedAt: iso,
 });
@@ -215,7 +224,7 @@ export const builtinExerciseStateSchema = z.object({
   aliases: z.array(tag).max(50).optional(),
 });
 
-export const backupV2 = z.object({
+export const backupV3 = z.object({
   backupVersion: z.literal(BACKUP_VERSION),
   app: z.object({
     name: z.string().min(1).max(100),
@@ -227,10 +236,11 @@ export const backupV2 = z.object({
     builtinExerciseState: z.array(builtinExerciseStateSchema).max(10_000),
     programs: z.array(programSchema).max(1_000),
     routines: z.array(routineSchema).max(10_000),
+    folders: z.array(folderSchema).max(1_000),
     sessions: z.array(sessionSchema).max(100_000),
     settings: settingsSchema,
     measurements: z.array(measurementSchema).max(100_000),
   }),
 });
 
-export type BackupV2 = z.infer<typeof backupV2>;
+export type BackupV3 = z.infer<typeof backupV3>;

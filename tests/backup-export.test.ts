@@ -5,7 +5,7 @@ import {
   buildBackup,
   serializeBackup,
 } from "#lib/backup/export";
-import { backupV2 } from "#lib/backup/format";
+import { backupV3 } from "#lib/backup/format";
 import {
   ensureCatalogSeeded,
   createCustomExercise,
@@ -105,16 +105,16 @@ beforeEach(async () => {
 });
 
 describe("buildBackup", () => {
-  it("validates against backupV2 and contains all user data", async () => {
+  it("validates against backupV3 and contains all user data", async () => {
     const custom = await createCustomExercise(
       { name: "My Lift", exerciseType: "weighted_reps" },
       d,
     );
     const b = await buildBackup({ now: new Date(T) }, d);
     expect(
-      backupV2.safeParse(JSON.parse(await serializeBackup(b).text())).success,
+      backupV3.safeParse(JSON.parse(await serializeBackup(b).text())).success,
     ).toBe(true);
-    expect(b.backupVersion).toBe(2);
+    expect(b.backupVersion).toBe(3);
     expect(b.exportedAt).toBe(T);
     expect(b.data.customExercises.map((e) => e.id)).toEqual([custom.id]);
     expect(b.data.programs).toEqual([program]);
@@ -129,6 +129,19 @@ describe("buildBackup", () => {
       theme: "dark",
       weekStartsOn: 0,
     });
+  });
+
+  it("exports folders and routine folder/favorite fields", async () => {
+    const folder = { id: "f1", name: "Strength", createdAt: T, updatedAt: T };
+    await d.folders.add(folder);
+    const filed: Routine = { ...routine, id: "r2", programId: undefined, programOrder: undefined, folderId: "f1", favorite: true };
+    delete filed.programId;
+    delete filed.programOrder;
+    await d.routines.add(filed);
+    const b = await buildBackup({}, d);
+    expect(b.data.folders).toEqual([folder]);
+    expect(b.data.routines.find((r) => r.id === "r2")).toEqual(filed);
+    expect(backupV3.safeParse({ ...b, data: { ...b.data, folders: undefined } }).success).toBe(false);
   });
 
   it("does not export derived data (exerciseIds, settings key, seed rows)", async () => {
@@ -171,7 +184,7 @@ describe("serialize / file name", () => {
   it("produces a JSON blob", async () => {
     const blob = serializeBackup(await buildBackup({}, d));
     expect(blob.type).toBe("application/json");
-    expect(JSON.parse(await blob.text()).backupVersion).toBe(2);
+    expect(JSON.parse(await blob.text()).backupVersion).toBe(3);
   });
 
   it("names the file with the local date", () => {
@@ -181,20 +194,20 @@ describe("serialize / file name", () => {
   });
 });
 
-describe("backupV2 schema", () => {
+describe("backupV3 schema", () => {
   it("rejects bad input", async () => {
     const good = JSON.parse(JSON.stringify(await buildBackup({}, d)));
-    expect(backupV2.safeParse({ ...good, backupVersion: 1 }).success).toBe(
+    expect(backupV3.safeParse({ ...good, backupVersion: 1 }).success).toBe(
       false,
     );
     expect(
-      backupV2.safeParse({
+      backupV3.safeParse({
         ...good,
         data: { ...good.data, sessions: [{ id: "x" }] },
       }).success,
     ).toBe(false);
     expect(
-      backupV2.safeParse({ ...good, exportedAt: "yesterday" }).success,
+      backupV3.safeParse({ ...good, exportedAt: "yesterday" }).success,
     ).toBe(false);
   });
 
@@ -202,6 +215,6 @@ describe("backupV2 schema", () => {
     await d.settings.put({ key: SETTINGS_KEY, lastBackupAt: T } as never);
     const backup = await buildBackup({}, d);
     expect(backup.data.settings.lastBackupAt).toBe(T);
-    expect(backupV2.parse(JSON.parse(JSON.stringify(backup))).data.settings.lastBackupAt).toBe(T);
+    expect(backupV3.parse(JSON.parse(JSON.stringify(backup))).data.settings.lastBackupAt).toBe(T);
   });
 });

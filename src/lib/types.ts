@@ -59,7 +59,18 @@ export type Routine = {
   name: string;
   description?: string;
   exercises: RoutineExercise[];
+  /** Organizing folder (`RoutineFolder.id`). A folder that no longer exists means "no folder". */
   folderId?: string;
+  /** Listed first in Home quick-start. */
+  favorite?: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** A user folder for organizing routines; membership is stored only on `Routine.folderId`. */
+export type RoutineFolder = {
+  id: string;
+  name: string;
   createdAt: string;
   updatedAt: string;
 };

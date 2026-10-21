@@ -1,4 +1,4 @@
-import { backupV2, BACKUP_VERSION, type BackupV2 } from "#lib/backup/format";
+import { backupV3, BACKUP_VERSION, type BackupV3 } from "#lib/backup/format";
 import { SEED_EXERCISES_BY_ID } from "#lib/catalog/seed";
 import { db as defaultDb, SETTINGS_KEY, type AppDB } from "#lib/storage/db";
 import { DEFAULT_SETTINGS } from "#lib/storage/settings";
@@ -8,7 +8,7 @@ export const APP_NAME = "workout-tracker";
 // Keep in sync with package.json `version` (no build-time version plumbing exists yet).
 export const APP_VERSION = "0.0.0";
 
-type BuiltinState = BackupV2["data"]["builtinExerciseState"][number];
+type BuiltinState = BackupV3["data"]["builtinExerciseState"][number];
 
 /** Only what the user changed on a built-in exercise; null if nothing is worth saving. */
 function builtinState(row: Exercise): BuiltinState | null {
@@ -28,14 +28,15 @@ export async function buildBackup(
     appVersion = APP_VERSION,
   }: { now?: Date; appVersion?: string } = {},
   database: AppDB = defaultDb,
-): Promise<BackupV2> {
-  const { exercises, programs, routines, sessions, settings, measurements } =
+): Promise<BackupV3> {
+  const { exercises, programs, routines, folders, sessions, settings, measurements } =
     await database.transaction(
       "r",
       [
         database.exercises,
         database.programs,
         database.routines,
+        database.folders,
         database.sessions,
         database.settings,
         database.measurements,
@@ -44,6 +45,7 @@ export async function buildBackup(
         exercises: await database.exercises.toArray(),
         programs: await database.programs.toArray(),
         routines: await database.routines.toArray(),
+        folders: await database.folders.toArray(),
         sessions: await database.sessions.toArray(),
         settings: await database.settings.get(SETTINGS_KEY),
         measurements: await database.measurements.orderBy("measuredAt").toArray(),
@@ -67,6 +69,7 @@ export async function buildBackup(
         .filter((s): s is BuiltinState => s !== null),
       programs,
       routines,
+      folders,
       // `exerciseIds` is a derived index; restore recomputes it.
       sessions: sessions.map(({ exerciseIds: _ids, ...s }) => s),
       settings: mergedSettings,
@@ -74,10 +77,10 @@ export async function buildBackup(
     },
   };
   // Parsing also strips unknown keys; failing here beats writing a file restore would reject.
-  return backupV2.parse(backup);
+  return backupV3.parse(backup);
 }
 
-export function serializeBackup(backup: BackupV2): Blob {
+export function serializeBackup(backup: BackupV3): Blob {
   return new Blob([JSON.stringify(backup)], { type: "application/json" });
 }
 
