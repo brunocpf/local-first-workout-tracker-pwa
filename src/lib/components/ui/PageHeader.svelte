@@ -52,7 +52,7 @@
     border-radius: var(--radius-md);
   }
   .heading {
-    flex: 1 1 8rem;
+    flex: 1 1 6rem;
     min-inline-size: 0;
   }
   h1 {
