@@ -1,8 +1,9 @@
 import Dexie from "dexie";
+import { measurementSchema } from "#lib/backup/format";
 import { newId } from "#lib/ids";
 import { db as defaultDb, type AppDB } from "#lib/storage/db";
 import { currentTimeZone } from "#lib/time";
-import { MEASUREMENT_KINDS, MEASUREMENT_MAX, type BodyMeasurement, type MeasurementKind } from "#lib/types";
+import type { BodyMeasurement, MeasurementKind } from "#lib/types";
 
 /** Thrown by `addMeasurement` for an unknown kind, an out-of-range value or a malformed timestamp; nothing was written. */
 export class InvalidMeasurementError extends Error {
@@ -22,26 +23,21 @@ export type NewMeasurement = {
   notes?: string;
 };
 
-/** Validates and stores one measurement with a fresh id. Every function takes an optional database so tests can use a uniquely named one. */
+/** Validates (with the backup's `measurementSchema`, so anything stored can be exported) and stores one measurement with a fresh id. Every function takes an optional database so tests can use a uniquely named one. */
 export async function addMeasurement(input: NewMeasurement, database: AppDB = defaultDb): Promise<BodyMeasurement> {
-  if (!MEASUREMENT_KINDS.includes(input.kind)) throw new InvalidMeasurementError(`Unknown measurement kind: ${String(input.kind)}`);
-  if (!Number.isFinite(input.value) || input.value <= 0 || input.value > MEASUREMENT_MAX[input.kind])
-    throw new InvalidMeasurementError(`${input.kind} must be above 0 and at most ${MEASUREMENT_MAX[input.kind]}`);
-  const at = input.measuredAt ?? new Date().toISOString();
-  // Round-trip so only canonical `...Z` instants are stored: string order must equal time order for the indexes.
-  const time = Date.parse(at);
-  if (Number.isNaN(time) || new Date(time).toISOString() !== at) throw new InvalidMeasurementError("measuredAt must be an ISO 8601 UTC instant");
   const notes = input.notes?.trim();
-  const row: BodyMeasurement = {
+  const checked = measurementSchema.safeParse({
     id: newId(),
     kind: input.kind,
     value: input.value,
-    measuredAt: at,
+    measuredAt: input.measuredAt ?? new Date().toISOString(),
     timeZone: input.timeZone || currentTimeZone(),
     ...(notes ? { notes } : {}),
-  };
-  await database.measurements.add(row);
-  return row;
+  });
+  if (!checked.success)
+    throw new InvalidMeasurementError(checked.error.issues.map((i) => `${i.path.join(".") || "measurement"}: ${i.message}`).join("; "));
+  await database.measurements.add(checked.data);
+  return checked.data;
 }
 
 /** Measurements newest first, optionally only one kind and/or at most `limit` rows. */

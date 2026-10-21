@@ -65,7 +65,7 @@
 
   function describe(s: DataSummary) {
     const latest = s.latestSessionAt ? `latest workout ${day(s.latestSessionAt)}` : "no workouts";
-    return `${number.format(s.sessions)} workouts, ${number.format(s.routines)} routines, ${number.format(s.programs)} programs, ${number.format(s.customExercises)} custom exercises; ${latest}`;
+    return `${number.format(s.sessions)} workouts, ${number.format(s.routines)} routines, ${number.format(s.programs)} programs, ${number.format(s.customExercises)} custom exercises, ${number.format(s.measurements)} body measurements; ${latest}`;
   }
 
   async function onfile(e: Event) {

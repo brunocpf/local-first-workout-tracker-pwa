@@ -54,14 +54,15 @@ export function validateBackup(raw: unknown): ParseBackupResult {
 
 /**
  * Brings an older backup up to `BACKUP_VERSION` with pure vN → vN+1 steps on the parsed JSON (the file is never rewritten).
- * Input that isn't a plain object, or has no `data` object, is returned unchanged so validation reports it.
+ * A malformed `data` is left as is, so validation reports that rather than a misleading version error.
  */
 function migrateBackup(raw: unknown): unknown {
   const file = raw as { backupVersion?: unknown; data?: unknown };
-  if (file.backupVersion === 1 && typeof file.data === "object" && file.data !== null && !Array.isArray(file.data))
-    // v1 → v2: body measurements were added; a v1 file has none.
-    return { ...file, backupVersion: 2, data: { ...file.data, measurements: [] } };
-  return raw;
+  if (file.backupVersion !== 1) return raw;
+  // v1 → v2: body measurements were added; a v1 file has none.
+  const data = file.data;
+  const isObject = typeof data === "object" && data !== null && !Array.isArray(data);
+  return { ...file, backupVersion: 2, data: isObject ? { ...(data as object), measurements: [] } : data };
 }
 
 const SEED_IDS = new Set(SEED_EXERCISES.map((s) => s.id));
@@ -114,13 +115,14 @@ export type DataSummary = {
   routines: number;
   programs: number;
   customExercises: number;
+  measurements: number;
   /** `startedAt` of the most recent session, if any. */
   latestSessionAt?: string;
 };
 
 /** Counts for the restore confirmation ("replaces N sessions…"). */
 export function summarizeBackup(backup: BackupV2): DataSummary {
-  const { sessions, routines, programs, customExercises } = backup.data;
+  const { sessions, routines, programs, customExercises, measurements } = backup.data;
   let latest: string | undefined;
   for (const s of sessions) if (!latest || Date.parse(s.startedAt) > Date.parse(latest)) latest = s.startedAt;
   return {
@@ -128,13 +130,14 @@ export function summarizeBackup(backup: BackupV2): DataSummary {
     routines: routines.length,
     programs: programs.length,
     customExercises: customExercises.length,
+    measurements: measurements.length,
     ...(latest ? { latestSessionAt: latest } : {}),
   };
 }
 
 /** The same counts for what is in the database now, i.e. what a restore would replace. */
 export async function summarizeCurrentData(database: AppDB = defaultDb): Promise<DataSummary> {
-  return database.transaction("r", [database.exercises, database.programs, database.routines, database.sessions], async () => {
+  return database.transaction("r", [database.exercises, database.programs, database.routines, database.sessions, database.measurements], async () => {
     const latest = await database.sessions.orderBy("startedAt").last();
     return {
       sessions: await database.sessions.count(),
@@ -142,6 +145,7 @@ export async function summarizeCurrentData(database: AppDB = defaultDb): Promise
       programs: await database.programs.count(),
       // Booleans are not valid IndexedDB keys, so `isCustom` cannot be queried through its index.
       customExercises: await database.exercises.filter((e) => e.isCustom).count(),
+      measurements: await database.measurements.count(),
       ...(latest ? { latestSessionAt: latest.startedAt } : {}),
     };
   });

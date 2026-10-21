@@ -135,10 +135,30 @@ describe("parseBackup", () => {
     expect(!d2.ok && d2.errors).toEqual(["data.measurements[3].id: duplicate id meas-bw-1"]);
   });
 
-  it("does not migrate a v1 file without a data object", () => {
+  it("reports a missing data object, not the format version, for a malformed v1 file", () => {
     for (const raw of [{ backupVersion: 1 }, { backupVersion: 1, data: [] }, { backupVersion: 1, data: null }]) {
-      expect(parseBackup(JSON.stringify(raw)).ok).toBe(false);
+      const r = parseBackup(JSON.stringify(raw));
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.errors.join("\n")).not.toMatch(/backupVersion/);
     }
+  });
+
+  it("rejects measurements the repository would never store: bad zone, non-canonical timestamp, long notes", () => {
+    const raw = JSON.parse(FIXTURE_V2_TEXT);
+    raw.data.measurements[0].timeZone = "Mars/Base";
+    raw.data.measurements[1].measuredAt = "2026-02-27T07:45:00Z"; // valid ISO, but sorts wrongly against ".500Z"
+    raw.data.measurements[2].notes = "x".repeat(1001);
+    const r = parseBackup(JSON.stringify(raw));
+    expect(r.ok).toBe(false);
+    if (!r.ok)
+      expect(r.errors).toEqual([
+        expect.stringMatching(/^data\.measurements\[0\]\.timeZone: /),
+        expect.stringMatching(/^data\.measurements\[1\]\.measuredAt: /),
+        expect.stringMatching(/^data\.measurements\[2\]\.notes: /),
+      ]);
+    raw.data.measurements[0].timeZone = "";
+    const empty = parseBackup(JSON.stringify(raw));
+    expect(!empty.ok && empty.errors[0]).toMatch(/^data\.measurements\[0\]\.timeZone: /);
   });
   it("accepts the frozen v1 fixture", () => {
     expect(parseBackup(FIXTURE_TEXT).ok).toBe(true);
@@ -242,18 +262,20 @@ describe("summaries", () => {
       routines: 2,
       programs: 1,
       customExercises: 1,
+      measurements: 0,
       latestSessionAt: "2026-03-02T08:30:00.000Z",
     });
   });
 
   it("summarizes current data, including an empty database", async () => {
-    expect(await summarizeCurrentData(d)).toEqual({ sessions: 0, routines: 0, programs: 0, customExercises: 0 });
+    expect(await summarizeCurrentData(d)).toEqual({ sessions: 0, routines: 0, programs: 0, customExercises: 0, measurements: 0 });
     await seedExistingData(d);
     expect(await summarizeCurrentData(d)).toEqual({
       sessions: 2,
       routines: 1,
       programs: 0,
       customExercises: 1,
+      measurements: 1,
       latestSessionAt: "2026-04-05T10:00:00.000Z",
     });
   });

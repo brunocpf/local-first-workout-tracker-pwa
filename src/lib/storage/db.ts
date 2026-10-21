@@ -64,7 +64,7 @@ export class AppDB extends Dexie {
     // Changing version(1) in place was fine only because no user data existed yet.
     // From now on NEVER edit a shipped version: add `this.version(n + 1).stores({ ...changed tables })`
     // (+ `.upgrade(tx => ...)` to transform existing rows), never drop data, and add a fixture test
-    // in tests/migrations.test.ts. See docs/data-model.md "Migrations".
+    // in tests/migrations.test.ts or a per-version file like tests/migration-v2.test.ts. See docs/data-model.md "Migrations".
     this.version(1).stores({
       exercises: "id, name, *aliases, isCustom, archivedAt",
       programs: "id, name",

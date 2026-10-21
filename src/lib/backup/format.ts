@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { isValidTimeZone } from "#lib/time";
 import { MEASUREMENT_KINDS, MEASUREMENT_MAX } from "#lib/types";
 
 /**
@@ -214,13 +215,19 @@ export const builtinExerciseStateSchema = z.object({
   aliases: z.array(tag).max(50).optional(),
 });
 
+/**
+ * The single definition of a valid measurement: `addMeasurement` validates new rows with it and restore validates
+ * backed-up ones, so a stored row can always be exported. `measuredAt` must be the canonical `toISOString()` form
+ * (`z.iso.datetime()` alone also accepts no-millisecond and offset forms, which break text order = time order in the
+ * `measuredAt` indexes).
+ */
 export const measurementSchema = z
   .object({
     id,
     kind: z.enum(MEASUREMENT_KINDS),
     value: num.positive(),
-    measuredAt: iso,
-    timeZone: text(100),
+    measuredAt: iso.refine((s) => !Number.isNaN(Date.parse(s)) && new Date(s).toISOString() === s, "must be a UTC timestamp like 2026-03-01T07:00:00.000Z"),
+    timeZone: text(100).refine(isValidTimeZone, "unknown time zone"),
     notes: text(1000).optional(),
   })
   .refine((m) => m.value <= MEASUREMENT_MAX[m.kind], { path: ["value"], message: "value is out of range for this kind" });

@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
 import Dexie from "dexie";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { buildBackup } from "#lib/backup/export";
 import { AppDB } from "#lib/storage/db";
 import { addMeasurement, deleteMeasurement, InvalidMeasurementError, listMeasurements } from "#lib/storage/measurements";
 import { MEASUREMENT_KINDS, MEASUREMENT_MAX } from "#lib/types";
@@ -58,9 +59,22 @@ describe("addMeasurement", () => {
       { kind: "bodyweight" as const, value: 80, measuredAt: "yesterday" },
       { kind: "bodyweight" as const, value: 80, measuredAt: "2026-03-01T07:00:00+01:00" },
       { kind: "bodyweight" as const, value: 80, measuredAt: "2026-03-01" },
+      { kind: "bodyweight" as const, value: 80, measuredAt: "2026-03-01T07:00:00Z" },
+      { kind: "bodyweight" as const, value: 80, timeZone: "Mars/Base" },
+      { kind: "bodyweight" as const, value: 80, notes: "x".repeat(1001) },
+      { kind: "bodyweight" as const, value: 80, timeZone: "x".repeat(101) },
     ];
     for (const input of bad) await expect(addMeasurement(input, d)).rejects.toBeInstanceOf(InvalidMeasurementError);
     expect(await d.measurements.count()).toBe(0);
+  });
+});
+
+describe("export compatibility", () => {
+  it("every measurement addMeasurement accepts can be exported", async () => {
+    await addMeasurement({ kind: "bodyweight", value: 80, notes: "x".repeat(1000), timeZone: "America/Sao_Paulo" }, d);
+    await addMeasurement({ kind: "body_fat", value: 100, measuredAt: "2026-03-01T07:00:00.500Z" }, d);
+    const backup = await buildBackup({}, d);
+    expect(backup.data.measurements).toHaveLength(2);
   });
 });
 
