@@ -203,6 +203,9 @@ export type PlateInventory = Record<WeightUnit, PlateStock[]>;
 /** Which effort measure the logger shows per set (PRD §8.3); `off` hides it entirely. */
 export type EffortInput = "off" | "rpe" | "rir";
 
+/** One warm-up set: a percent of the working weight (0 = the empty bar) for some reps. */
+export type WarmupStep = { percent: number; reps: number };
+
 export type UserSettings = {
   weightUnit: WeightUnit;
   /** Unit for tape measurements (stored in cm); bodyweight follows `weightUnit`. */
@@ -235,6 +238,8 @@ export type UserSettings = {
   barWeightKg?: number;
   /** Plate calculator inventory (defaults in `#lib/tools/plates`). */
   plateInventory?: PlateInventory;
+  /** Warm-up sets added from the exercise menu (default in `#lib/tools/warmup`). */
+  warmupScheme?: WarmupStep[];
   /** Opt-in progression suggestions (PRD §17); they are only ever suggested, never applied automatically. */
   progressionEnabled?: boolean;
   /** Load added by a progression suggestion, in each unit's own system (2.5 for kg, 5 for lb). */

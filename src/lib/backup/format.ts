@@ -215,6 +215,7 @@ export const settingsSchema = z.object({
   plateInventory: z
     .object({ kg: z.array(plateStock).max(50), lb: z.array(plateStock).max(50) })
     .optional(),
+  warmupScheme: z.array(z.object({ percent: num.min(0).max(100), reps: z.number().int().min(1).max(100) })).min(1).max(10).optional(),
   progressionEnabled: z.boolean().optional(),
   progressionIncrement: z.object({ kg: num.positive().max(1000), lb: num.positive().max(1000) }).optional(),
 });

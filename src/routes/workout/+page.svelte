@@ -40,6 +40,7 @@
   import { loadPreviousSets, type SetValues } from "#lib/logger/previousValues";
   import type { PersonalRecords } from "#lib/progress/metrics";
   import { loadPriorPrSessions, prBaseline, prSetIdsAgainst } from "#lib/progress/sessionPrs";
+  import { insertWarmups } from "#lib/tools/warmup";
   import { settings } from "#lib/settings.svelte";
   import { requestPersistentStorage } from "#lib/storage/persistence";
   import WorkoutSummary from "#lib/components/workout/WorkoutSummary.svelte";
@@ -353,6 +354,7 @@
           previousSets={previous[exercise.exerciseId]}
           prSetIds={prIds[exercise.exerciseId]}
           onaddset={() => withExercise(exercise.id, "now", (e) => addSet(e))}
+          onaddwarmups={(sets) => withExercise(exercise.id, "now", (e) => insertWarmups(e, sets))}
           onsetchange={(setId, patch) => changeSet(exercise.id, setId, patch)}
           ontoggleset={(setId, prefill) => toggleSet(exercise.id, setId, prefill)}
           onduplicateset={(setId) => withExercise(exercise.id, "now", (e) => duplicateSet(e, setId))}
