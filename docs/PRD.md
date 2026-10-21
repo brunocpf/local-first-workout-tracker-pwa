@@ -516,6 +516,7 @@ Also summarized in [AGENTS.md](../AGENTS.md).
 7. **Cloud backup/sync, native app:** deferred until a concrete need.
 9. **Built-in AI (external API, progression suggestions):** decided in [ADR 0013](decisions/0013-built-in-ai.md): not built (key handling without a backend, CSP, privacy, cost); prompt copy/paste flow and deterministic double progression remain the paths. Owner to confirm.
 8. **Online-plan extraction:** decided in [ADR 0008](decisions/0008-url-import.md): no in-app URL fetching (CORS, JS-rendered pages, `connect-src 'self'`, no backend); paste text remains the path. Owner to confirm.
+10. **Progress photos:** decided in [ADR 0010](decisions/0010-progress-photos.md): local-only resized JPEGs in IndexedDB, kept out of the JSON backup and saved in a separate photos archive; build only if wanted. Owner to confirm.
 
 ---
 
