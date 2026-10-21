@@ -96,16 +96,23 @@
   .sm::after { content: ""; position: absolute; inset-inline: 0; inset-block: 50% auto; block-size: var(--tap-min); transform: translateY(-50%); }
   .lg { min-block-size: var(--control-h-lg); padding-inline: var(--space-5); font-weight: var(--weight-semibold); }
 
+  /* Press feedback fades in over --duration-fast (a color change, so it stays under reduced motion). Hover only
+     where a real pointer can hover: on touch, :hover sticks after a tap (design.md §6 shared states). */
+  .btn { transition: background-color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard); }
   .primary { background: var(--color-accent); color: var(--color-on-accent); }
-  .primary:hover { background: var(--color-accent-hover); }
-  .primary:active { background: var(--color-accent-active); }
   .secondary { background: var(--color-surface-2); color: var(--color-text); border-color: var(--color-border-strong); }
-  .secondary:hover, .secondary:active { background: var(--color-surface-3); }
   .ghost { background: transparent; color: var(--color-accent-text); }
-  .ghost:hover { background: var(--color-surface-2); }
-  .ghost:active { background: var(--color-surface-3); }
   .danger { background: var(--color-danger); color: var(--color-on-danger); }
-  .danger:hover, .danger:active { background: var(--color-danger-hover); }
+  @media (hover: hover) {
+    .primary:hover { background: var(--color-accent-hover); }
+    .secondary:hover { background: var(--color-surface-3); }
+    .ghost:hover { background: var(--color-surface-2); }
+    .danger:hover { background: var(--color-danger-hover); }
+  }
+  .primary:active { background: var(--color-accent-active); }
+  .secondary:active { background: var(--color-surface-3); }
+  .ghost:active { background: var(--color-surface-3); }
+  .danger:active { background: var(--color-danger-hover); }
 
   .btn:disabled, .btn[aria-disabled="true"]:not([aria-busy]) {
     background: var(--color-surface-2);

@@ -61,16 +61,22 @@
   .sm { inline-size: 2.25rem; block-size: 2.25rem; }
   .sm::after { content: ""; position: absolute; inset: 50% auto auto 50%; inline-size: var(--tap-min); block-size: var(--tap-min); transform: translate(-50%, -50%); }
 
+  /* Same press feedback and hover gating as Button. */
+  .ib { transition: background-color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard); }
   .ghost { background: transparent; color: var(--color-accent-text); }
-  .ghost:hover { background: var(--color-surface-2); }
-  .ghost:active { background: var(--color-surface-3); }
   .secondary { background: var(--color-surface-2); color: var(--color-text); border-color: var(--color-border-strong); }
-  .secondary:hover, .secondary:active { background: var(--color-surface-3); }
   .primary { background: var(--color-accent); color: var(--color-on-accent); }
-  .primary:hover { background: var(--color-accent-hover); }
-  .primary:active { background: var(--color-accent-active); }
   .danger { background: var(--color-danger); color: var(--color-on-danger); }
-  .danger:hover, .danger:active { background: var(--color-danger-hover); }
+  @media (hover: hover) {
+    .ghost:hover { background: var(--color-surface-2); }
+    .secondary:hover { background: var(--color-surface-3); }
+    .primary:hover { background: var(--color-accent-hover); }
+    .danger:hover { background: var(--color-danger-hover); }
+  }
+  .ghost:active { background: var(--color-surface-3); }
+  .secondary:active { background: var(--color-surface-3); }
+  .primary:active { background: var(--color-accent-active); }
+  .danger:active { background: var(--color-danger-hover); }
 
   /* Pressed state: filled background plus an inset edge, not only a color change. */
   .ib[aria-pressed="true"] { background: var(--color-accent-subtle); color: var(--color-accent-text); border-color: var(--color-accent); }

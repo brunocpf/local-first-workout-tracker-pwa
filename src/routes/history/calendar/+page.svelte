@@ -232,8 +232,10 @@
     background: var(--color-surface-2);
     border-color: var(--color-border-strong);
   }
-  button.day:hover {
-    background: var(--color-surface-3);
+  @media (hover: hover) {
+    button.day:hover {
+      background: var(--color-surface-3);
+    }
   }
   button.day[aria-pressed="true"] {
     background: var(--color-accent-subtle);
