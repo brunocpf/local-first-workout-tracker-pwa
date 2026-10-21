@@ -1,6 +1,6 @@
 import Dexie from "dexie";
-import { measurementSchema } from "#lib/backup/format";
 import { newId } from "#lib/ids";
+import { measurementSchema } from "#lib/measurements";
 import { db as defaultDb, type AppDB } from "#lib/storage/db";
 import { currentTimeZone } from "#lib/time";
 import type { BodyMeasurement, MeasurementKind } from "#lib/types";
@@ -23,7 +23,7 @@ export type NewMeasurement = {
   notes?: string;
 };
 
-/** Validates (with the backup's `measurementSchema`, so anything stored can be exported) and stores one measurement with a fresh id. Every function takes an optional database so tests can use a uniquely named one. */
+/** Validates (with the shared `measurementSchema` from `#lib/measurements`, so anything stored can be exported) and stores one measurement with a fresh id. Every function takes an optional database so tests can use a uniquely named one. */
 export async function addMeasurement(input: NewMeasurement, database: AppDB = defaultDb): Promise<BodyMeasurement> {
   const notes = input.notes?.trim();
   const checked = measurementSchema.safeParse({
