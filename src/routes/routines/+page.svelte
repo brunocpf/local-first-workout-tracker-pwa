@@ -35,6 +35,7 @@
   let menuFor = $state<Routine>();
   let menuOpen = $state(false);
   let programOpen = $state(false);
+  let moreOpen = $state(false);
   let programName = $state("");
   let programError = $state<string>();
   // Folders: options sheet (rename/delete), name sheet (create or rename), move sheet (pick a routine's folder).
@@ -114,6 +115,7 @@
   }
 
   function openFolderForm(renaming?: RoutineFolder, moves?: Routine) {
+    moreOpen = false;
     folderMenuOpen = false;
     moveOpen = false;
     folderRenaming = renaming;
@@ -245,10 +247,7 @@
 <PageHeader title="Routines">
   {#snippet actions()}
     <Button variant="primary" size="sm" icon="plus" href={newHref}>New routine</Button>
-    <Button variant="secondary" size="sm" href={generateHref}>Generate with AI</Button>
-    <Button variant="secondary" size="sm" icon="plus" onclick={() => (programOpen = true)}>New program</Button>
-    <Button variant="secondary" size="sm" icon="plus" onclick={() => openFolderForm()}>New folder</Button>
-    <Button variant="secondary" size="sm" icon="import" href={importHref}>Import</Button>
+    <IconButton icon="more-vertical" label="More routine actions" onclick={() => (moreOpen = true)} />
   {/snippet}
 </PageHeader>
 
@@ -275,6 +274,16 @@
     {/if}
   {/if}
 {/if}
+
+<!-- One primary action in the header (design.md §6.15); the rest live in an action sheet. -->
+<Sheet bind:open={moreOpen} title="Routine actions">
+  <div class="menu">
+    <Button block icon="import" href={importHref}>Import</Button>
+    <Button block href={generateHref}>Generate with AI</Button>
+    <Button block icon="plus" onclick={() => ((moreOpen = false), (programOpen = true))}>New program</Button>
+    <Button block icon="plus" onclick={() => openFolderForm()}>New folder</Button>
+  </div>
+</Sheet>
 
 <Sheet bind:open={menuOpen} title={menuFor?.name ?? "Routine"}>
   {#if menuFor}
