@@ -6,12 +6,14 @@
   import ExercisePicker from "#lib/components/ExercisePicker.svelte";
   import ListRow from "#lib/components/ui/ListRow.svelte";
   import Dialog from "#lib/components/ui/Dialog.svelte";
+  import Icon from "#lib/components/ui/Icon.svelte";
   import IconButton from "#lib/components/ui/IconButton.svelte";
   import SegmentedControl from "#lib/components/ui/SegmentedControl.svelte";
   import Select from "#lib/components/ui/Select.svelte";
   import Sheet from "#lib/components/ui/Sheet.svelte";
   import PlateCalculatorSheet from "#lib/components/tools/PlateCalculatorSheet.svelte";
   import { settings } from "#lib/settings.svelte";
+  import { suggestProgression } from "#lib/progress/progression";
   import { DEFAULT_BAR_KG, DEFAULT_PLATE_INVENTORY } from "#lib/tools/plates";
   import TextField from "#lib/components/ui/TextField.svelte";
   import SetRow from "#lib/components/workout/SetRow.svelte";
@@ -88,6 +90,19 @@
   } = $props();
 
   const previous = $derived(alignPrevious(exercise.sets, previousSets));
+
+  // Progression (PRD §17): only suggested; "Apply" swaps the prefill of the sets still to do. Not persisted.
+  const repRange = $derived((exercise.prescribedSets?.find((p) => p.type === "normal" && p.repRange) ?? exercise.prescribedSets?.find((p) => p.repRange))?.repRange);
+  const suggestion = $derived(previousSets.length ? suggestProgression(previousSets, { repRange }, { weightUnit: unit, progressionEnabled: settings.progressionEnabled, progressionIncrement: settings.progressionIncrement }) : null);
+  let appliedKey = $state<string>();
+  const key = $derived(suggestion ? `${suggestion.weightKg}/${suggestion.reps}` : undefined);
+  /** Applying is tied to the suggestion it was for, so a changed suggestion (new data) offers itself again. */
+  const applied = $derived(key !== undefined && appliedKey === key);
+  function prefillOf(set: LoggedSet, i: number): SetValues {
+    const base = prefillFor(set, previous[i], prescribed(set));
+    if (!applied || !suggestion || set.completedAt || set.type === "warmup" || set.type === "drop") return base;
+    return { weight: suggestion.weightKg, reps: suggestion.reps };
+  }
   const setTypes: { value: SetType; label: string }[] = [
     { value: "normal", label: "Normal" },
     { value: "warmup", label: "Warm-up" },
@@ -222,6 +237,12 @@
   {/snippet}
 
   {#if exercise.notes}<p class="notes">Notes: {exercise.notes}</p>{/if}
+  {#if suggestion}
+    <div class="suggest" role="group" aria-label="Progression suggestion">
+      <p class="reason"><Icon name="chevron-up" size="1.1em" /> {applied ? "Suggestion applied to the remaining sets." : suggestion.reason}</p>
+      {#if !applied}<Button size="sm" onclick={() => (appliedKey = key)}>Apply</Button>{/if}
+    </div>
+  {/if}
   <div class="setlist">
     <div class="grid">
       <div class="colhead" aria-hidden="true">
@@ -239,13 +260,13 @@
             {unit}
             previous={previous[i]}
             prescribed={prescribed(set)}
-            prefill={prefillFor(set, previous[i], prescribed(set))}
+            prefill={prefillOf(set, i)}
             pr={prSetIds?.has(set.id) ?? false}
             effort={effortInput}
             oneffort={(v) => onsetchange(set.id, effortInput === "rir" ? { rir: v } : { rpe: v })}
             onweight={(weight) => onsetchange(set.id, { weight })}
             onreps={(reps) => onsetchange(set.id, { reps })}
-            ontoggle={() => ontoggleset(set.id, prefillFor(set, previous[i], prescribed(set)))}
+            ontoggle={() => ontoggleset(set.id, prefillOf(set, i))}
             onmenu={() => {
               setMenu = { id: set.id, name: labels[i].name };
               setMenuOpen = true;
@@ -359,6 +380,18 @@
     min-inline-size: 0;
     overflow-wrap: anywhere;
   }
+  .suggest {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0 var(--space-4) var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--color-info-subtle);
+    color: var(--color-info-text);
+  }
+  .reason { flex: 1 1 12rem; margin: 0; min-inline-size: 0; font-size: var(--text-sm); overflow-wrap: anywhere; }
   .visually-hidden { position: absolute; inline-size: 1px; block-size: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .tag { margin-inline-end: var(--space-2); }
   .notes {
