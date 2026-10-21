@@ -184,6 +184,7 @@ const plateStock = z.object({
 
 export const settingsSchema = z.object({
   weightUnit: z.enum(["kg", "lb"]),
+  lengthUnit: z.enum(["cm", "in"]).optional(),
   defaultRestSeconds: nonneg,
   autoStartRestTimer: z.boolean(),
   timerSound: z.boolean().optional(),

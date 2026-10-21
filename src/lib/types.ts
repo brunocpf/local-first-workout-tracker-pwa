@@ -137,6 +137,7 @@ export type WorkoutSession = {
 };
 
 export type WeightUnit = "kg" | "lb";
+export type LengthUnit = "cm" | "in";
 
 /** What a body measurement records. Stored units: bodyweight in kg, body fat in %, every other kind in cm. */
 export const MEASUREMENT_KINDS = [
@@ -193,6 +194,8 @@ export type EffortInput = "off" | "rpe" | "rir";
 
 export type UserSettings = {
   weightUnit: WeightUnit;
+  /** Unit for tape measurements (stored in cm); bodyweight follows `weightUnit`. */
+  lengthUnit?: LengthUnit;
   defaultRestSeconds: number;
   autoStartRestTimer: boolean;
   /** Beep when a rest timer finishes (only while the app is open). */

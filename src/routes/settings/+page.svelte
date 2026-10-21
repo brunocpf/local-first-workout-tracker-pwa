@@ -19,7 +19,7 @@
   import { isStandalone } from "#lib/pwa/install";
   import { settings, updateSettings } from "#lib/settings.svelte";
   import { getPersistenceStatus, requestPersistentStorage, type PersistenceStatus } from "#lib/storage/persistence";
-  import type { EffortInput, UserSettings } from "#lib/types";
+  import type { EffortInput, LengthUnit, UserSettings } from "#lib/types";
 
   const pushConfigured = isPushConfigured();
   let standalone = $state(false);
@@ -62,14 +62,26 @@
 
 <div class="sections">
   <Card as="section" header={units}>
-    <SegmentedControl
-      legend="Weight unit"
-      bind:value={() => settings.weightUnit, (v) => save({ weightUnit: v as UserSettings["weightUnit"] })}
-      options={[
-        { value: "kg", label: "kg" },
-        { value: "lb", label: "lb" },
-      ]}
-    />
+    <div class="stack">
+      <SegmentedControl
+        legend="Weight unit"
+        legendVisible
+        bind:value={() => settings.weightUnit, (v) => save({ weightUnit: v as UserSettings["weightUnit"] })}
+        options={[
+          { value: "kg", label: "kg" },
+          { value: "lb", label: "lb" },
+        ]}
+      />
+      <SegmentedControl
+        legend="Length unit"
+        legendVisible
+        bind:value={() => settings.lengthUnit ?? "cm", (v) => save({ lengthUnit: v as LengthUnit })}
+        options={[
+          { value: "cm", label: "cm" },
+          { value: "in", label: "in" },
+        ]}
+      />
+    </div>
   </Card>
 
   <Card as="section" header={workout}>

@@ -31,6 +31,15 @@ describe("settings store", () => {
     expect((await getSettings()).effortInput).toBe("rir");
   });
 
+  it("length unit defaults to cm, including for settings stored before it existed, and persists", async () => {
+    expect(DEFAULT_SETTINGS.lengthUnit).toBe("cm");
+    await db.settings.put({ key: SETTINGS_KEY, weightUnit: "lb" } as never);
+    expect((await getSettings()).lengthUnit).toBe("cm");
+    await initSettings();
+    await updateSettings({ lengthUnit: "in" });
+    expect((await getSettings()).lengthUnit).toBe("in");
+  });
+
   it("init merges stored values over defaults", async () => {
     await db.settings.put({ key: SETTINGS_KEY, weightUnit: "lb" } as never);
     await initSettings();

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { resolve } from "$app/paths";
   import ExercisePicker from "#lib/components/ExercisePicker.svelte";
   import LineChart from "#lib/components/charts/LineChart.svelte";
   import PrSummary from "#lib/components/progress/PrSummary.svelte";
@@ -10,6 +11,7 @@
   import SegmentedControl from "#lib/components/ui/SegmentedControl.svelte";
   import Select from "#lib/components/ui/Select.svelte";
   import IconButton from "#lib/components/ui/IconButton.svelte";
+  import ListRow from "#lib/components/ui/ListRow.svelte";
   import { monthlyStats } from "#lib/progress/monthly";
   import { weeklySetsByMuscle } from "#lib/progress/muscles";
   import { exerciseSeries, rangeStart, type RangePreset } from "#lib/progress/series";
@@ -151,6 +153,12 @@
 
 <PageHeader title="Progress" />
 
+<div class="body-link">
+  <Card padding="none">
+    <ListRow title="Body measurements" subtitle="Bodyweight, body fat and tape measurements" href={resolve("/progress/body")} />
+  </Card>
+</div>
+
 {#if failed}
   <EmptyState icon="alert-triangle" title="Couldn’t load progress" body="Reload the app and try again." />
 {:else if loaded && !exercise}
@@ -265,6 +273,9 @@
 {/if}
 
 <style>
+  .body-link {
+    padding-block-start: var(--space-3);
+  }
   .controls {
     display: grid;
     gap: var(--space-3);
