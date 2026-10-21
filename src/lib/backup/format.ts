@@ -213,6 +213,8 @@ export const settingsSchema = z.object({
   plateInventory: z
     .object({ kg: z.array(plateStock).max(50), lb: z.array(plateStock).max(50) })
     .optional(),
+  progressionEnabled: z.boolean().optional(),
+  progressionIncrement: z.object({ kg: num.positive().max(1000), lb: num.positive().max(1000) }).optional(),
 });
 
 /** User state on a built-in (seed) exercise; the exercise itself comes from the app catalog. */

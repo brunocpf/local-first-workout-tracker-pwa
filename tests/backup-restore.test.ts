@@ -343,6 +343,8 @@ describe("restoreBackup", () => {
     expected.data.settings.lengthUnit = "cm";
     expected.data.settings.barWeightKg = DEFAULT_BAR_KG;
     expected.data.settings.plateInventory = DEFAULT_PLATE_INVENTORY;
+    expected.data.settings.progressionEnabled = false;
+    expected.data.settings.progressionIncrement = { kg: 2.5, lb: 5 };
     expect(out).toEqual(expected);
   });
 
@@ -362,6 +364,8 @@ describe("restoreBackup", () => {
     expected.data.settings.lengthUnit = "cm";
     expected.data.settings.barWeightKg = DEFAULT_BAR_KG;
     expected.data.settings.plateInventory = DEFAULT_PLATE_INVENTORY;
+    expected.data.settings.progressionEnabled = false;
+    expected.data.settings.progressionIncrement = { kg: 2.5, lb: 5 };
     expect(out).toEqual(expected);
   });
 
@@ -386,6 +390,8 @@ describe("restoreBackup", () => {
     expected.data.settings.lengthUnit = "cm";
     expected.data.settings.barWeightKg = DEFAULT_BAR_KG;
     expected.data.settings.plateInventory = DEFAULT_PLATE_INVENTORY;
+    expected.data.settings.progressionEnabled = false;
+    expected.data.settings.progressionIncrement = { kg: 2.5, lb: 5 };
     expect(out).toEqual(expected);
   });
 

@@ -1,5 +1,6 @@
 import type { UserSettings } from "#lib/types";
 import { db, SETTINGS_KEY } from "#lib/storage/db";
+import { DEFAULT_PROGRESSION_INCREMENT } from "#lib/progress/progression";
 import { DEFAULT_BAR_KG, DEFAULT_PLATE_INVENTORY } from "#lib/tools/plates";
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -16,6 +17,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
   backupReminderSessions: 10,
   barWeightKg: DEFAULT_BAR_KG,
   plateInventory: DEFAULT_PLATE_INVENTORY,
+  progressionEnabled: false,
+  progressionIncrement: DEFAULT_PROGRESSION_INCREMENT,
 };
 
 /** Stored settings merged over defaults, so fields added later get a value for existing users. */

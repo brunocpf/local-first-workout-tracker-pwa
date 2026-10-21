@@ -231,4 +231,8 @@ export type UserSettings = {
   barWeightKg?: number;
   /** Plate calculator inventory (defaults in `#lib/tools/plates`). */
   plateInventory?: PlateInventory;
+  /** Opt-in progression suggestions (PRD §17); they are only ever suggested, never applied automatically. */
+  progressionEnabled?: boolean;
+  /** Load added by a progression suggestion, in each unit's own system (2.5 for kg, 5 for lb). */
+  progressionIncrement?: Record<WeightUnit, number>;
 };
