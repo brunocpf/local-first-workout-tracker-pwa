@@ -1,16 +1,16 @@
 # Backup & restore
 
-_Status: **format v1, export builder and restore logic implemented** (`src/lib/backup/format.ts`, `export.ts`, `restore.ts`). The Settings backup/restore UI (`BackupSection.svelte`) and the reminder banner (T4.05) are implemented._
+_Status: **format v2 (v1 files still restore), export builder and restore logic implemented** (`src/lib/backup/format.ts`, `export.ts`, `restore.ts`). The Settings backup/restore UI (`BackupSection.svelte`) and the reminder banner (T4.05) are implemented._
 
 IndexedDB is persistent but not a backup: browsers can evict it, and it is bound to the origin and (on iOS) to installed-app vs Safari-tab storage.
 
 ## Format
 
-One **versioned JSON** file named `workout-backup-YYYY-MM-DD.json` (device-local date), MIME `application/json`. The Zod schema `backupV1` in `src/lib/backup/format.ts` is the source of truth; it mirrors the domain types (`src/lib/types.ts`), not the Dexie schema.
+One **versioned JSON** file named `workout-backup-YYYY-MM-DD.json` (device-local date), MIME `application/json`. The Zod schema `backupV2` in `src/lib/backup/format.ts` is the source of truth; it mirrors the domain types (`src/lib/types.ts`), not the Dexie schema.
 
 ```jsonc
 {
-  "backupVersion": 1,
+  "backupVersion": 2,
   "app": { "name": "workout-tracker", "version": "0.0.0" },
   "exportedAt": "2026-03-01T10:00:00.000Z",          // ISO 8601 UTC
   "data": {
@@ -19,7 +19,8 @@ One **versioned JSON** file named `workout-backup-YYYY-MM-DD.json` (device-local
     "programs": [ /* Program, incl. schedule */ ],
     "routines": [ /* Routine, incl. programId/programOrder */ ],
     "sessions": [ /* WorkoutSession incl. sets; active AND completed; without exerciseIds */ ],
-    "settings": { /* UserSettings, all fields */ }
+    "settings": { /* UserSettings, all fields */ },
+    "measurements": [ /* BodyMeasurement: bodyweight (kg), body_fat (%), tape measurements (cm); oldest first */ ]
   }
 }
 ```
@@ -30,13 +31,14 @@ Notes:
 - **Derived data is not exported**: no stats/PRs/aggregates, and the session `exerciseIds` index (restore recomputes it). Raw sets are exported as stored (kg, ISO timestamps, session `timeZone`).
 - An **active session** is included (with its `restTimer`) so a backup taken mid-workout loses nothing.
 - Unknown keys are stripped when parsing; strings/arrays have size limits and URLs must be http(s). `buildBackup()` validates its own output, reading all tables in one read transaction.
-- Not covered: the last-backup date (will live in settings, T4.04) and device-local state outside the five tables.
+- Not covered: the last-backup date (will live in settings, T4.04) and device-local state outside the six tables.
 
 ### Versioning policy
 
 - `backupVersion` is a single integer. Any change that an older reader would misread (renamed/removed field, changed meaning) bumps it; purely additive optional fields do not.
+- **History:** v1 (initial); **v2** adds the required `data.measurements` array (T8.15). A v1 file has none, so `migrateBackup` turns it into v2 with `measurements: []`.
 - **Forward migration rule:** restore accepts every version ever released by running a chain of pure `vN → vN+1` functions on the parsed JSON, then validates against the newest schema. Old files are never rewritten. A file with a newer `backupVersion` than the app knows is rejected with a clear "update the app" message, and nothing changes.
-- Each released version keeps a fixture export in `tests/fixtures/` so migrations stay testable.
+- Each released version keeps a fixture export in `tests/fixtures/` so migrations stay testable: `backup-v1.json` (restores as v2 with no measurements) and `backup-v2.json`.
 
 ## Saving
 
@@ -53,12 +55,12 @@ Notes:
 
 ### Implementation (`src/lib/backup/restore.ts`)
 
-- `parseBackup(text)` never touches the database. In order: size limit (`MAX_BACKUP_BYTES`, 50 MB), `JSON.parse`, version check (a newer `backupVersion` → "update the app"; anything else unknown → unsupported), Zod `backupV1` (unknown keys stripped; errors are `path: message`, capped at 50), then integrity checks the schema can't express: unique ids per collection, custom exercises have `isCustom: true` and don't reuse a built-in id, at most one active session, every routine `exerciseId` is a catalog or backed-up custom exercise, and every program schedule `routineId` is a backed-up routine. Sessions' `exerciseId`/`routineId`/`programId` and a routine's `programId` are deliberately not checked: sessions snapshot names so history stays readable without the referenced row, and the app lists routines with an unknown program as standalone.
+- `parseBackup(text)` never touches the database. In order: size limit (`MAX_BACKUP_BYTES`, 50 MB), `JSON.parse`, version check (a newer `backupVersion` → "update the app"; anything else unknown → unsupported; v1 is migrated to v2 by `migrateBackup`), Zod `backupV2` (unknown keys stripped; errors are `path: message`, capped at 50), then integrity checks the schema can't express: unique ids per collection (measurements included; each measurement's `kind` is known and `value` is above 0 and within its kind's limit), custom exercises have `isCustom: true` and don't reuse a built-in id, at most one active session, every routine `exerciseId` is a catalog or backed-up custom exercise, and every program schedule `routineId` is a backed-up routine. Sessions' `exerciseId`/`routineId`/`programId` and a routine's `programId` are deliberately not checked: sessions snapshot names so history stays readable without the referenced row, and the app lists routines with an unknown program as standalone.
 - `summarizeBackup(backup)` / `summarizeCurrentData()` return counts of sessions, routines, programs and custom exercises plus the latest session `startedAt`, for the confirmation text.
-- `restoreBackup(backup)` re-validates its input (from a plain JSON copy, so `$state` proxies are fine), then in **one `rw` transaction over all five tables**: clears them, rewrites the built-in catalog from the app's seed with the backup's `builtinExerciseState` applied (this is the re-seed; built-in rows already stored but no longer in the app's catalog are kept, never deleted, so retired ids still resolve; state for ids in neither is ignored), adds custom exercises, programs, routines, sessions (recomputing `exerciseIds`) and settings. Any error aborts the transaction and the previous data is intact.
+- `restoreBackup(backup)` re-validates its input (from a plain JSON copy, so `$state` proxies are fine), then in **one `rw` transaction over all six tables**: clears them, rewrites the built-in catalog from the app's seed with the backup's `builtinExerciseState` applied (this is the re-seed; built-in rows already stored but no longer in the app's catalog are kept, never deleted, so retired ids still resolve; state for ids in neither is ignored), adds custom exercises, programs, routines, sessions (recomputing `exerciseIds`), settings and measurements. Restoring a v1 file therefore leaves no measurements: a full restore replaces everything. Any error aborts the transaction and the previous data is intact.
 - `settings.lastBackupAt` (ISO) is set after each successfully saved/shared export (not on cancel or failure) and is part of the backup's `settings`. Settings UI: export, restore (blocked while a workout is active; confirm lists current vs file counts, offers "Export a backup first"), then settings and the active-session store are reloaded.
 - The caller (T4.04) must not keep an in-memory active session across a restore: reload app state afterwards.
-- `tests/fixtures/backup-v1.json` is the frozen v1 fixture: every future version must keep restoring it (`tests/backup-restore.test.ts`).
+- `tests/fixtures/backup-v1.json` and `backup-v2.json` are the frozen fixtures: every future version must keep restoring them (`tests/backup-restore.test.ts`).
 
 ## Reminder policy
 

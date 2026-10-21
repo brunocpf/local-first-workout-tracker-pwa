@@ -1,0 +1,323 @@
+{
+  "backupVersion": 2,
+  "app": {
+    "name": "workout-tracker",
+    "version": "0.0.0"
+  },
+  "exportedAt": "2026-03-03T09:00:00.000Z",
+  "data": {
+    "customExercises": [
+      {
+        "id": "custom-cable-y-raise",
+        "name": "Cable Y Raise",
+        "aliases": [
+          "Y Raise"
+        ],
+        "primaryMuscles": [
+          "side_delts"
+        ],
+        "secondaryMuscles": [
+          "upper_back"
+        ],
+        "equipment": [
+          "cable"
+        ],
+        "exerciseType": "weighted_reps",
+        "isUnilateral": true,
+        "isCustom": true,
+        "createdAt": "2026-01-10T18:00:00.000Z",
+        "updatedAt": "2026-01-10T18:00:00.000Z"
+      }
+    ],
+    "builtinExerciseState": [
+      {
+        "id": "back_squat",
+        "archivedAt": "2026-02-01T12:00:00.000Z"
+      },
+      {
+        "id": "barbell_bench_press",
+        "favorite": true,
+        "aliases": [
+          "Flat BB"
+        ]
+      }
+    ],
+    "programs": [
+      {
+        "id": "prog-ppl",
+        "name": "Push Pull",
+        "description": "Two-day split",
+        "daysPerWeek": 2,
+        "schedule": {
+          "type": "weekly",
+          "days": [
+            {
+              "day": "monday",
+              "routineId": "rt-push"
+            },
+            {
+              "day": "thursday",
+              "routineId": "rt-pull"
+            }
+          ]
+        },
+        "source": {
+          "name": "Self",
+          "url": "https://example.com/plan"
+        },
+        "schemaVersion": 1,
+        "createdAt": "2026-01-01T10:00:00.000Z",
+        "updatedAt": "2026-01-01T10:00:00.000Z"
+      }
+    ],
+    "routines": [
+      {
+        "id": "rt-pull",
+        "programId": "prog-ppl",
+        "programOrder": 1,
+        "name": "Pull",
+        "exercises": [
+          {
+            "id": "rt-pull-e1",
+            "exerciseId": "barbell_row",
+            "prescribedSets": [
+              {
+                "id": "rt-pull-e1-s1",
+                "type": "normal",
+                "repRange": [
+                  6,
+                  10
+                ],
+                "targetRir": 2
+              }
+            ],
+            "restSeconds": 120
+          }
+        ],
+        "createdAt": "2026-01-01T10:00:00.000Z",
+        "updatedAt": "2026-01-01T10:00:00.000Z"
+      },
+      {
+        "id": "rt-push",
+        "programId": "prog-ppl",
+        "programOrder": 0,
+        "name": "Push",
+        "description": "Heavy bench day",
+        "exercises": [
+          {
+            "id": "rt-push-e1",
+            "exerciseId": "barbell_bench_press",
+            "prescribedSets": [
+              {
+                "id": "rt-push-e1-w",
+                "type": "warmup",
+                "repRange": [
+                  8,
+                  8
+                ],
+                "targetWeight": 40
+              },
+              {
+                "id": "rt-push-e1-s1",
+                "type": "normal",
+                "repRange": [
+                  5,
+                  5
+                ],
+                "targetWeight": 80
+              }
+            ],
+            "restSeconds": 180,
+            "notes": "Pause the first rep"
+          },
+          {
+            "id": "rt-push-e2",
+            "exerciseId": "custom-cable-y-raise",
+            "prescribedSets": [
+              {
+                "id": "rt-push-e2-s1",
+                "type": "normal",
+                "repRange": [
+                  12,
+                  15
+                ]
+              }
+            ],
+            "supersetGroupId": "ss1"
+          }
+        ],
+        "createdAt": "2026-01-01T10:00:00.000Z",
+        "updatedAt": "2026-01-15T10:00:00.000Z"
+      }
+    ],
+    "sessions": [
+      {
+        "id": "sess-2026-02-26",
+        "routineId": "rt-push",
+        "programId": "prog-ppl",
+        "routineNameSnapshot": "Push",
+        "name": "Push",
+        "status": "completed",
+        "startedAt": "2026-02-26T18:00:00.000Z",
+        "endedAt": "2026-02-26T19:05:00.000Z",
+        "timeZone": "Europe/Lisbon",
+        "notes": "Felt strong",
+        "exercises": [
+          {
+            "id": "sess-2026-02-26-e1",
+            "exerciseId": "barbell_bench_press",
+            "exerciseNameSnapshot": "Barbell Bench Press",
+            "exerciseTypeSnapshot": "weighted_reps",
+            "prescribedSets": [
+              {
+                "id": "rt-push-e1-s1",
+                "type": "normal",
+                "repRange": [
+                  5,
+                  5
+                ],
+                "targetWeight": 80
+              }
+            ],
+            "restSeconds": 180,
+            "sets": [
+              {
+                "id": "set-1",
+                "type": "warmup",
+                "weight": 40,
+                "reps": 8,
+                "completedAt": "2026-02-26T18:05:00.000Z"
+              },
+              {
+                "id": "set-2",
+                "prescribedSetId": "rt-push-e1-s1",
+                "type": "normal",
+                "weight": 82.5,
+                "reps": 5,
+                "rpe": 8.5,
+                "completedAt": "2026-02-26T18:10:00.000Z",
+                "notes": "PR"
+              }
+            ]
+          },
+          {
+            "id": "sess-2026-02-26-e2",
+            "exerciseId": "custom-cable-y-raise",
+            "exerciseNameSnapshot": "Cable Y Raise",
+            "exerciseTypeSnapshot": "weighted_reps",
+            "supersetGroupId": "ss1",
+            "sets": [
+              {
+                "id": "set-3",
+                "type": "normal",
+                "weight": 5,
+                "reps": 15,
+                "completedAt": "2026-02-26T18:40:00.000Z"
+              }
+            ]
+          },
+          {
+            "id": "sess-2026-02-26-e3",
+            "exerciseId": "plank",
+            "exerciseNameSnapshot": "Plank",
+            "exerciseTypeSnapshot": "duration",
+            "sets": [
+              {
+                "id": "set-4",
+                "type": "normal",
+                "durationSeconds": 60,
+                "completedAt": "2026-02-26T18:55:00.000Z"
+              }
+            ]
+          }
+        ],
+        "createdAt": "2026-02-26T18:00:00.000Z",
+        "updatedAt": "2026-02-26T19:05:00.000Z"
+      },
+      {
+        "id": "sess-2026-03-02",
+        "routineId": "rt-pull",
+        "programId": "prog-ppl",
+        "routineNameSnapshot": "Pull",
+        "name": "Pull",
+        "status": "active",
+        "startedAt": "2026-03-02T08:30:00.000Z",
+        "timeZone": "America/Sao_Paulo",
+        "exercises": [
+          {
+            "id": "sess-2026-03-02-e1",
+            "exerciseId": "barbell_row",
+            "exerciseNameSnapshot": "Barbell Row",
+            "exerciseTypeSnapshot": "weighted_reps",
+            "prescribedSets": [
+              {
+                "id": "rt-pull-e1-s1",
+                "type": "normal",
+                "repRange": [
+                  6,
+                  10
+                ],
+                "targetRir": 2
+              }
+            ],
+            "restSeconds": 120,
+            "sets": [
+              {
+                "id": "set-5",
+                "prescribedSetId": "rt-pull-e1-s1",
+                "type": "normal",
+                "weight": 70,
+                "reps": 8,
+                "rir": 2,
+                "completedAt": "2026-03-02T08:45:00.000Z"
+              },
+              {
+                "id": "set-6",
+                "prescribedSetId": "rt-pull-e1-s1",
+                "type": "normal"
+              }
+            ]
+          }
+        ],
+        "restTimer": {
+          "endsAt": "2026-03-02T08:47:00.000Z",
+          "durationSeconds": 120
+        },
+        "createdAt": "2026-03-02T08:30:00.000Z",
+        "updatedAt": "2026-03-02T08:45:00.000Z"
+      }
+    ],
+    "settings": {
+      "weightUnit": "lb",
+      "defaultRestSeconds": 120,
+      "autoStartRestTimer": false,
+      "previousValuesMode": "routine",
+      "weekStartsOn": 0,
+      "theme": "dark"
+    },
+    "measurements": [
+      {
+        "id": "meas-bw-1",
+        "kind": "bodyweight",
+        "value": 82.4,
+        "measuredAt": "2026-02-20T07:30:00.000Z",
+        "timeZone": "Europe/Lisbon"
+      },
+      {
+        "id": "meas-bf-1",
+        "kind": "body_fat",
+        "value": 16.5,
+        "measuredAt": "2026-02-27T07:45:00.000Z",
+        "timeZone": "Europe/Lisbon",
+        "notes": "Calipers, morning"
+      },
+      {
+        "id": "meas-waist-1",
+        "kind": "waist",
+        "value": 84.2,
+        "measuredAt": "2026-03-02T08:00:00.000Z",
+        "timeZone": "Europe/Lisbon"
+      }
+    ]
+  }
+}

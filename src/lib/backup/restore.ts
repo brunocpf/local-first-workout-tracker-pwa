@@ -1,4 +1,4 @@
-import { backupV1, BACKUP_VERSION, type BackupV1 } from "#lib/backup/format";
+import { backupV2, BACKUP_VERSION, type BackupV2 } from "#lib/backup/format";
 import { SEED_EXERCISES } from "#lib/catalog/seed";
 import { db as defaultDb, SETTINGS_KEY, type AppDB } from "#lib/storage/db";
 import { exerciseIdsOf } from "#lib/storage/sessions";
@@ -8,7 +8,7 @@ import type { Exercise } from "#lib/types";
 export const MAX_BACKUP_BYTES = 50_000_000;
 const MAX_MESSAGES = 50;
 
-export type ParseBackupResult = { ok: true; backup: BackupV1 } | { ok: false; errors: string[] };
+export type ParseBackupResult = { ok: true; backup: BackupV2 } | { ok: false; errors: string[] };
 
 /** Thrown by `restoreBackup` when its input is not a valid backup; nothing was written. */
 export class InvalidBackupError extends Error {
@@ -43,20 +43,31 @@ export function validateBackup(raw: unknown): ParseBackupResult {
       ok: false,
       errors: [`This backup was made by a newer version of the app (format ${version}). Update the app, then restore again.`],
     };
-  // Older formats would be migrated here with pure vN → vN+1 functions (docs/backup-restore.md); v1 is the first.
-  if (version !== BACKUP_VERSION)
+  if (version !== 1 && version !== BACKUP_VERSION)
     return { ok: false, errors: [`Not a workout backup, or unsupported format version: ${String(version)}`] };
 
-  const r = backupV1.safeParse(raw);
+  const r = backupV2.safeParse(migrateBackup(raw));
   if (!r.success) return { ok: false, errors: cap(r.error.issues.map((i) => `${formatPath(i.path)}: ${i.message}`)) };
   const errors = integrityErrors(r.data);
   return errors.length ? { ok: false, errors: cap(errors) } : { ok: true, backup: r.data };
 }
 
+/**
+ * Brings an older backup up to `BACKUP_VERSION` with pure vN → vN+1 steps on the parsed JSON (the file is never rewritten).
+ * Input that isn't a plain object, or has no `data` object, is returned unchanged so validation reports it.
+ */
+function migrateBackup(raw: unknown): unknown {
+  const file = raw as { backupVersion?: unknown; data?: unknown };
+  if (file.backupVersion === 1 && typeof file.data === "object" && file.data !== null && !Array.isArray(file.data))
+    // v1 → v2: body measurements were added; a v1 file has none.
+    return { ...file, backupVersion: 2, data: { ...file.data, measurements: [] } };
+  return raw;
+}
+
 const SEED_IDS = new Set(SEED_EXERCISES.map((s) => s.id));
 
 /** Checks the schema cannot express. Each would otherwise fail mid-write or corrupt the catalog. */
-function integrityErrors({ data }: BackupV1): string[] {
+function integrityErrors({ data }: BackupV2): string[] {
   const errors: string[] = [];
   const unique = (name: string, ids: string[]) => {
     const seen = new Set<string>();
@@ -70,6 +81,7 @@ function integrityErrors({ data }: BackupV1): string[] {
   unique("programs", data.programs.map((p) => p.id));
   unique("routines", data.routines.map((r) => r.id));
   unique("sessions", data.sessions.map((s) => s.id));
+  unique("measurements", data.measurements.map((m) => m.id));
   data.customExercises.forEach((e, i) => {
     if (!e.isCustom) errors.push(`data.customExercises[${i}].isCustom: must be true`);
     if (SEED_IDS.has(e.id)) errors.push(`data.customExercises[${i}].id: ${e.id} is a built-in exercise id`);
@@ -107,7 +119,7 @@ export type DataSummary = {
 };
 
 /** Counts for the restore confirmation ("replaces N sessions…"). */
-export function summarizeBackup(backup: BackupV1): DataSummary {
+export function summarizeBackup(backup: BackupV2): DataSummary {
   const { sessions, routines, programs, customExercises } = backup.data;
   let latest: string | undefined;
   for (const s of sessions) if (!latest || Date.parse(s.startedAt) > Date.parse(latest)) latest = s.startedAt;
@@ -144,13 +156,13 @@ export async function summarizeCurrentData(database: AppDB = defaultDb): Promise
  * ignored. Session `exerciseIds` is recomputed.
  * Callers must not hold an in-memory active session across a restore (reload state afterwards).
  */
-export async function restoreBackup(backup: BackupV1, database: AppDB = defaultDb): Promise<void> {
+export async function restoreBackup(backup: BackupV2, database: AppDB = defaultDb): Promise<void> {
   // Plain copy first: `$state` proxies and foreign objects never reach Zod or IndexedDB.
   const checked = validateBackup(JSON.parse(JSON.stringify(backup)));
   if (!checked.ok) throw new InvalidBackupError(checked.errors);
   const { data } = checked.backup;
 
-  const tables = [database.exercises, database.programs, database.routines, database.sessions, database.settings];
+  const tables = [database.exercises, database.programs, database.routines, database.sessions, database.settings, database.measurements];
   await database.transaction("rw", tables, async () => {
     const previous = new Map((await database.exercises.filter((e) => !e.isCustom).toArray()).map((r) => [r.id, r]));
     const now = new Date().toISOString();
@@ -180,6 +192,7 @@ export async function restoreBackup(backup: BackupV1, database: AppDB = defaultD
     await database.routines.bulkAdd(data.routines);
     await database.sessions.bulkAdd(data.sessions.map((s) => ({ ...s, exerciseIds: exerciseIdsOf(s) })));
     await database.settings.put({ ...data.settings, key: SETTINGS_KEY });
+    await database.measurements.bulkAdd(data.measurements);
   });
 }
 

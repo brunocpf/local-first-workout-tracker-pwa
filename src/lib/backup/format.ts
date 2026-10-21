@@ -1,11 +1,14 @@
 import { z } from "zod";
 
+import { MEASUREMENT_KINDS, MEASUREMENT_MAX } from "#lib/types";
+
 /**
- * Backup file format v1 (docs/backup-restore.md is the spec). Independent of the Dexie schema:
+ * Backup file format v2 (docs/backup-restore.md is the spec). Independent of the Dexie schema:
  * it mirrors the domain types in #lib/types, so a future IndexedDB migration never changes the file.
  * Unknown keys are stripped on parse. Limits are generous; they only exist to bound untrusted input.
+ * v1 files (no `measurements`) are migrated forward by `migrateBackup` in restore.ts before this schema runs.
  */
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 
 const id = z.string().min(1).max(100);
 const iso = z.iso.datetime().max(40);
@@ -211,7 +214,18 @@ export const builtinExerciseStateSchema = z.object({
   aliases: z.array(tag).max(50).optional(),
 });
 
-export const backupV1 = z.object({
+export const measurementSchema = z
+  .object({
+    id,
+    kind: z.enum(MEASUREMENT_KINDS),
+    value: num.positive(),
+    measuredAt: iso,
+    timeZone: text(100),
+    notes: text(1000).optional(),
+  })
+  .refine((m) => m.value <= MEASUREMENT_MAX[m.kind], { path: ["value"], message: "value is out of range for this kind" });
+
+export const backupV2 = z.object({
   backupVersion: z.literal(BACKUP_VERSION),
   app: z.object({
     name: z.string().min(1).max(100),
@@ -225,7 +239,8 @@ export const backupV1 = z.object({
     routines: z.array(routineSchema).max(10_000),
     sessions: z.array(sessionSchema).max(100_000),
     settings: settingsSchema,
+    measurements: z.array(measurementSchema).max(100_000),
   }),
 });
 
-export type BackupV1 = z.infer<typeof backupV1>;
+export type BackupV2 = z.infer<typeof backupV2>;

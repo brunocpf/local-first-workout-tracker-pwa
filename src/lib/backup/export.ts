@@ -1,4 +1,4 @@
-import { backupV1, BACKUP_VERSION, type BackupV1 } from "#lib/backup/format";
+import { backupV2, BACKUP_VERSION, type BackupV2 } from "#lib/backup/format";
 import { SEED_EXERCISES_BY_ID } from "#lib/catalog/seed";
 import { db as defaultDb, SETTINGS_KEY, type AppDB } from "#lib/storage/db";
 import { DEFAULT_SETTINGS } from "#lib/storage/settings";
@@ -8,7 +8,7 @@ export const APP_NAME = "workout-tracker";
 // Keep in sync with package.json `version` (no build-time version plumbing exists yet).
 export const APP_VERSION = "0.0.0";
 
-type BuiltinState = BackupV1["data"]["builtinExerciseState"][number];
+type BuiltinState = BackupV2["data"]["builtinExerciseState"][number];
 
 /** Only what the user changed on a built-in exercise; null if nothing is worth saving. */
 function builtinState(row: Exercise): BuiltinState | null {
@@ -28,8 +28,8 @@ export async function buildBackup(
     appVersion = APP_VERSION,
   }: { now?: Date; appVersion?: string } = {},
   database: AppDB = defaultDb,
-): Promise<BackupV1> {
-  const { exercises, programs, routines, sessions, settings } =
+): Promise<BackupV2> {
+  const { exercises, programs, routines, sessions, settings, measurements } =
     await database.transaction(
       "r",
       [
@@ -38,6 +38,7 @@ export async function buildBackup(
         database.routines,
         database.sessions,
         database.settings,
+        database.measurements,
       ],
       async () => ({
         exercises: await database.exercises.toArray(),
@@ -45,6 +46,7 @@ export async function buildBackup(
         routines: await database.routines.toArray(),
         sessions: await database.sessions.toArray(),
         settings: await database.settings.get(SETTINGS_KEY),
+        measurements: await database.measurements.orderBy("measuredAt").toArray(),
       }),
     );
   const { key: _key, ...storedSettings } = settings ?? { key: SETTINGS_KEY };
@@ -68,13 +70,14 @@ export async function buildBackup(
       // `exerciseIds` is a derived index; restore recomputes it.
       sessions: sessions.map(({ exerciseIds: _ids, ...s }) => s),
       settings: mergedSettings,
+      measurements,
     },
   };
   // Parsing also strips unknown keys; failing here beats writing a file restore would reject.
-  return backupV1.parse(backup);
+  return backupV2.parse(backup);
 }
 
-export function serializeBackup(backup: BackupV1): Blob {
+export function serializeBackup(backup: BackupV2): Blob {
   return new Blob([JSON.stringify(backup)], { type: "application/json" });
 }
 

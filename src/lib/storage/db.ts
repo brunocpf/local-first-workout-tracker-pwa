@@ -1,5 +1,5 @@
 import Dexie, { type DexieOptions, type EntityTable } from "dexie";
-import type { Exercise, Program, Routine, UserSettings, WorkoutSession } from "#lib/types";
+import type { BodyMeasurement, Exercise, Program, Routine, UserSettings, WorkoutSession } from "#lib/types";
 
 // The app is served from github.io, whose IndexedDB namespace is shared by every project site of
 // the same user (brunocpf.github.io). The name must stay app-specific, unique and STABLE: renaming
@@ -53,6 +53,7 @@ export class AppDB extends Dexie {
   routines!: EntityTable<Routine, "id">;
   sessions!: EntityTable<WorkoutSession, "id">;
   settings!: EntityTable<StoredSettings, "key">;
+  measurements!: EntityTable<BodyMeasurement, "id">;
 
   readonly status: DbStatus = { versionChanged: false, blocked: false, slow: false };
   #listeners = new Set<(status: DbStatus) => void>();
@@ -70,6 +71,10 @@ export class AppDB extends Dexie {
       routines: "id, programId, folderId",
       sessions: "id, status, startedAt, routineId, [status+startedAt], *exerciseIds",
       settings: "key",
+    });
+    // v2 (body measurements): a new table only, so existing rows need no `upgrade`. Version 1 stays untouched.
+    this.version(2).stores({
+      measurements: "id, kind, measuredAt, [kind+measuredAt]",
     });
 
     // Another tab (newer app version) wants to upgrade or delete the database. Dexie's default would close

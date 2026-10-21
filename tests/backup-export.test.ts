@@ -5,7 +5,7 @@ import {
   buildBackup,
   serializeBackup,
 } from "#lib/backup/export";
-import { backupV1 } from "#lib/backup/format";
+import { backupV2 } from "#lib/backup/format";
 import {
   ensureCatalogSeeded,
   createCustomExercise,
@@ -105,16 +105,16 @@ beforeEach(async () => {
 });
 
 describe("buildBackup", () => {
-  it("validates against backupV1 and contains all user data", async () => {
+  it("validates against backupV2 and contains all user data", async () => {
     const custom = await createCustomExercise(
       { name: "My Lift", exerciseType: "weighted_reps" },
       d,
     );
     const b = await buildBackup({ now: new Date(T) }, d);
     expect(
-      backupV1.safeParse(JSON.parse(await serializeBackup(b).text())).success,
+      backupV2.safeParse(JSON.parse(await serializeBackup(b).text())).success,
     ).toBe(true);
-    expect(b.backupVersion).toBe(1);
+    expect(b.backupVersion).toBe(2);
     expect(b.exportedAt).toBe(T);
     expect(b.data.customExercises.map((e) => e.id)).toEqual([custom.id]);
     expect(b.data.programs).toEqual([program]);
@@ -171,7 +171,7 @@ describe("serialize / file name", () => {
   it("produces a JSON blob", async () => {
     const blob = serializeBackup(await buildBackup({}, d));
     expect(blob.type).toBe("application/json");
-    expect(JSON.parse(await blob.text()).backupVersion).toBe(1);
+    expect(JSON.parse(await blob.text()).backupVersion).toBe(2);
   });
 
   it("names the file with the local date", () => {
@@ -181,20 +181,20 @@ describe("serialize / file name", () => {
   });
 });
 
-describe("backupV1 schema", () => {
+describe("backupV2 schema", () => {
   it("rejects bad input", async () => {
     const good = JSON.parse(JSON.stringify(await buildBackup({}, d)));
-    expect(backupV1.safeParse({ ...good, backupVersion: 2 }).success).toBe(
+    expect(backupV2.safeParse({ ...good, backupVersion: 1 }).success).toBe(
       false,
     );
     expect(
-      backupV1.safeParse({
+      backupV2.safeParse({
         ...good,
         data: { ...good.data, sessions: [{ id: "x" }] },
       }).success,
     ).toBe(false);
     expect(
-      backupV1.safeParse({ ...good, exportedAt: "yesterday" }).success,
+      backupV2.safeParse({ ...good, exportedAt: "yesterday" }).success,
     ).toBe(false);
   });
 
@@ -202,6 +202,6 @@ describe("backupV1 schema", () => {
     await d.settings.put({ key: SETTINGS_KEY, lastBackupAt: T } as never);
     const backup = await buildBackup({}, d);
     expect(backup.data.settings.lastBackupAt).toBe(T);
-    expect(backupV1.parse(JSON.parse(JSON.stringify(backup))).data.settings.lastBackupAt).toBe(T);
+    expect(backupV2.parse(JSON.parse(JSON.stringify(backup))).data.settings.lastBackupAt).toBe(T);
   });
 });

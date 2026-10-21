@@ -7,6 +7,7 @@ Types live in `src/lib/types.ts` (logical model from PRD §15). Storage is Dexie
 - **Exercise**: catalog entry. `exerciseType`, `isUnilateral?`, `favorite?`. Archived, never deleted, once used.
 - **Program** → **Routine** → **RoutineExercise** → **PrescribedSet**: templates. Program membership is stored **only** on the routine (`Routine.programId` + `programOrder`); a routine belongs to at most one program. A program's routines are queried via the `routines.programId` index and sorted by `programOrder`. Array order is the order of exercises and sets (no `order` fields).
 - **WorkoutSession** → **SessionExercise** → **LoggedSet**: history and the active workout. Self-describing (see below).
+- **BodyMeasurement**: `{ id, kind, value, measuredAt, timeZone, notes? }` in the `measurements` table. `kind` is one of `bodyweight`, `body_fat`, `neck`, `shoulders`, `chest`, `waist`, `hips`, `arm`, `forearm`, `thigh`, `calf`; `value` is stored in **kg** for `bodyweight`, **%** for `body_fat` and **cm** for every other kind (display conversion is a UI concern), must be above 0 and at most `MEASUREMENT_MAX[kind]` (`types.ts`; body fat ≤ 100). `measuredAt` is an ISO UTC instant, `timeZone` an IANA zone for local-day grouping. Measurements are independent of sessions and routines. Repository: `src/lib/storage/measurements.ts` (`addMeasurement`, `listMeasurements({ kind?, limit? })` newest first, `deleteMeasurement`); `addMeasurement` validates and throws `InvalidMeasurementError`, rejecting non-canonical timestamps so string order equals time order. Measurements are in the backup (format v2).
 - **UserSettings**: single row in the `settings` table (key `"settings"`), merged over `DEFAULT_SETTINGS` on read. Plate calculator fields: `barWeightKg` (default 20) and `plateInventory` (`{ kg, lb }`, each a list of `{ weight, count }` where `count` is plates available per side; defaults in `src/lib/tools/plates.ts`). Both are in the backup `settings`. The calculator (`platesPerSide`) is pure: exact load when the inventory allows, otherwise the heaviest load not above the target, with the remainder reported.
 
 ## Conventions
@@ -85,13 +86,17 @@ All computed from raw sets (`src/lib/progress/metrics.ts`); **warm-up sets and s
 
 Database name: `workout-tracker` (`DB_NAME`). The app is hosted on GitHub Pages (`brunocpf.github.io/local-first-workout-tracker-pwa/`) and all of a user's project sites share one origin and therefore one IndexedDB namespace, so the name must be app-specific and unique. It must also stay **stable**: renaming it later strands existing data in the old database. Tests use unique per-test names.
 
-Tables and indexes (Dexie version 1):
+Tables and indexes (Dexie version 1, plus version 2 below):
 
 - `exercises`: `id, name, *aliases, isCustom, archivedAt`
 - `programs`: `id, name`
 - `routines`: `id, programId, folderId`
 - `sessions`: `id, status, startedAt, routineId, [status+startedAt], *exerciseIds`
 - `settings`: `key`
+
+Added in Dexie **version 2** (body measurements; `version(1)` is untouched and there is no `upgrade`, since a new table needs no data transformation):
+
+- `measurements`: `id, kind, measuredAt, [kind+measuredAt]` (per-kind history newest first via the compound index; all kinds via `measuredAt`).
 
 `WorkoutSession.exerciseIds` is a denormalized, de-duplicated list of the session's exercise IDs for the multi-entry index, so "previous values" and PR queries for one exercise don't scan all sessions. `saveSession` (and `startSession`/`finishSession`) recompute it; never set it by hand. `completedSessionsWithExercise(id, limit?)` returns completed sessions newest first (index lookup, then sorted in memory, since IndexedDB can't compound a multi-entry index).
 
@@ -134,8 +139,10 @@ Version 1 was edited in place only because no user data existed. From now on:
 
 1. Never edit a shipped `version(n)`. Add `this.version(n+1).stores({ …only changed tables… }).upgrade(tx => …)` after it.
 2. Never drop tables/fields that hold user data; transform in `upgrade`. Make upgrades idempotent and tolerant of missing fields.
-3. Add a fixture test in `tests/migrations.test.ts`: freeze the old `stores()` schema, write representative rows into a uniquely named DB with plain `Dexie`, close, open `AppDB` with the same name, and assert nothing is lost and new indexes work. Use unique DB names and delete them in `afterEach`.
-4. Bump the export `schemaVersion` and keep older exports importable.
+3. Add a fixture test (`tests/migrations.test.ts`, or one file per version such as `tests/migration-v2.test.ts`): freeze the old `stores()` schema, write representative rows into a uniquely named DB with plain `Dexie`, close, open `AppDB` with the same name, and assert nothing is lost and new indexes work. Use unique DB names and delete them in `afterEach`.
+4. Bump the export `backupVersion` and keep older exports importable (v1 → v2 is `migrateBackup` in `backup/restore.ts`; see docs/backup-restore.md).
+
+Version history: **1** initial schema; **2** `measurements` table (T8.15).
 
 ## Exercise catalog seed (`src/lib/catalog/`)
 
