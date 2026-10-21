@@ -16,7 +16,7 @@
   import { backupReminderDue } from "#lib/backup/reminder";
   import { exportAndRecord } from "#lib/backup/run";
   import { settings } from "#lib/settings.svelte";
-  import { listRoutinesGrouped } from "#lib/storage/routines";
+  import { listRoutinesGrouped, quickStartRoutines } from "#lib/storage/routines";
   import { listCompletedSessions } from "#lib/storage/sessions";
   import type { Routine, WorkoutSession } from "#lib/types";
 
@@ -64,8 +64,8 @@
 
   onMount(async () => {
     try {
-      const grouped = await listRoutinesGrouped();
-      routines = [...grouped.standalone, ...grouped.programs.flatMap((p) => p.routines)].slice(0, QUICK_START_MAX);
+      // Favorites first, then the rest as the Routines tab lists them.
+      routines = quickStartRoutines(await listRoutinesGrouped(), QUICK_START_MAX);
     } catch {
       // optional context: Home still works without it
     }

@@ -34,7 +34,7 @@ async function createRoutine(page: Page, name: string) {
   await page.getByRole("textbox", { name: "Name" }).fill(name);
   await addExercises(page, "barbell bench press", "back squat");
   await page.getByRole("button", { name: "Save routine" }).click();
-  await expect(page).toHaveURL(/\/routines\/[^/]+$/);
+  await expect(page).toHaveURL(/\/routines\/(?!new$)[^/]+$/);
 }
 
 test("create a routine, then reorder, remove + undo and edit it", async ({ page }) => {
@@ -134,7 +134,7 @@ test("prescription editor: sets, reps, rest, notes; 135 lb round-trips", async (
   await page.getByRole("textbox", { name: "Name" }).fill("Prescribed");
   await addExercises(page, "barbell bench press", "back squat");
   await page.getByRole("button", { name: "Save routine" }).click();
-  await expect(page).toHaveURL(/\/routines\/[^/]+$/);
+  await expect(page).toHaveURL(/\/routines\/(?!new$)[^/]+$/);
   await page.getByRole("link", { name: "Edit" }).click();
 
   await page.getByRole("button", { name: "Edit sets for Barbell Bench Press" }).click();
@@ -214,4 +214,54 @@ test("routines page does not scroll horizontally with long names", async ({ page
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `width ${width}`).toBeLessThanOrEqual(0);
   }
+});
+
+test("folders: create, move a routine in and out, favorite it, rename and delete the folder", async ({ page }) => {
+  // Navigate in-app after the first load: a hard load of a nested URL once the service worker is active can get
+  // root-relative assets wrong under `vite preview` (see tests/e2e/hevy.spec.ts).
+  await createRoutine(page, "Arms");
+  await page.goto("/routines");
+  await page.getByRole("main").getByRole("link", { name: "New routine" }).first().click();
+  await page.getByRole("textbox", { name: "Name" }).fill("Legs");
+  await addExercises(page, "back squat");
+  await page.getByRole("button", { name: "Save routine" }).click();
+  await expect(page).toHaveURL(/\/routines\/(?!new$)[^/]+$/);
+  await page.goto("/routines");
+
+  await page.getByRole("button", { name: "Options for Legs" }).click();
+  await page.getByRole("button", { name: "Add to favorites" }).click();
+  await page.getByRole("button", { name: "Options for Arms" }).click();
+  await page.getByRole("button", { name: "Move to folder…" }).click();
+  await page.getByRole("dialog", { name: 'Move "Arms"' }).getByRole("button", { name: "New folder…" }).click();
+  const form = page.getByRole("dialog", { name: "New folder" });
+  await form.getByRole("textbox", { name: "Folder name" }).fill("Accessories");
+  await form.getByRole("button", { name: "Create and move" }).click();
+
+  const folder = page.getByRole("list", { name: "Accessories" });
+  await expect(folder.getByRole("link", { name: /Arms/ })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Other routines" }).getByRole("link", { name: /Legs.*Favorite/ })).toBeVisible();
+
+  // Persisted: survives a reload, and Home lists the favorite first.
+  await page.reload();
+  await expect(page.getByRole("list", { name: "Accessories" }).getByRole("link", { name: /Arms/ })).toBeVisible();
+  const [stored] = await readStore<{ id: string; name: string }>(page, "folders");
+  expect(stored.name).toBe("Accessories");
+  await page.goto("/");
+  await expect(page.getByRole("region", { name: "Quick start" }).getByRole("listitem").first()).toContainText("Legs");
+  await page.goto("/routines");
+
+  await page.getByRole("button", { name: "Options for folder Accessories" }).click();
+  await page.getByRole("button", { name: "Rename…" }).click();
+  await page.getByRole("dialog", { name: "Rename folder" }).getByRole("textbox", { name: "Folder name" }).fill("Arms & abs");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("list", { name: "Arms & abs" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Options for folder Arms & abs" }).click();
+  await page.getByRole("button", { name: "Delete…" }).click();
+  await expect(page.getByText("Its 1 routine is kept and moved out of the folder.")).toBeVisible();
+  await page.getByRole("button", { name: "Delete folder" }).click();
+  await expect(page.getByRole("list", { name: "Routines" }).getByRole("link")).toHaveCount(2);
+  expect(await readStore(page, "folders")).toHaveLength(0);
+  const routines = await readStore<{ name: string; folderId?: string }>(page, "routines");
+  expect(routines.map((r) => [r.name, r.folderId]).sort()).toEqual([["Arms", undefined], ["Legs", undefined]]);
 });

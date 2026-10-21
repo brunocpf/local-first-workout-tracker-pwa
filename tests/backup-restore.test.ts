@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildBackup, serializeBackup } from "#lib/backup/export";
-import type { BackupV2 } from "#lib/backup/format";
+import type { BackupV3 } from "#lib/backup/format";
 import {
   InvalidBackupError,
   MAX_BACKUP_BYTES,
@@ -14,24 +14,32 @@ import {
 import { SEED_EXERCISES } from "#lib/catalog/seed";
 import { AppDB, SETTINGS_KEY } from "#lib/storage/db";
 import { createCustomExercise, ensureCatalogSeeded, isExerciseReferenced, setArchived, setFavorite } from "#lib/storage/exercises";
+import { groupByFolder, listRoutinesGrouped } from "#lib/storage/routines";
 import { DEFAULT_BAR_KG, DEFAULT_PLATE_INVENTORY } from "#lib/tools/plates";
 import type { WorkoutSession } from "#lib/types";
 
 const FIXTURE_TEXT = readFileSync("tests/fixtures/backup-v1.json", "utf8");
 const FIXTURE_V2_TEXT = readFileSync("tests/fixtures/backup-v2.json", "utf8");
+const FIXTURE_V3_TEXT = readFileSync("tests/fixtures/backup-v3.json", "utf8");
 const T = "2026-04-01T10:00:00.000Z";
 let n = 0;
 let d: AppDB;
 
 const freshDb = () => new AppDB(`restore-test-${Date.now()}-${n++}`);
 
-const parseV2 = (): BackupV2 => {
+const parseV2 = (): BackupV3 => {
   const r = parseBackup(FIXTURE_V2_TEXT);
   if (!r.ok) throw new Error(r.errors.join("\n"));
   return r.backup;
 };
 
-const fixture = (): BackupV2 => {
+const parseV3 = (): BackupV3 => {
+  const r = parseBackup(FIXTURE_V3_TEXT);
+  if (!r.ok) throw new Error(r.errors.join("\n"));
+  return r.backup;
+};
+
+const fixture = (): BackupV3 => {
   const r = parseBackup(FIXTURE_TEXT);
   if (!r.ok) throw new Error(r.errors.join("\n"));
   return r.backup;
@@ -42,6 +50,7 @@ const snapshot = async (database: AppDB) => ({
   exercises: await database.exercises.toArray(),
   programs: await database.programs.toArray(),
   routines: await database.routines.toArray(),
+  folders: await database.folders.toArray(),
   sessions: await database.sessions.toArray(),
   settings: await database.settings.toArray(),
   measurements: await database.measurements.toArray(),
@@ -80,7 +89,8 @@ async function seedExistingData(database: AppDB) {
   await createCustomExercise({ name: "Old Custom", exerciseType: "weighted_reps" }, database);
   await setFavorite("leg_press", true, database);
   await setArchived("barbell_bench_press", true, database);
-  await database.routines.add({ id: "old-routine", name: "Old", exercises: [], createdAt: T, updatedAt: T });
+  await database.folders.add({ id: "old-folder", name: "Old folder", createdAt: T, updatedAt: T });
+  await database.routines.add({ id: "old-routine", name: "Old", exercises: [], folderId: "old-folder", favorite: true, createdAt: T, updatedAt: T });
   await database.sessions.bulkAdd([session("old-1", T), session("old-2", "2026-04-05T10:00:00.000Z")]);
   await database.measurements.add({ id: "old-m", kind: "bodyweight", value: 90, measuredAt: T, timeZone: "UTC" });
   await database.settings.put({
@@ -99,9 +109,43 @@ beforeEach(() => {
 });
 
 describe("parseBackup", () => {
-  it("migrates a v1 file forward to v2 with no measurements", () => {
+  it("migrates a v1 file forward to v3 with no measurements and no folders", () => {
     const r = parseBackup(FIXTURE_TEXT);
-    expect(r.ok && [r.backup.backupVersion, r.backup.data.measurements]).toEqual([2, []]);
+    expect(r.ok && [r.backup.backupVersion, r.backup.data.measurements, r.backup.data.folders]).toEqual([3, [], []]);
+  });
+
+  it("migrates a v2 file forward to v3 with no folders, keeping its measurements", () => {
+    const r = parseBackup(FIXTURE_V2_TEXT);
+    expect(r.ok && [r.backup.backupVersion, r.backup.data.folders, r.backup.data.measurements.length]).toEqual([3, [], 3]);
+  });
+
+  it("accepts the frozen v3 fixture with its folders and routine favorites", () => {
+    const r = parseBackup(FIXTURE_V3_TEXT);
+    if (!r.ok) throw new Error(r.errors.join("\n"));
+    expect(r.backup.data.folders.map((f) => f.id)).toEqual(["fold-accessories", "fold-deload"]);
+    expect(r.backup.data.routines.filter((x) => x.favorite).map((x) => x.id)).toEqual(["rt-arms", "rt-push"]);
+    // A `folderId` that matches no folder is accepted (listed as no folder), like an unknown `programId`.
+    expect(r.backup.data.routines.find((x) => x.id === "rt-zz-orphan")?.folderId).toBe("fold-gone");
+  });
+
+  it("requires folders in a v3 file and rejects invalid ones with their path", () => {
+    const raw = JSON.parse(FIXTURE_V3_TEXT);
+    expect(parseBackup(JSON.stringify({ ...raw, data: { ...raw.data, folders: undefined } })).ok).toBe(false);
+
+    raw.data.folders[0].name = "";
+    raw.data.folders[1].createdAt = "yesterday";
+    raw.data.routines[0].favorite = "yes";
+    const r = parseBackup(JSON.stringify(raw));
+    expect(!r.ok && r.errors).toEqual([
+      expect.stringMatching(/^data\.routines\[0\]\.favorite: /),
+      expect.stringMatching(/^data\.folders\[0\]\.name: /),
+      expect.stringMatching(/^data\.folders\[1\]\.createdAt: /),
+    ]);
+
+    const dup = JSON.parse(FIXTURE_V3_TEXT);
+    dup.data.folders.push({ ...dup.data.folders[0] });
+    const d2 = parseBackup(JSON.stringify(dup));
+    expect(!d2.ok && d2.errors).toEqual(["data.folders[2].id: duplicate id fold-accessories"]);
   });
 
   it("accepts the frozen v2 fixture and keeps its measurements", () => {
@@ -178,7 +222,7 @@ describe("parseBackup", () => {
   });
 
   it("asks to update the app for a newer format version", () => {
-    const r = parseBackup(JSON.stringify({ ...JSON.parse(FIXTURE_TEXT), backupVersion: 3 }));
+    const r = parseBackup(JSON.stringify({ ...JSON.parse(FIXTURE_V3_TEXT), backupVersion: 4 }));
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errors[0]).toMatch(/newer version.*Update the app/);
   });
@@ -287,9 +331,10 @@ describe("restoreBackup", () => {
     const out = await buildBackup({ now: new Date("2026-03-02T09:00:00.000Z") }, d);
     // The fixture predates `timerSound`: an old backup restores, and export fills in the default.
     const expected = JSON.parse(FIXTURE_TEXT);
-    // A v1 file is migrated forward: new format version, no measurements.
-    expected.backupVersion = 2;
+    // A v1 file is migrated forward: new format version, no measurements, no folders.
+    expected.backupVersion = 3;
     expected.data.measurements = [];
+    expected.data.folders = [];
     expected.data.settings.timerSound = true;
     // Settings added after the fixture was frozen come back as defaults.
     expected.data.settings.backupReminderDays = 14;
@@ -307,6 +352,9 @@ describe("restoreBackup", () => {
     expect((await d.measurements.get("meas-bf-1"))?.notes).toBe("Calipers, morning");
     const out = await buildBackup({ now: new Date("2026-03-03T09:00:00.000Z") }, d);
     const expected = JSON.parse(FIXTURE_V2_TEXT);
+    // A v2 file is migrated forward: new format version, no folders.
+    expected.backupVersion = 3;
+    expected.data.folders = [];
     expected.data.settings.timerSound = true;
     expected.data.settings.backupReminderDays = 14;
     expected.data.settings.backupReminderSessions = 10;
@@ -315,6 +363,47 @@ describe("restoreBackup", () => {
     expected.data.settings.barWeightKg = DEFAULT_BAR_KG;
     expected.data.settings.plateInventory = DEFAULT_PLATE_INVENTORY;
     expect(out).toEqual(expected);
+  });
+
+  it("restores the frozen v3 fixture exactly, folders and favorites included", async () => {
+    await restoreBackup(parseV3(), d);
+    const grouped = await listRoutinesGrouped(d);
+    const { folders, unfiled } = groupByFolder(grouped);
+    expect(folders.map((f) => [f.folder.name, f.routines.map((r) => r.id)])).toEqual([
+      ["Accessories", ["rt-arms"]],
+      ["Deload weeks", []],
+    ]);
+    // The routine whose folder is gone is still listed, in no folder; its stored `folderId` is kept.
+    expect(unfiled.map((r) => r.id)).toEqual(["rt-zz-orphan"]);
+    expect((await d.routines.get("rt-zz-orphan"))?.folderId).toBe("fold-gone");
+    expect((await d.routines.get("rt-push"))?.favorite).toBe(true);
+    const out = await buildBackup({ now: new Date("2026-03-04T09:00:00.000Z") }, d);
+    const expected = JSON.parse(FIXTURE_V3_TEXT);
+    expected.data.settings.timerSound = true;
+    expected.data.settings.backupReminderDays = 14;
+    expected.data.settings.backupReminderSessions = 10;
+    expected.data.settings.effortInput = "off";
+    expected.data.settings.lengthUnit = "cm";
+    expected.data.settings.barWeightKg = DEFAULT_BAR_KG;
+    expected.data.settings.plateInventory = DEFAULT_PLATE_INVENTORY;
+    expect(out).toEqual(expected);
+  });
+
+  it("restoring a v2 backup replaces existing folders with none", async () => {
+    await seedExistingData(d);
+    expect(await d.folders.count()).toBe(1);
+    await restoreBackup(parseV2(), d);
+    expect(await d.folders.count()).toBe(0);
+    expect(await d.routines.get("old-routine")).toBeUndefined();
+  });
+
+  it("a failure while writing folders leaves existing data untouched", async () => {
+    await seedExistingData(d);
+    const before = await snapshot(d);
+    const spy = vi.spyOn(d.folders, "bulkAdd").mockRejectedValueOnce(new Error("boom"));
+    await expect(restoreBackup(parseV3(), d)).rejects.toThrow("boom");
+    spy.mockRestore();
+    expect(await snapshot(d)).toEqual(before);
   });
 
   it("restoring a v1 backup replaces existing measurements with none", async () => {
@@ -393,7 +482,7 @@ describe("restoreBackup", () => {
     expect(await exported(target)).toEqual(before);
 
     // Restoring into the same (wiped) database works too.
-    await Promise.all([d.exercises, d.programs, d.routines, d.sessions, d.settings].map((t) => t.clear()));
+    await Promise.all([d.exercises, d.programs, d.routines, d.folders, d.sessions, d.settings, d.measurements].map((t) => t.clear()));
     await restoreBackup(parsed.backup, d);
     expect(await exported(d)).toEqual(before);
   });
@@ -420,7 +509,7 @@ describe("restoreBackup", () => {
     const dup = fixture();
     dup.data.routines.push(dup.data.routines[0]);
     await expect(restoreBackup(dup, d)).rejects.toBeInstanceOf(InvalidBackupError);
-    await expect(restoreBackup({} as BackupV2, d)).rejects.toBeInstanceOf(InvalidBackupError);
+    await expect(restoreBackup({} as BackupV3, d)).rejects.toBeInstanceOf(InvalidBackupError);
     expect(await snapshot(d)).toEqual(before);
   });
 

@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import { shouldRemindBackup } from "#lib/backup/reminder";
-import { backupV2 } from "#lib/backup/format";
+import { backupV3 } from "#lib/backup/format";
 import { buildBackup } from "#lib/backup/export";
 import { db, SETTINGS_KEY } from "#lib/storage/db";
 import { countCompletedSince, finishSession, startSession } from "#lib/storage/sessions";
@@ -64,7 +64,7 @@ describe("reminder settings", () => {
   it("round-trips through the backup format", async () => {
     await db.settings.put({ ...DEFAULT_SETTINGS, key: SETTINGS_KEY, backupReminderDays: 0, backupReminderSessions: 25 } as never);
     const backup = await buildBackup({});
-    const parsed = backupV2.parse(JSON.parse(JSON.stringify(backup)));
+    const parsed = backupV3.parse(JSON.parse(JSON.stringify(backup)));
     expect(parsed.data.settings.backupReminderDays).toBe(0);
     expect(parsed.data.settings.backupReminderSessions).toBe(25);
   });

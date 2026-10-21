@@ -19,7 +19,7 @@ function newerVersion(name: string) {
   return new (class extends AppDB {
     constructor() {
       super(name);
-      this.version(3).stores({ sessions: "id, status, startedAt, routineId, [status+startedAt], *exerciseIds, endedAt" });
+      this.version(this.verno + 1).stores({ sessions: "id, status, startedAt, routineId, [status+startedAt], *exerciseIds, endedAt" });
     }
   })();
 }
@@ -47,7 +47,7 @@ describe("versionchange (another tab opens a newer schema)", () => {
     expect(first.status.versionChanged).toBe(true);
     expect(changes).toEqual([true]);
     expect(first.isOpen()).toBe(false);
-    expect(next.verno).toBe(3);
+    expect(next.verno).toBe(first.verno + 1);
     expect(await next.settings.get("settings")).toMatchObject({ weightUnit: "lb" });
     // No silent auto-reopen with the old schema code.
     await expect(first.sessions.toArray()).rejects.toThrow(Dexie.DatabaseClosedError);
