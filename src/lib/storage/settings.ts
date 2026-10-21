@@ -4,6 +4,7 @@ import { DEFAULT_BAR_KG, DEFAULT_PLATE_INVENTORY } from "#lib/tools/plates";
 
 export const DEFAULT_SETTINGS: UserSettings = {
   weightUnit: "kg",
+  lengthUnit: "cm",
   defaultRestSeconds: 90,
   autoStartRestTimer: true,
   timerSound: true,

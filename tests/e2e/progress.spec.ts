@@ -111,3 +111,121 @@ test("overview shows weekly muscle sets and monthly stats with month navigation"
   await expect(page.locator(".month-name")).not.toHaveText(before);
   await expect(page.getByRole("button", { name: "Next month" })).toBeEnabled();
 });
+
+type StoredMeasurement = { kind: string; value: number };
+const storedMeasurements = (page: Page) =>
+  page.evaluate(
+    () =>
+      new Promise<StoredMeasurement[]>((resolve, reject) => {
+        const open = indexedDB.open("workout-tracker");
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const req = open.result.transaction("measurements").objectStore("measurements").getAll();
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        };
+      }),
+  );
+
+/** Waits for a settings change to be written to IndexedDB (the UI updates first, and a navigation can abort a write in flight). */
+const settingStored = (page: Page, key: string, value: string) =>
+  expect
+    .poll(() =>
+      page.evaluate(
+        (k) =>
+          new Promise((resolve, reject) => {
+            const open = indexedDB.open("workout-tracker");
+            open.onerror = () => reject(open.error);
+            open.onsuccess = () => {
+              const req = open.result.transaction("settings").objectStore("settings").getAll();
+              req.onsuccess = () => resolve(req.result[0]?.[k]);
+              req.onerror = () => reject(req.error);
+            };
+          }),
+        key,
+      ),
+    )
+    .toBe(value);
+
+/** Opens the page client-side: a hard load of a nested route can be answered by a service worker holding a root-relative shell under `vite preview` (see the exercise detail test). */
+async function openBody(page: Page) {
+  await page.goto("/progress");
+  await page.getByRole("link", { name: /Body measurements/ }).click();
+  await expect(page).toHaveURL(/\/progress\/body$/);
+}
+
+test("body measurements: log bodyweight, see it listed and charted, persist, delete", async ({ page }) => {
+  await openBody(page);
+  await expect(page.getByText("No bodyweight yet")).toBeVisible();
+
+  await page.getByRole("textbox", { name: "Bodyweight" }).fill("82,5");
+  await page.getByRole("button", { name: "Log bodyweight" }).click();
+  const entries = page.getByRole("list", { name: "Bodyweight entries" });
+  await expect(entries).toContainText("82.5 kg");
+  await expect(page.getByRole("img", { name: /Bodyweight/ })).toBeVisible();
+  expect((await storedMeasurements(page)).map((m) => [m.kind, m.value])).toEqual([["bodyweight", 82.5]]);
+
+  await page.getByRole("textbox", { name: "Bodyweight" }).fill("0");
+  await page.getByRole("button", { name: "Log bodyweight" }).click();
+  await expect(page.getByText("Enter a value above 0.")).toBeVisible();
+  expect(await storedMeasurements(page)).toHaveLength(1);
+
+  await openBody(page);
+  await expect(page.getByRole("list", { name: "Bodyweight entries" })).toContainText("82.5 kg");
+
+  await page.getByRole("button", { name: /^Delete bodyweight 82.5 kg/ }).click();
+  await page.getByRole("button", { name: "Delete measurement", exact: true }).click();
+  await expect(page.getByText("No bodyweight yet")).toBeVisible();
+  expect(await storedMeasurements(page)).toHaveLength(0);
+});
+
+test("body measurements round-trip in lb and in, stored as kg and cm", async ({ page }) => {
+  await page.goto("/settings");
+  await page.getByRole("radio", { name: "lb" }).check({ force: true });
+  await page.getByRole("radio", { name: "in", exact: true }).check({ force: true });
+  await settingStored(page, "weightUnit", "lb");
+  await settingStored(page, "lengthUnit", "in");
+
+  await openBody(page);
+  await page.getByRole("textbox", { name: "Bodyweight" }).fill("180.5");
+  await page.getByRole("button", { name: "Log bodyweight" }).click();
+  await expect(page.getByRole("list", { name: "Bodyweight entries" })).toContainText("180.5 lb");
+  // The toast sits over the lower form on a phone and would swallow the next click.
+  await page.getByRole("region", { name: "Notifications" }).getByRole("button", { name: "Dismiss" }).click();
+
+  await page.getByLabel("Measurement").selectOption("waist");
+  await page.getByRole("textbox", { name: "Value" }).fill("32.5");
+  await page.getByRole("button", { name: "Add measurement" }).click();
+  await expect(page.getByRole("list", { name: "Waist entries" })).toContainText("32.5 in");
+
+  const stored = Object.fromEntries((await storedMeasurements(page)).map((m) => [m.kind, m.value]));
+  expect(stored.bodyweight).toBeCloseTo(180.5 * 0.45359237, 6);
+  expect(stored.waist).toBeCloseTo(32.5 * 2.54, 6);
+
+  await openBody(page);
+  await page.getByLabel("Show").selectOption("waist");
+  await expect(page.getByRole("list", { name: "Waist entries" })).toContainText("32.5 in");
+  await page.getByLabel("Show").selectOption("bodyweight");
+  await expect(page.getByRole("list", { name: "Bodyweight entries" })).toContainText("180.5 lb");
+
+  // Switching the display units re-reads the same stored values.
+  await page.goto("/settings");
+  await page.getByRole("radio", { name: "kg" }).check({ force: true });
+  await page.getByRole("radio", { name: "cm" }).check({ force: true });
+  await settingStored(page, "weightUnit", "kg");
+  await settingStored(page, "lengthUnit", "cm");
+  await openBody(page);
+  await expect(page.getByRole("list", { name: "Bodyweight entries" })).toContainText("81.87 kg");
+  await page.getByLabel("Show").selectOption("waist");
+  await expect(page.getByRole("list", { name: "Waist entries" })).toContainText("82.55 cm");
+});
+
+test("body measurements page has no horizontal overflow at 320px", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await openBody(page);
+  await page.getByRole("textbox", { name: "Bodyweight" }).fill("82.5");
+  await page.getByRole("button", { name: "Log bodyweight" }).click();
+  await expect(page.getByRole("list", { name: "Bodyweight entries" })).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});

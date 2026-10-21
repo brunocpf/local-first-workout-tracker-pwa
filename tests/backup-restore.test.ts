@@ -295,6 +295,7 @@ describe("restoreBackup", () => {
     expected.data.settings.backupReminderDays = 14;
     expected.data.settings.backupReminderSessions = 10;
     expected.data.settings.effortInput = "off";
+    expected.data.settings.lengthUnit = "cm";
     expected.data.settings.barWeightKg = DEFAULT_BAR_KG;
     expected.data.settings.plateInventory = DEFAULT_PLATE_INVENTORY;
     expect(out).toEqual(expected);
@@ -310,6 +311,7 @@ describe("restoreBackup", () => {
     expected.data.settings.backupReminderDays = 14;
     expected.data.settings.backupReminderSessions = 10;
     expected.data.settings.effortInput = "off";
+    expected.data.settings.lengthUnit = "cm";
     expected.data.settings.barWeightKg = DEFAULT_BAR_KG;
     expected.data.settings.plateInventory = DEFAULT_PLATE_INVENTORY;
     expect(out).toEqual(expected);

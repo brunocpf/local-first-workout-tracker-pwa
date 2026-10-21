@@ -155,7 +155,7 @@ for (const [label, fontSize] of [["100%", "100%"], ["200% text", "200%"]] as con
         await expect(page.getByRole("heading").first()).toBeVisible();
         expect(await hasHorizontalScroll(page), path).toBe(false);
       };
-      for (const path of ["/", "/history", "/routines", "/routines/new", "/routines/import", "/exercises", "/progress", "/settings"]) {
+      for (const path of ["/", "/history", "/routines", "/routines/new", "/routines/import", "/exercises", "/progress", "/progress/body", "/settings"]) {
         await reflows(path);
       }
 
