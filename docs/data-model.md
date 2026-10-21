@@ -53,18 +53,20 @@ Stored in kg. `lbToKg`/`kgToLb`/`toKg` (`src/lib/units.ts`) convert; user input 
 |---|---|---|
 | `weighted_reps` | load lifted | yes (`weight × reps`) |
 | `bodyweight_reps` | unused | no (track reps) |
-| `weighted_bodyweight` | **added** load (weighted pull-up) | no, until bodyweight measurements exist |
-| `assisted_bodyweight` | **assistance** (lower = better) | no, until bodyweight measurements exist |
+| `weighted_bodyweight` | **added** load (weighted pull-up) | yes with a known bodyweight (`(bodyweight + weight) × reps`), else no |
+| `assisted_bodyweight` | **assistance** (lower = better) | yes with a known bodyweight (`(bodyweight − weight) × reps`), else no |
 | `duration` / `distance` | unused | no |
 
-`exerciseVolume(sets, type)` returns 0 for everything but `weighted_reps`. Once bodyweight is recorded, effective load = bodyweight ± logged weight and these can join volume. Their progress is shown with per-exercise best weight/reps (for assisted, *lower* weight is progress; the PR code is `weighted_reps` only for now). `isUnilateral`: reps are per side and never doubled.
+**Bodyweight-aware load** (`src/lib/progress/metrics.ts`). `bodyweightOn(measurements, date)` returns the latest `bodyweight` measurement (kg) whose local day (in the measurement's own `timeZone`) is on or before the session's local date `YYYY-MM-DD`, so a measurement taken later the same day counts and one taken after the session never does; none → `undefined`. `effectiveLoad(weight, type, bodyweightKg)` is `bodyweight + weight` for `weighted_bodyweight` and `max(0, bodyweight − weight)` for `assisted_bodyweight` (a missing weight counts 0). `exerciseVolume(sets, type, bodyweightKg?)` uses it as the set's weight for those two types; **without a bodyweight (or for `bodyweight_reps`, `duration`, `distance`) they stay at 0 and nothing else changes**, so a caller that passes no bodyweight behaves exactly as before. The measured bodyweight is a snapshot at the session's date, not stored on the session, so editing or deleting measurements changes derived numbers, never raw sets.
+
+**PRs for bodyweight exercises.** `withEffectiveLoad(sets, type, bodyweightKg)` returns the sets with `weight` replaced by the effective load, so `personalRecords`, `prTimeline`, e1RM and session volume apply unchanged (give each session's sets its own bodyweight before building `PrSession`s). For assisted exercises *less assistance is a higher effective load*, so it is a PR and more assistance is not; for weighted ones more added load is. The PR values are effective loads in kg, not the logged weight. A bodyweight change therefore moves the load too (lose 2 kg at the same assistance and the effective load drops). `exerciseSeries(sessions, id, { measurements })` does this per session (`maxWeight`, `e1rm`, `volume` become effective-load numbers for these types); without bodyweight measurements the points are as before. Existing screens don't pass measurements yet, so they still exclude these exercises until they are wired to `listMeasurements({ kind: "bodyweight" })`. `isUnilateral`: reps are per side and never doubled.
 
 ## Metrics definitions
 
 All computed from raw sets (`src/lib/progress/metrics.ts`); **warm-up sets and sets without `completedAt` are excluded** everywhere.
 
 - Set volume = `weight × reps` (missing values count 0). Drop and failure sets count.
-- Exercise volume = sum of set volumes (`weighted_reps` only, above).
+- Exercise volume = sum of set volumes (`weighted_reps`; weighted/assisted bodyweight too once a bodyweight is known, above).
 - Estimated 1RM: Epley `w × (1 + reps/30)`, valid for 1–12 reps; **1 rep returns the weight itself**; `undefined` outside 1–12 or for weight ≤ 0.
 - PRs per exercise (`personalRecords`, input = sets grouped per session):
   - **Max weight**: heaviest counted set with ≥ 1 rep (any rep count).

@@ -1,4 +1,5 @@
-import type { ExerciseType, LoggedSet } from "#lib/types";
+import { localDate } from "#lib/time";
+import type { BodyMeasurement, ExerciseType, LoggedSet } from "#lib/types";
 
 /** A set counts toward metrics when it is completed and not a warm-up. */
 export const isCounted = (s: LoggedSet) =>
@@ -10,16 +11,55 @@ export function setVolume(s: LoggedSet): number {
 }
 
 /**
- * Volume of an exercise's sets. Only `weighted_reps` contributes: bodyweight-type exercises
- * need a bodyweight measurement to be meaningful and are excluded (0) until one exists.
+ * Latest bodyweight (kg) measured on or before the local calendar day `date` ("YYYY-MM-DD"), where each
+ * measurement's day is taken in its own `timeZone`; later the same day counts. Any order. `undefined` when
+ * there is none, in which case bodyweight-type exercises stay out of volume and PRs.
+ */
+export function bodyweightOn(measurements: readonly BodyMeasurement[], date: string): number | undefined {
+  let best: BodyMeasurement | undefined;
+  for (const m of measurements) {
+    if (m.kind !== "bodyweight" || localDate({ startedAt: m.measuredAt, timeZone: m.timeZone }) > date) continue;
+    if (!best || m.measuredAt > best.measuredAt) best = m;
+  }
+  return best?.value;
+}
+
+/** Types whose logged weight is relative to bodyweight (added or assistance). */
+export const hasEffectiveLoad = (type: ExerciseType) => type === "weighted_bodyweight" || type === "assisted_bodyweight";
+
+/**
+ * Load actually moved (kg) by a `weighted_bodyweight` (bodyweight + added weight) or `assisted_bodyweight`
+ * (bodyweight - assistance, floored at 0) set; `undefined` for other types or without a bodyweight.
+ */
+export function effectiveLoad(weight: number | undefined, type: ExerciseType, bodyweightKg: number | undefined): number | undefined {
+  if (bodyweightKg === undefined) return undefined;
+  if (type === "weighted_bodyweight") return bodyweightKg + (weight ?? 0);
+  if (type === "assisted_bodyweight") return Math.max(0, bodyweightKg - (weight ?? 0));
+  return undefined;
+}
+
+/**
+ * The sets with `weight` replaced by the effective load, so the `weighted_reps` metrics (volume, PRs, e1RM)
+ * apply unchanged; for assisted sets less assistance means a higher load, i.e. progress. Other types and an
+ * unknown bodyweight return the sets untouched.
+ */
+export function withEffectiveLoad(sets: LoggedSet[], type: ExerciseType, bodyweightKg: number | undefined): LoggedSet[] {
+  if (bodyweightKg === undefined || !hasEffectiveLoad(type)) return sets;
+  return sets.map((s) => ({ ...s, weight: effectiveLoad(s.weight, type, bodyweightKg) }));
+}
+
+/**
+ * Volume of an exercise's sets. `weighted_reps` always contributes. Weighted and assisted bodyweight exercises
+ * contribute `effective load x reps` once a `bodyweightKg` is known and 0 until then; the other types are 0.
  */
 export function exerciseVolume(
   sets: LoggedSet[],
   type: ExerciseType = "weighted_reps",
+  bodyweightKg?: number,
 ): number {
-  return type === "weighted_reps"
-    ? sets.reduce((a, s) => a + setVolume(s), 0)
-    : 0;
+  if (type === "weighted_reps") return sets.reduce((a, s) => a + setVolume(s), 0);
+  if (bodyweightKg === undefined || !hasEffectiveLoad(type)) return 0;
+  return withEffectiveLoad(sets, type, bodyweightKg).reduce((a, s) => a + setVolume(s), 0);
 }
 
 /** Epley estimate; only defined for 1..12 reps (see docs/data-model.md). */
