@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  playCountdownCue,
   playRestDoneAlert,
+  playTestAlert,
+  vibrationSupported,
   prepareAlerts,
   resetAlertsForTests,
 } from "#lib/alerts";
@@ -79,5 +82,35 @@ describe("rest-done alerts", () => {
     const { ctx } = stubAudio();
     prepareAlerts();
     expect(ctx.resume).toHaveBeenCalled();
+  });
+
+  it("skips vibration when turned off", () => {
+    stubAudio();
+    const vibrate = vi.fn(() => true);
+    Object.defineProperty(navigator, "vibrate", { value: vibrate, configurable: true });
+    playRestDoneAlert({ sound: true, vibrate: false });
+    expect(vibrate).not.toHaveBeenCalled();
+  });
+
+  it("reports vibration support (absent on iOS)", () => {
+    expect(vibrationSupported()).toBe(false);
+    Object.defineProperty(navigator, "vibrate", { value: () => true, configurable: true });
+    expect(vibrationSupported()).toBe(true);
+  });
+
+  it("plays a single tick for the countdown cue", () => {
+    const { ctx } = stubAudio();
+    const vibrate = vi.fn(() => true);
+    Object.defineProperty(navigator, "vibrate", { value: vibrate, configurable: true });
+    playCountdownCue({ sound: true });
+    expect(ctx.createOscillator).toHaveBeenCalledTimes(1);
+    expect(vibrate).toHaveBeenCalledWith([80]);
+  });
+
+  it("test alert unlocks audio and plays the rest-done alert", () => {
+    const { ctx } = stubAudio();
+    playTestAlert({ sound: true, vibrate: false });
+    expect(ctx.resume).toHaveBeenCalled();
+    expect(ctx.createOscillator).toHaveBeenCalledTimes(2);
   });
 });

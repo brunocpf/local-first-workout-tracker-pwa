@@ -14,6 +14,7 @@
   import PageHeader from "#lib/components/ui/PageHeader.svelte";
   import SegmentedControl from "#lib/components/ui/SegmentedControl.svelte";
   import Switch from "#lib/components/ui/Switch.svelte";
+  import { playTestAlert, vibrationSupported } from "#lib/alerts";
   import { formatBytes } from "#lib/diagnostics";
   import { isPushConfigured } from "#lib/push";
   import { isStandalone } from "#lib/pwa/install";
@@ -27,9 +28,11 @@
   let persistence = $state<PersistenceStatus>();
   let requesting = $state(false);
   let saveError = $state("");
+  let canVibrate = $state(false);
 
   onMount(async () => {
     standalone = isStandalone();
+    canVibrate = vibrationSupported();
     persistence = await getPersistenceStatus();
   });
 
@@ -101,6 +104,26 @@
         description="Start the timer when you complete a set."
         bind:checked={() => settings.autoStartRestTimer, (v) => save({ autoStartRestTimer: v })}
       />
+      <Switch
+        label="Rest-done sound"
+        bind:checked={() => settings.timerSound !== false, (v) => save({ timerSound: v })}
+      />
+      {#if canVibrate}
+        <Switch
+          label="Rest-done vibration"
+          bind:checked={() => settings.timerVibration !== false, (v) => save({ timerVibration: v })}
+        />
+      {/if}
+      <Switch
+        label="10-second warning"
+        description="A short cue when 10 seconds of rest remain."
+        bind:checked={() => settings.timerCountdownCue === true, (v) => save({ timerCountdownCue: v })}
+      />
+      <Button
+        onclick={() => playTestAlert({ sound: settings.timerSound !== false, vibrate: settings.timerVibration !== false })}
+      >
+        Test alert
+      </Button>
       <SegmentedControl
         legend="Effort per set"
         legendVisible
