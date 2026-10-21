@@ -66,9 +66,10 @@ describe("loadPreviousSets", () => {
     await db.sessions.clear();
   });
 
-  async function completed(startedAt: string, sets: LoggedSet[], exerciseId = "bench") {
+  async function completed(startedAt: string, sets: LoggedSet[], exerciseId = "bench", routineId?: string) {
     const s = await startSession({
       name: "w",
+      routineId,
       exercises: [{ id: `se${n++}`, exerciseId, exerciseNameSnapshot: "Bench", exerciseTypeSnapshot: "weighted_reps", sets }],
     }, new Date(startedAt));
     return finishSession(s.id, new Date(startedAt));
@@ -108,6 +109,25 @@ describe("loadPreviousSets", () => {
     const found = await newestCompletedSessionWith("bench", (s) => (seen.push(s.startedAt), true));
     expect(found?.startedAt).toBe("2026-01-20T10:00:00.000Z");
     expect(seen).toHaveLength(1);
+  });
+  it("routine mode prefers the newest session from the same routine", async () => {
+    await completed("2026-01-01T10:00:00Z", [done("normal", 50)], "bench", "push");
+    await completed("2026-01-02T10:00:00Z", [done("normal", 55)], "bench", "pull");
+    await completed("2026-01-03T10:00:00Z", [done("normal", 60)], "bench", "push");
+    await completed("2026-01-04T10:00:00Z", [done("normal", 70)], "bench", "pull");
+    expect((await loadPreviousSets("bench", { routineId: "push" })).map((x) => x.weight)).toEqual([60]);
+    expect((await loadPreviousSets("bench")).map((x) => x.weight)).toEqual([70]);
+  });
+  it("routine mode falls back to the newest session overall when the routine has none", async () => {
+    await completed("2026-01-01T10:00:00Z", [done("normal", 50)], "bench", "push");
+    await completed("2026-01-02T10:00:00Z", [done("normal", 55)], "bench", "pull");
+    expect((await loadPreviousSets("bench", { routineId: "legs" })).map((x) => x.weight)).toEqual([55]);
+  });
+  it("routine mode ignores same-routine sessions without the exercise or with no completed sets", async () => {
+    await completed("2026-01-01T10:00:00Z", [done("normal", 50)]);
+    await completed("2026-01-02T10:00:00Z", [done("normal", 60)], "squat", "push");
+    await completed("2026-01-03T10:00:00Z", [{ id: "u", type: "normal", weight: 1, reps: 1 }], "bench", "push");
+    expect((await loadPreviousSets("bench", { routineId: "push" })).map((x) => x.weight)).toEqual([50]);
   });
   it("skips a session where none of the exercise's sets were completed", async () => {
     await completed("2026-01-01T10:00:00Z", [done("normal", 50)]);

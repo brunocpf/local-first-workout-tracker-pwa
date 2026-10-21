@@ -202,7 +202,7 @@ Shows per exercise: name, previous performance, set number, weight, reps, comple
 
 ### 8.4 Previous values
 
-Each set row shows the previous value from the most recent *completed* session containing that exercise (setting for "same routine" is P1). Alignment:
+Each set row shows the previous value from the most recent *completed* session containing that exercise. The setting `previousValuesMode` (`exercise` default, or `routine`) chooses the source: in "same routine" mode the newest completed session from the same routine is used, falling back to the newest session overall when that routine has none. Alignment:
 
 - Set N ↔ previous set N, matched within the same set-type group (working sets with working sets, warm-ups with warm-ups).
 - Extra sets beyond the previous count fall back to the last previous set of that type.
