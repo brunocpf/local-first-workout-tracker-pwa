@@ -86,6 +86,8 @@ test("exercise detail page shows personal records", async ({ page }) => {
 });
 
 test("overview shows weekly muscle sets and monthly stats with month navigation", async ({ page }) => {
+  // Pin "now" to mid-month so the session 20 days ago always lands in the previous month, whatever today's date is.
+  await page.clock.setFixedTime(new Date("2026-06-15T12:00:00Z"));
   await seed(page);
   await page.goto("/progress");
 
@@ -103,7 +105,7 @@ test("overview shows weekly muscle sets and monthly stats with month navigation"
   await expect(tiles).toContainText("Sets");
   await expect(page.getByRole("button", { name: "Next month" })).toBeDisabled();
 
-  // Seeded sessions are 2–20 days ago, so stepping back always finds one in the current or previous month.
+  // With "now" on the 15th, the session seeded 20 days ago is in the previous month, so it can be stepped back to.
   const before = await page.locator(".month-name").innerText();
   await page.getByRole("button", { name: "Previous month" }).click();
   await expect(page.locator(".month-name")).not.toHaveText(before);
