@@ -173,7 +173,7 @@ A **program** is a plan (e.g. Upper/Lower); a **routine** is one reusable workou
 - Starting a session copies the routine's prescription into each session exercise (ADR 0004); later routine edits never change that session or any past one.
 - Changes during a session affect only that session unless the user explicitly saves them to the routine (P1).
 - Programs and imported routines remain editable after import (P1 builder).
-- Scheduling is advisory, simple weekly assignment (P1).
+- Scheduling is advisory, simple weekly assignment (P1): the program page assigns one routine per weekday (imported schedules appear there), and Home suggests the routine for the device's current local weekday. Nothing is tracked as missed.
 
 ### 7.2 Builder (P1)
 
