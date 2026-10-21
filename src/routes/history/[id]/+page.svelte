@@ -10,6 +10,7 @@
   import EmptyState from "#lib/components/ui/EmptyState.svelte";
   import IconButton from "#lib/components/ui/IconButton.svelte";
   import PageHeader from "#lib/components/ui/PageHeader.svelte";
+  import { formatEffort } from "#lib/logger/effort";
   import { exerciseVolume, isCounted } from "#lib/progress/metrics";
   import { sessionSummary } from "#lib/progress/summary";
   import { loadPriorPrSessions, prSetIds } from "#lib/progress/sessionPrs";
@@ -91,6 +92,8 @@
     if (s.reps !== undefined) parts.push(`× ${s.reps}`);
     if (s.durationSeconds !== undefined) parts.push(`${s.durationSeconds} s`);
     if (s.distance !== undefined) parts.push(`${s.distance} m`);
+    const effort = formatEffort(s, settings.effortInput ?? "off");
+    if (effort) parts.push(`@ ${effort}`);
     return parts.join(" ") || "—";
   }
 

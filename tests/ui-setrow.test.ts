@@ -130,6 +130,44 @@ describe("SetRow", () => {
     expect(screen.getByRole("button", { name: "Set 2 options" }).querySelector(".badge")).toBeNull();
   });
 
+  describe("effort (RPE / RIR)", () => {
+    const select = (name: string) => screen.getByLabelText(name) as HTMLSelectElement;
+
+    it("renders nothing when off, and by default", () => {
+      render(SetRow, { ...base, set: { ...set, rpe: 8 }, prescribed: { targetRpe: 8 } });
+      expect(document.querySelector(".effort")).toBeNull();
+      expect(screen.queryByLabelText(/RPE|RIR/)).toBeNull();
+    });
+
+    it("offers RPE 6–10 in half steps, shows the stored value and the target", async () => {
+      const oneffort = vi.fn();
+      render(SetRow, { ...base, set: { ...set, rpe: 8.5 }, effort: "rpe", oneffort, prescribed: { targetRpe: 8 } });
+      const el = select("Set 2 RPE");
+      expect([...el.options].map((o) => o.value)).toEqual(["", "6", "6.5", "7", "7.5", "8", "8.5", "9", "9.5", "10"]);
+      expect(el.value).toBe("8.5");
+      expect(document.querySelector(".effort .target")!.textContent).toContain("RPE 8");
+      await fireEvent.change(el, { target: { value: "9" } });
+      expect(oneffort).toHaveBeenCalledExactlyOnceWith(9);
+      expect(base.ontoggle).not.toHaveBeenCalled();
+    });
+
+    it("offers RIR 0–5, shows the RIR target and clears with the dash", async () => {
+      const oneffort = vi.fn();
+      render(SetRow, { ...base, set: { ...set, rir: 2, rpe: 9 }, effort: "rir", oneffort, prescribed: { targetRir: 1, targetRpe: 8 } });
+      const el = select("Set 2 RIR");
+      expect([...el.options].map((o) => o.value)).toEqual(["", "0", "1", "2", "3", "4", "5"]);
+      expect(el.value).toBe("2");
+      expect(document.querySelector(".effort .target")!.textContent).toContain("RIR 1");
+      await fireEvent.change(el, { target: { value: "" } });
+      expect(oneffort).toHaveBeenCalledExactlyOnceWith(undefined);
+    });
+
+    it("keeps an out-of-range imported value selectable", () => {
+      render(SetRow, { ...base, set: { ...set, rpe: 5 }, effort: "rpe" });
+      expect(select("Set 2 RPE").value).toBe("5");
+    });
+  });
+
   it("reverts an invalid entry and announces it instead of showing an error", async () => {
     render(SetRow, { ...base, set: { ...set, weight: 80 } });
     const el = input("Set 2 weight, kg");

@@ -21,6 +21,16 @@ beforeEach(async () => {
 });
 
 describe("settings store", () => {
+  it("effort entry is off by default, including for settings stored before it existed", async () => {
+    expect(DEFAULT_SETTINGS.effortInput).toBe("off");
+    await db.settings.put({ key: SETTINGS_KEY, weightUnit: "lb" } as never);
+    expect((await getSettings()).effortInput).toBe("off");
+    await initSettings();
+    expect(settings.effortInput).toBe("off");
+    await updateSettings({ effortInput: "rir" });
+    expect((await getSettings()).effortInput).toBe("rir");
+  });
+
   it("init merges stored values over defaults", async () => {
     await db.settings.put({ key: SETTINGS_KEY, weightUnit: "lb" } as never);
     await initSettings();

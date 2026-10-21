@@ -144,6 +144,9 @@ export type PlateStock = { weight: number; count: number };
 /** Plates the user owns, per plate system (`kg` plates for kg, `lb` plates for lb). */
 export type PlateInventory = Record<WeightUnit, PlateStock[]>;
 
+/** Which effort measure the logger shows per set (PRD §8.3); `off` hides it entirely. */
+export type EffortInput = "off" | "rpe" | "rir";
+
 export type UserSettings = {
   weightUnit: WeightUnit;
   defaultRestSeconds: number;
@@ -153,6 +156,8 @@ export type UserSettings = {
   /** Opt-in background rest-timer notifications via the push relay (ADR 0014). The subscription itself is never stored here. */
   restNotifications?: boolean;
   previousValuesMode: "exercise" | "routine";
+  /** Per-set effort entry in the logger and history (default off). */
+  effortInput?: EffortInput;
   /** 0 = Sunday, 1 = Monday, ... 6 = Saturday. */
   weekStartsOn: 0 | 1 | 6;
   theme: "system" | "light" | "dark";

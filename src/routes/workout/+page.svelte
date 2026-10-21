@@ -339,6 +339,7 @@
           defaultRestSeconds={settings.defaultRestSeconds}
           onrest={(seconds) => setRest(exercise.id, seconds)}
           unit={settings.weightUnit}
+          effortInput={settings.effortInput}
           previousSets={previous[exercise.exerciseId]}
           prSetIds={prIds[exercise.exerciseId]}
           onaddset={() => withExercise(exercise.id, "now", (e) => addSet(e))}

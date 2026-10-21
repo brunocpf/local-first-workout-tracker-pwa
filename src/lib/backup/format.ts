@@ -186,6 +186,7 @@ export const settingsSchema = z.object({
   timerSound: z.boolean().optional(),
   restNotifications: z.boolean().optional(),
   previousValuesMode: z.enum(["exercise", "routine"]),
+  effortInput: z.enum(["off", "rpe", "rir"]).optional(),
   weekStartsOn: z.union([z.literal(0), z.literal(1), z.literal(6)]),
   theme: z.enum(["system", "light", "dark"]),
   lastBackupAt: iso.optional(),

@@ -8,6 +8,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   autoStartRestTimer: true,
   timerSound: true,
   previousValuesMode: "exercise",
+  effortInput: "off",
   weekStartsOn: 1,
   theme: "system",
   backupReminderDays: 14,
