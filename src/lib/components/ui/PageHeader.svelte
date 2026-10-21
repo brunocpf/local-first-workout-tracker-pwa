@@ -33,8 +33,11 @@
     gap: var(--space-2);
     box-sizing: border-box;
     min-block-size: calc(var(--header-h) + var(--safe-top));
-    padding-block-start: var(--safe-top);
-    padding-inline: var(--gutter);
+    /* Full bleed inside main's gutters, so the title lines up with the content below it. The shell reserves the
+       trailing slot for its Settings link on phones. */
+    margin-inline: calc(-1 * var(--gutter));
+    padding-block: var(--safe-top) var(--space-1);
+    padding-inline: var(--gutter) calc(var(--gutter) + var(--header-end-reserve, 0px));
     background: var(--color-bg);
     border-block-end: var(--border-w) solid var(--color-border);
   }
@@ -49,7 +52,7 @@
     border-radius: var(--radius-md);
   }
   .heading {
-    flex: 1 1 8rem;
+    flex: 1 1 6rem;
     min-inline-size: 0;
   }
   h1 {

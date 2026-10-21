@@ -69,9 +69,16 @@
   button.row {
     cursor: pointer;
   }
-  a.row:hover,
-  button.row:hover {
-    background: var(--color-surface-2);
+  a.row,
+  button.row {
+    transition: background-color var(--duration-fast) var(--ease-standard);
+    -webkit-tap-highlight-color: transparent;
+  }
+  @media (hover: hover) {
+    a.row:hover,
+    button.row:hover {
+      background: var(--color-surface-2);
+    }
   }
   a.row:active,
   button.row:active {

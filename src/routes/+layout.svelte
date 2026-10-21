@@ -1,6 +1,8 @@
 <script lang="ts">
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
+  import { onNavigate } from "$app/navigation";
+  import { startNavTransition } from "#lib/ui/navTransition";
   import UpdateBanner from "#lib/components/UpdateBanner.svelte";
   import AppStatus, { fullscreen, storage } from "#lib/components/AppStatus.svelte";
   import Icon from "#lib/components/ui/Icon.svelte";
@@ -32,11 +34,12 @@
   };
 
   // Path relative to the base path, without a trailing slash ("/" for home).
-  const path = $derived.by(() => {
-    const base = resolve("/").replace(/\/$/, "");
-    const p = page.url.pathname.slice(base.length).replace(/\/+$/, "");
-    return p || "/";
-  });
+  const base = resolve("/").replace(/\/$/, "");
+  const relative = (pathname: string) => pathname.slice(base.length).replace(/\/+$/, "") || "/";
+  const path = $derived(relative(page.url.pathname));
+
+  // Page transitions where supported and motion is welcome; otherwise a no-op (design.md §3.5).
+  onNavigate((navigation) => startNavTransition(navigation, relative));
   const isCurrent = (href: string) => (href === "/" ? path === "/" : path === href || path.startsWith(href + "/"));
   const hideNav = $derived(path === "/workout" || path.startsWith("/workout/"));
   const title = $derived(titles[path]);
@@ -57,6 +60,7 @@
         {#each tabs as t (t.href)}
           <li>
             <a href={resolve(t.href)} aria-current={isCurrent(t.href) ? "page" : undefined}>
+              {#if isCurrent(t.href)}<span class="indicator"></span>{/if}
               <Icon name={t.icon} size={24} />
               <span>{t.label}</span>
             </a>
@@ -64,6 +68,7 @@
         {/each}
       </ul>
       <a class="settings" href={settingsHref} aria-current={isCurrent("/settings") ? "page" : undefined}>
+        {#if isCurrent("/settings")}<span class="indicator"></span>{/if}
         <Icon name="settings" size={24} />
         <span>Settings</span>
       </a>
@@ -98,8 +103,8 @@
   main {
     max-inline-size: var(--content-max);
     margin-inline: auto;
-    padding: var(--safe-top) var(--gutter) var(--shell-bottom);
-    padding-block-start: calc(var(--safe-top) + var(--space-4));
+    /* Every page starts with its sticky PageHeader, which adds the top safe area itself. */
+    padding: 0 var(--gutter) var(--shell-bottom);
     overflow-wrap: anywhere;
   }
   ul {
@@ -116,12 +121,14 @@
     position: fixed;
     inset-inline: 0;
     bottom: 0;
-    z-index: var(--z-sticky);
+    z-index: var(--z-nav);
     display: flex;
     background: var(--color-bg);
     border-block-start: var(--border-w) solid var(--color-border);
     padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
     block-size: calc(var(--tabbar-h) + var(--safe-bottom));
+    /* Its own transition group, so the bar stays put while the page under it transitions. */
+    view-transition-name: tabbar;
   }
   .tabbar a {
     position: relative;
@@ -146,13 +153,14 @@
     color: var(--color-accent-text);
     font-weight: var(--weight-semibold);
   }
-  .tabbar a[aria-current="page"]::before {
-    content: "";
+  /* An element, not ::before, so it can carry a view-transition-name and glide to the next tab. */
+  .indicator {
     position: absolute;
     inset-block-start: 0;
     inset-inline: 25%;
     block-size: 3px;
     background: var(--color-accent);
+    view-transition-name: tab-indicator;
   }
   @media (hover: hover) {
     .tabbar a:hover {
@@ -163,15 +171,21 @@
     background: var(--color-surface-3);
   }
 
-  /* Phones: five tabs in the bar; Settings is a compact link at the top end of the page. */
-  .settings {
+  /* Phones: five tabs in the bar; Settings is an icon link in the trailing slot of the page header, which keeps
+     that slot free through --header-end-reserve. `.tabbar .settings` outranks `.tabbar a`. */
+  .tabbar .settings {
     position: fixed;
-    inset-block-start: calc(var(--safe-top) + var(--space-1));
-    inset-inline-end: calc(var(--safe-right) + var(--space-1));
+    inset-block-start: calc(var(--safe-top) + (var(--header-h) - var(--tap-min)) / 2);
+    inset-inline-end: calc(var(--safe-right) + var(--gutter) - var(--space-2));
     inline-size: var(--tap-min);
     flex: none;
+    border-radius: var(--radius-md);
   }
-  .settings span {
+  /* In the header slot on phones, the icon's color and weight mark the current page; no bar. */
+  .tabbar .settings .indicator {
+    display: none;
+  }
+  .tabbar .settings span:not(.indicator) {
     position: absolute;
     inline-size: 1px;
     block-size: 1px;
@@ -179,8 +193,8 @@
     clip-path: inset(50%);
     white-space: nowrap;
   }
-  .app:not(.nav-hidden) main {
-    padding-block-start: calc(var(--safe-top) + var(--tap-min) + var(--space-2));
+  .app:not(.nav-hidden) {
+    --header-end-reserve: var(--tap-min);
   }
   :global(:root:has(.tabbar)) {
     --shell-bottom: calc(var(--tabbar-h) + var(--safe-bottom));
@@ -218,7 +232,7 @@
       inline-size: 100%;
       min-block-size: var(--tabbar-h);
     }
-    .tabbar a[aria-current="page"]::before {
+    .indicator {
       inset-block: 20%;
       inset-inline: 0 auto;
       inline-size: 3px;
@@ -231,20 +245,24 @@
     li {
       display: block;
     }
-    .settings {
+    .tabbar .settings {
       position: relative;
       inset: auto;
       inline-size: 100%;
       margin-block-start: auto;
+      border-radius: 0;
     }
-    .settings span {
+    .tabbar .settings .indicator {
+      display: block;
+    }
+    .tabbar .settings span:not(.indicator) {
       position: static;
       inline-size: auto;
       block-size: auto;
       clip-path: none;
     }
-    .app:not(.nav-hidden) main {
-      padding-block-start: calc(var(--safe-top) + var(--space-4));
+    .app:not(.nav-hidden) {
+      --header-end-reserve: 0px;
     }
   }
 </style>

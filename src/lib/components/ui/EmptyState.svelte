@@ -37,7 +37,12 @@
     color: var(--color-text-muted);
     max-inline-size: 40ch;
   }
+  /* Several actions wrap onto more rows with the same gap both ways, never touching. */
   .action {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-2);
     margin-block-start: var(--space-4);
   }
 </style>
