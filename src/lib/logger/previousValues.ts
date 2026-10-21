@@ -30,10 +30,19 @@ export function alignPrevious(
 /**
  * Sets (completed or not) for the exercise from the most recent completed session that has any completed set of it,
  * all occurrences concatenated in order. Pass the active session's id as `excludeSessionId`.
+ * With `routineId` (`previousValuesMode: "routine"`), the newest such session from that routine wins; if there is none,
+ * the newest session overall is used.
  */
-export async function loadPreviousSets(exerciseId: string, opts: { excludeSessionId?: string } = {}): Promise<LoggedSet[]> {
+export async function loadPreviousSets(
+  exerciseId: string,
+  opts: { excludeSessionId?: string; routineId?: string } = {},
+): Promise<LoggedSet[]> {
   const setsOf = (s: WorkoutSession) => s.exercises.filter((e) => e.exerciseId === exerciseId).flatMap((e) => e.sets);
-  const session = await newestCompletedSessionWith(exerciseId, (s) => s.id !== opts.excludeSessionId && setsOf(s).some((x) => x.completedAt));
+  const usable = (s: WorkoutSession) => s.id !== opts.excludeSessionId && setsOf(s).some((x) => x.completedAt);
+  const sameRoutine = opts.routineId
+    ? await newestCompletedSessionWith(exerciseId, (s) => s.routineId === opts.routineId && usable(s))
+    : undefined;
+  const session = sameRoutine ?? (await newestCompletedSessionWith(exerciseId, usable));
   return session ? setsOf(session) : [];
 }
 

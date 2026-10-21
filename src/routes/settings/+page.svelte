@@ -111,6 +111,15 @@
           { value: "rir", label: "RIR" },
         ]}
       />
+      <SegmentedControl
+        legend="Previous values from"
+        legendVisible
+        bind:value={() => settings.previousValuesMode, (v) => save({ previousValuesMode: v as UserSettings["previousValuesMode"] })}
+        options={[
+          { value: "exercise", label: "Last exercise" },
+          { value: "routine", label: "Same routine" },
+        ]}
+      />
       <Switch
         label="Progression suggestions"
         description="Suggest a weight and reps from your last session. Never applied automatically."

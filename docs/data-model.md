@@ -165,7 +165,7 @@ Version history: **1** initial schema; **2** `measurements` table (T8.15); **3**
 
 ## Previous values and prefill (`src/lib/logger/previousValues.ts`)
 
-PRD §8.4. `loadPreviousSets(exerciseId, {excludeSessionId})` takes the newest completed session (other than the excluded one) that has at least one completed set of the exercise and returns that exercise's sets, all occurrences concatenated in order. `alignPrevious(currentSets, previousSets)` returns, per current set, its previous set: set N matches previous set N within the same group (warm-up vs working, where working = normal/drop/failure); extra sets reuse the last previous set of the group; previous sets without `completedAt` are ignored; no match gives `undefined`.
+PRD §8.4. `loadPreviousSets(exerciseId, {excludeSessionId, routineId})` takes the newest completed session (other than the excluded one) that has at least one completed set of the exercise and returns that exercise's sets, all occurrences concatenated in order. With `routineId` (set when `previousValuesMode === "routine"`), the newest such session from that routine is preferred, falling back to the newest session overall. `alignPrevious(currentSets, previousSets)` returns, per current set, its previous set: set N matches previous set N within the same group (warm-up vs working, where working = normal/drop/failure); extra sets reuse the last previous set of the group; previous sets without `completedAt` are ignored; no match gives `undefined`.
 
 `prefillFor(set, previous?, prescribed?)` returns `{weight?, reps?}`: each field comes from the previous set if present, else from the prescription (`targetWeight`; reps = lower bound of `repRange`), else is left out.
 

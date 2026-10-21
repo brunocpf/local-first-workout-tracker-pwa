@@ -146,7 +146,8 @@
       const id = e.exerciseId;
       if (requested.has(id)) continue;
       requested.add(id);
-      loadPreviousSets(id, { excludeSessionId: s.id }).then(
+      const routineId = settings.previousValuesMode === "routine" ? s.routineId : undefined;
+      loadPreviousSets(id, { excludeSessionId: s.id, routineId }).then(
         (sets) => {
           previous[id] = sets;
         },
