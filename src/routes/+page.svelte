@@ -16,6 +16,7 @@
   import { backupReminderDue } from "#lib/backup/reminder";
   import { exportAndRecord } from "#lib/backup/run";
   import { settings } from "#lib/settings.svelte";
+  import { todaysRoutines, type ScheduledRoutine } from "#lib/routines/schedule";
   import { listRoutinesGrouped, quickStartRoutines } from "#lib/storage/routines";
   import { listCompletedSessions } from "#lib/storage/sessions";
   import type { Routine, WorkoutSession } from "#lib/types";
@@ -60,12 +61,15 @@
   // Loaded after first paint so the Start button never waits on them.
   let routines = $state<Routine[]>([]);
   let recent = $state<WorkoutSession[]>([]);
+  let today = $state<ScheduledRoutine[]>([]);
   let weekCount = $state<number | null>(null);
 
   onMount(async () => {
     try {
       // Favorites first, then the rest as the Routines tab lists them.
-      routines = quickStartRoutines(await listRoutinesGrouped(), QUICK_START_MAX);
+      const grouped = await listRoutinesGrouped();
+      routines = quickStartRoutines(grouped, QUICK_START_MAX);
+      today = todaysRoutines(grouped.programs, new Date());
     } catch {
       // optional context: Home still works without it
     }
@@ -132,6 +136,20 @@
 
 {#if weekCount !== null}
   <p class="week">{weekCount} {weekCount === 1 ? "workout" : "workouts"} this week</p>
+{/if}
+
+{#if today.length > 0}
+  <section aria-label="Scheduled for today">
+    <ul class="group">
+      {#each today as t (t.routine.id)}
+        <li>
+          <ListRow title={`Today: ${t.routine.name}`} subtitle={t.program.name}>
+            {#snippet trailing()}<StartRoutineButton routine={t.routine} />{/snippet}
+          </ListRow>
+        </li>
+      {/each}
+    </ul>
+  </section>
 {/if}
 
 {#if routines.length > 0}
