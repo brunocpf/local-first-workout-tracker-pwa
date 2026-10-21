@@ -16,11 +16,11 @@ Contents: [1 Browser support](#1-browser-support-policy) · [2 Visual direction]
 |---|---|---|
 | Baseline **Widely available** | Use freely, no fallback. | `<dialog>` + `showModal()`, `inert`, `:focus-visible`, `:has()`, CSS nesting, `:user-invalid`, size container queries, `dvh`/`svh`, `env(safe-area-inset-*)`, `color-mix()`, `clamp()`, `inputmode`, `enterkeyhint`, `Intl.NumberFormat` / `DateTimeFormat` / `RelativeTimeFormat` / `PluralRules` |
 | Newly available, **supported by every minimum version** | Use freely, but only the ones listed here. Add to this list only after checking all minimum versions. | `light-dark()` (Safari 17.5, Chrome 123, Firefox 120; becomes Widely available Nov 2026) |
-| Baseline **Newly available** | Only with feature detection and a working fallback. The feature must be an enhancement: the app still works without it. | Popover API (missing in Firefox 121–124; `popover="manual"` works from Safari 17, iOS 18.3 only fixed light dismiss, which toasts don't use) → toast region with `position: fixed`; `@starting-style` → no entry animation; `transition-behavior: allow-discrete` / `overlay` → `data-closing` exit fallback (§6.9); `text-wrap: balance/pretty` → normal wrapping |
+| Baseline **Newly available** | Only with feature detection and a working fallback. The feature must be an enhancement: the app still works without it. | Popover API (missing in Firefox 121–124; `popover="manual"` works from Safari 17, iOS 18.3 only fixed light dismiss, which toasts don't use) → toast region with `position: fixed`; `@starting-style` → no entry animation; `transition-behavior: allow-discrete` / `overlay` → `data-closing` exit fallback (§6.9); `text-wrap: balance/pretty` → normal wrapping; View Transitions (`document.startViewTransition`: Safari 18, Chrome 111, Firefox 144; missing in our Safari 17.5 minimum) → navigation without animation (§3.5) |
 | **Limited availability** | Progressive enhancement only, never needed for a feature to work. | `<dialog closedby>` (not in Safari) → click-outside script (§6.9); `<input type="checkbox" switch>` (Safari only) → always `role="switch"` + own styles (§6.7); `interactive-widget` viewport key (Chromium only) → `visualViewport` rule (§5.5); `<meta name="text-scale">` (Chromium 146+); `accent-color`, `scrollbar-color`, `field-sizing: content`; `overscroll-behavior` on scroll containers that don't overflow |
 | **Platform APIs** | Always feature-detect; their absence is not an error ([browser-limitations.md](browser-limitations.md)). | Screen Wake Lock, `navigator.vibrate`, Web Share with files, `navigator.storage.persist()` |
 
-Not used: `Intl.DurationFormat` (missing in Chrome 123), the File System Access API, `beforeinstallprompt` as a required path, View Transitions (not needed in P0), polyfills (no new dependencies for UI).
+Not used: `Intl.DurationFormat` (missing in Chrome 123), the File System Access API, `beforeinstallprompt` as a required path, `:active-view-transition-type()` (the direction is a `data-nav` attribute instead, which works in every browser with View Transitions), polyfills (no new dependencies for UI).
 
 Check new UI patterns against the modern-web-guidance skill (`npx -y modern-web-guidance@latest search "<pattern>"`) and against this table before adding them.
 
@@ -238,8 +238,9 @@ Levels are surface colors plus borders: `--color-bg` (0) → `--color-surface-1`
 | `--ease-enter` | `cubic-bezier(0.05, 0.7, 0.1, 1)` | Things appearing |
 | `--ease-exit` | `cubic-bezier(0.3, 0, 0.8, 0.15)` | Things leaving (use 0.75× the enter duration) |
 
-- What moves: overlay enter/exit (opacity + `scale(0.96 → 1)` for dialogs/toasts, `translateY(100% → 0)` for sheets), the check mark on set completion (`scale(0.8 → 1)`), the switch thumb. Nothing else: no page transitions, no list animations, no animated rest-timer progress (it redraws each tick without a transition).
-- **Reduced motion** (`@media (prefers-reduced-motion: reduce)`): no transforms. Overlays only fade, at `--duration-fast`. The Spinner stops rotating and shows a static icon with its label. Don't use a global `* { transition: none !important }`: it breaks the exit-fallback probe in §6.9. Set the reduced-motion rule in each component.
+- What moves: overlay enter/exit (opacity + `scale(0.96 → 1)` for dialogs/toasts, `translateY(100% → 0)` for sheets), the check mark on set completion (`scale(0.8 → 1)`), the PR badge when a completed set becomes a record (opacity + `scale(0.6 → 1)`, `--duration-base` `--ease-enter`, once), the switch thumb, the rest-timer progress fill (`transform: scaleX()` with a 1 s linear transition, so it glides between the whole-second updates without layout), and page navigation (below). Press states fade their colors over `--duration-fast` (Button, IconButton, ListRow). Nothing else: no list animations, no scroll effects.
+- **Page transitions** (T8.34, [ui-polish.md](ui-polish.md)): `onNavigate` in `+layout.svelte` calls `startNavTransition` (`src/lib/ui/navTransition.ts`), which uses `document.startViewTransition` only when it exists, reduced motion isn't requested and the route changes (not for a query or hash change). The direction goes on `<html data-nav>` while it runs. A page nested under the current one (`/history` → `/history/:id`) is `forward`: the old page fades out moving `--space-4` to the start, the new one fades in from `--space-8` at the end, over `--duration-base`. Its parent is `back`, the mirror image. Everything else, tabs included (Home is a tab, not everyone's parent), is `fade`: a cross-fade over `--duration-fast`. The tab bar has `view-transition-name: tabbar` and doesn't animate. The current-tab bar is a `.indicator` element named `tab-indicator`, so it glides to the new tab. The browser ignores taps on the snapshot overlay while a transition runs, which is why they stay ≤ 200 ms and why state changes inside a page (set completion, sheets, dialogs) never use View Transitions. Without the API (Safari < 18), navigation is unchanged.
+- **Reduced motion** (`@media (prefers-reduced-motion: reduce)`): no transforms. Overlays only fade, at `--duration-fast`. No page transitions are started (and `::view-transition-*` animations are off as a backstop). The PR badge appears without the pop, and the rest-timer fill steps once a second. The Spinner stops rotating and shows a static icon with its label. Color fades on press stay (they aren't motion). Don't use a global `* { transition: none !important }`: it breaks the exit-fallback probe in §6.9. Set the reduced-motion rule in each component.
 - Never use motion as the only signal of a state change.
 
 ### 3.6 Z-layers
@@ -344,7 +345,7 @@ Every page's content is centered at `max-inline-size: var(--content-max)` (42rem
 
 ### 5.7 Where things live
 
-- **Settings** (and backup/restore, storage status, about) is a secondary destination at `/settings`, not a tab. Entry points: a `settings` IconButton (label "Settings") in the trailing slot of each top-level tab's PageHeader on phones, and the bottom item of the side rail on wide screens. Settings has a back button.
+- **Settings** (and backup/restore, storage status, about) is a secondary destination at `/settings`, not a tab. Entry points: a `settings` icon link (label "Settings") in the trailing slot of the PageHeader on phones (the shell's link is `position: fixed` over the header, and the shell sets `--header-end-reserve: var(--tap-min)` so PageHeader keeps that slot free; on wide screens and `/workout` the reserve is 0), and the bottom item of the side rail on wide screens. Settings has a back button.
 - **The tab bar and side rail are hidden on the active workout screen (`/workout`)** at every width. The workout header's leading back button ("Home", `chevron-left`) leaves the screen with the session still active. Home then shows the resume banner. Hiding the bar keeps the logger focused and gives the rest-timer bar the bottom edge.
 - The update-available Banner sits at the top of `main` under the PageHeader. It is suppressed during an active workout ([ADR 0003](decisions/0003-pwa-shell-and-updates.md)).
 
@@ -500,7 +501,7 @@ In-flow, full content width. `--color-<variant>-subtle` fill, a 4 px inline-star
 ```ts
 { title: string; back?: { href: string; label: string }; actions?: Snippet; subtitle?: string }
 ```
-`<header>` that is sticky (§5.4), `--color-bg` fill with a bottom `--color-border` line, `min-block-size: --header-h` + `--safe-top`, padding-inline `--gutter`. Layout: [back IconButton `chevron-left`, labelled with the destination ("Home", "History")] [title `<h1>` `--text-lg` semibold, wraps to 2 lines then clamps; subtitle `--text-sm` muted under it] [actions: up to 2 IconButtons or 1 Button `sm`]. Each top-level tab page puts the Settings IconButton last in `actions` on phones. There is one `<h1>` per page, and the `<title>` is `"<title> · Workouts"`.
+`<header>` that is sticky (§5.4), `--color-bg` fill with a bottom `--color-border` line, `min-block-size: --header-h` + `--safe-top`. It bleeds through `main`'s gutter (`margin-inline: calc(-1 * var(--gutter))`, padding-inline `--gutter`, plus `--header-end-reserve` at the end), so its title lines up with the content and the bottom line runs edge to edge. `main` has no top padding: the header is the first thing on every page and adds `--safe-top` itself. Layout: [back IconButton `chevron-left`, labelled with the destination ("Home", "History")] [title `<h1>` `--text-lg` semibold, wraps to 2 lines then clamps; subtitle `--text-sm` muted under it] [actions: up to 2 IconButtons or 1 Button `sm`]. The shell's Settings link fills the reserved trailing slot on phones (§5.7), so pages don't add their own. There is one `<h1>` per page, and the `<title>` is `"<title> · Workouts"`.
 
 ### 6.16 ListRow
 
@@ -667,7 +668,7 @@ Width check at 320 px with 200% text (1em = 32 px): the gutter is 24 px (the `cl
 - `position: sticky; bottom: 0`, `--z-sticky`, `--color-surface-1` with a top `--color-border` line, padding `--space-2` `--gutter` + `--safe-bottom`. Shown only while a timer exists. When idle, a ghost Button "Start rest" sits in the same slot.
 - Remaining time: `--text-xl` bold tabular, `m:ss`, computed from `endsAt` on every render tick and on `visibilitychange` (never from counting ticks). It has `role="timer"` and is **not** a live region, so it doesn't announce every second.
 - Controls: `−15` and `+15` are secondary Buttons `sm` (label "Subtract 15 seconds" / "Add 15 seconds"). Pause/resume is an IconButton `pause`/`play` with `pressed`. Skip is an IconButton `skip-forward` "Skip rest". At 320 px: time 64 + 2 × 52 + 2 × 44 + 4 × 4 gaps = 272 px of 294 px available. The leading `timer` icon is shown only when the bar is wider than 22em.
-- Progress bar: a `<div role="progressbar" aria-valuenow aria-valuemax aria-label="Rest">`. The time text carries the same information, so the bar is not the only signal.
+- Progress bar: a `<div role="progressbar" aria-valuenow aria-valuemax aria-label="Rest">`. The time text carries the same information, so the bar is not the only signal. The fill is a full-width element scaled with `transform: scaleX(remaining / total)` and a 1 s linear transition (§3.5).
 - **Done:** the bar switches to the done style with a `check` icon and the text "Rest done" (`--text-md` semibold). `announce("Rest done")`. Optional sound and `navigator.vibrate` where available. A one-time 2-step flash of `--color-success-subtle` (fade only, none under reduced motion). It auto-hides after 10 s or on dismiss.
 - **Honest limits:** the first time a timer starts, a Banner info appears above the bar: "Rest alerts only work while the app is open. With the screen locked or the app in the background, you'll see the result when you come back." [Got it]. The same text is in Settings → Workout.
 
@@ -752,8 +753,10 @@ Width check at 320 px with 200% text (1em = 32 px): the gutter is 24 px (the `cl
 
 ```
 ┌──────────────────────────────────┐
-│ Routines               [Import] ⚙│ PageHeader actions: secondary Button sm
-├──────────────────────────────────┤  "Import" (icon import) + Settings
+│ Routines        [＋ New routine] ⋮ ⚙│ PageHeader actions: primary Button sm
+├──────────────────────────────────┤  + ⋮ "More routine actions" (action Sheet:
+│                                  │  Import, Generate with AI, New program,
+│                                  │  New folder) + Settings
 │ Upper/Lower 4-day                │ h2 per program (or "Routines" if none)
 │ ┌──────────────────────────────┐ │ static ListRow: title, subtitle
 │ │ Upper A          [Start]  ⋮  │ │  "6 exercises · last done Mon";
