@@ -197,6 +197,8 @@ export const settingsSchema = z.object({
   defaultRestSeconds: nonneg,
   autoStartRestTimer: z.boolean(),
   timerSound: z.boolean().optional(),
+  timerVibration: z.boolean().optional(),
+  timerCountdownCue: z.boolean().optional(),
   restNotifications: z.boolean().optional(),
   previousValuesMode: z.enum(["exercise", "routine"]),
   effortInput: z.enum(["off", "rpe", "rir"]).optional(),

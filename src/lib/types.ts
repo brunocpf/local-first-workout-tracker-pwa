@@ -211,6 +211,10 @@ export type UserSettings = {
   autoStartRestTimer: boolean;
   /** Beep when a rest timer finishes (only while the app is open). */
   timerSound?: boolean;
+  /** Vibrate when a rest timer finishes, where supported (default on; hidden on iOS). */
+  timerVibration?: boolean;
+  /** Short cue 10 seconds before the rest ends (default off). */
+  timerCountdownCue?: boolean;
   /** Opt-in background rest-timer notifications via the push relay (ADR 0014). The subscription itself is never stored here. */
   restNotifications?: boolean;
   previousValuesMode: "exercise" | "routine";

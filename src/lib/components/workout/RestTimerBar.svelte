@@ -2,7 +2,7 @@
   // Rest-timer bar (design.md §7.3). State is `session.restTimer` (a stored end instant, ADR 0004); this
   // component only re-reads it on a render tick and on `visibilitychange`, and writes changes through `active`.
   import { onDestroy, onMount } from "svelte";
-  import { playRestDoneAlert, prepareAlerts } from "#lib/alerts";
+  import { playCountdownCue, playRestDoneAlert, prepareAlerts } from "#lib/alerts";
   import Banner from "#lib/components/ui/Banner.svelte";
   import Button from "#lib/components/ui/Button.svelte";
   import Icon from "#lib/components/ui/Icon.svelte";
@@ -111,7 +111,19 @@
     if (armed !== timer.endsAt) return;
     armed = undefined;
     const late = now - Date.parse(timer.endsAt);
-    if (late <= ALERT_MAX_LATE_MS && document.visibilityState === "visible") playRestDoneAlert({ sound: settings.timerSound !== false });
+    if (late <= ALERT_MAX_LATE_MS && document.visibilityState === "visible") playRestDoneAlert({ sound: settings.timerSound !== false, vibrate: settings.timerVibration !== false });
+  });
+
+  // Optional cue when 10 seconds remain, once per end instant and only for a timer watched running down.
+  const WARNING_MS = 10_000;
+  let warned: string | undefined;
+  $effect(() => {
+    if (!timer || paused || done || settings.timerCountdownCue !== true) return;
+    const left = remainingMs(timer, now);
+    if (left > WARNING_MS || left < WARNING_MS - ALERT_MAX_LATE_MS || warned === timer.endsAt) return;
+    warned = timer.endsAt;
+    if (document.visibilityState === "visible")
+      playCountdownCue({ sound: settings.timerSound !== false, vibrate: settings.timerVibration !== false });
   });
 
   // "Rest done" goes away by itself.

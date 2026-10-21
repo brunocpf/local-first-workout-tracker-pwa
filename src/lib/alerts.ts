@@ -56,28 +56,62 @@ function beep(ctx: AudioContext): void {
   }
 }
 
-/** Sound (if `sound`) and vibration (where supported). Never throws; the visual alert is the caller's job. */
-export function playRestDoneAlert({ sound }: { sound: boolean }): void {
+/** A single short tick for the countdown warning; the rest-done alert is two longer beeps. */
+function tick(ctx: AudioContext): void {
+  const start = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.frequency.value = 660;
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(0.2, start + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.12);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(start);
+  osc.stop(start + 0.14);
+}
+
+/** Whether this browser can vibrate. False on iOS/iPadOS Safari, where the setting is hidden. */
+export function vibrationSupported(): boolean {
+  return typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
+}
+
+export type AlertOptions = { sound: boolean; vibrate?: boolean };
+
+function emit({ sound, vibrate = true }: AlertOptions, draw: (ctx: AudioContext) => void, pattern: number[]): void {
   if (sound) {
     try {
       const ctx = audioContext();
       if (ctx) {
         void ctx.resume?.()?.catch?.(() => {});
-        beep(ctx);
+        draw(ctx);
       }
     } catch {
       // sound is best effort
     }
   }
+  if (!vibrate) return;
   try {
-    if (
-      typeof navigator !== "undefined" &&
-      typeof navigator.vibrate === "function"
-    )
-      navigator.vibrate([200, 100, 200]);
+    if (vibrationSupported()) navigator.vibrate(pattern);
   } catch {
     // vibration is best effort
   }
+}
+
+/** Sound (if `sound`) and vibration (if `vibrate`, default on, and supported). Never throws; the visual alert is the caller's job. */
+export function playRestDoneAlert(options: AlertOptions): void {
+  emit(options, beep, [200, 100, 200]);
+}
+
+/** Quieter cue a few seconds before the rest ends. */
+export function playCountdownCue(options: AlertOptions): void {
+  emit(options, tick, [80]);
+}
+
+/** Settings "Test alert": plays the rest-done alert with the current choices (call from a tap, which unlocks audio). */
+export function playTestAlert(options: AlertOptions): void {
+  prepareAlerts();
+  playRestDoneAlert(options);
 }
 
 /** Test hook: forgets the cached AudioContext. */
