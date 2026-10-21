@@ -343,7 +343,7 @@ Valid manifest with PNG and maskable icons; HTTPS; precached app shell with navi
 
 ### 14.5 Backend policy
 
-None, except the optional minimal Web Push relay for rest-timer notifications ([ADR 0014](decisions/0014-rest-timer-push.md)): it stores only a push endpoint and a fire time, never workout data, and the app works fully without it. Any other backend (cloud backup, sync, shared plans, AI inference) needs a concrete requirement and an ADR.
+None, except the optional minimal Web Push relay for rest-timer notifications ([ADR 0014](decisions/0014-rest-timer-push.md)): it stores only a push endpoint and a fire time, never workout data, and the app works fully without it. Any other backend (cloud backup, sync, shared plans, AI inference) needs a concrete requirement and an ADR; cloud backup/sync was evaluated in [ADR 0012](decisions/0012-cloud-backup-sync.md) and not built.
 
 ---
 
@@ -513,7 +513,7 @@ Also summarized in [AGENTS.md](../AGENTS.md).
 4. **Timer alerts:** are foreground-only alerts enough? Optional locked-screen notifications through a minimal push relay: [ADR 0014](decisions/0014-rest-timer-push.md) (device check tracked in #196); otherwise ADR for a native wrapper (#103).
 5. **wger or larger catalog:** evaluated in [ADR 0009](decisions/0009-wger-catalog.md): not bundled; optional text-only pack only on demand. Owner to confirm the CC-BY-SA question.
 6. **Previous values source** (recent vs same routine): default recent; revisit after use.
-7. **Cloud backup/sync, native app:** deferred until a concrete need.
+7. **Cloud backup/sync, native app:** cloud backup/sync decided in [ADR 0012](decisions/0012-cloud-backup-sync.md): not built; manual JSON backup to a user-chosen (ideally synced) folder plus reminders stays, with a user-initiated Drive/Dropbox app-folder upload as the first step if a need appears. Owner to confirm. Native app: deferred (#103).
 9. **Built-in AI (external API, progression suggestions):** decided in [ADR 0013](decisions/0013-built-in-ai.md): not built (key handling without a backend, CSP, privacy, cost); prompt copy/paste flow and deterministic double progression remain the paths. Owner to confirm.
 8. **Online-plan extraction:** decided in [ADR 0008](decisions/0008-url-import.md): no in-app URL fetching (CORS, JS-rendered pages, `connect-src 'self'`, no backend); paste text remains the path. Owner to confirm.
 10. **Progress photos:** decided in [ADR 0010](decisions/0010-progress-photos.md): local-only resized JPEGs in IndexedDB, kept out of the JSON backup and saved in a separate photos archive; build only if wanted. Owner to confirm.

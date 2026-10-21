@@ -67,6 +67,10 @@ Notes:
 
 Non-blocking banner on Home when the last backup is older than `settings.backupReminderDays` (default 14) or `settings.backupReminderSessions` (default 10) completed workouts were started since it (whichever first; 0 disables each; both are in the backup's `settings`). It needs at least one completed workout since the last backup (all of them if never backed up) and is only on Home, never while a workout is active. "Back up now" runs the export (`exportAndRecord` in `src/lib/backup/run.ts`); "Later" hides it until the next app launch. Policy is the pure `shouldRemindBackup` in `src/lib/backup/reminder.ts`; the count is `countCompletedSince` (index count, no rows loaded). Thresholds are edited in the Backup section of Settings.
 
+## Off-device copies and multi-device use
+
+There is no automatic cloud backup or sync ([ADR 0012](decisions/0012-cloud-backup-sync.md)). Saving the backup file into a synced folder (iCloud Drive, Google Drive, Dropbox) through the share sheet is the supported way to keep an off-device copy, and moving data to another device is export → full restore. Third-party storage via OAuth was evaluated but would still be backup only and cannot run silently from a web page.
+
 ## Moving between origins/installs
 
 Export from the old install, restore on the new one. This is also how data moves between the iOS Safari tab and the installed app.
