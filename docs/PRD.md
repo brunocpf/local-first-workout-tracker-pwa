@@ -156,7 +156,7 @@ Stable id, name, aliases, primary/secondary muscles, equipment, exercise type (w
 
 ### 6.3 Later
 
-Custom exercise UI, exercise detail pages (instructions, history, PRs, external guide link), media only where legally usable (missing media must never show a broken placeholder). Evaluate **wger** as a larger catalog source only after P0: verify API/schema, license per data type (text, images, video differ), record attribution ([attribution.md](attribution.md)), and never require network for lookups.
+Custom exercise UI, exercise detail pages (instructions, history, PRs, external guide link), media only where legally usable (missing media must never show a broken placeholder; sources evaluated in [ADR 0015](decisions/0015-exercise-media.md)). Evaluate **wger** as a larger catalog source only after P0: verify API/schema, license per data type (text, images, video differ), record attribution ([attribution.md](attribution.md)), and never require network for lookups.
 
 ### 6.4 Merge and rename
 
@@ -518,6 +518,7 @@ Also summarized in [AGENTS.md](../AGENTS.md).
 8. **Online-plan extraction:** decided in [ADR 0008](decisions/0008-url-import.md): no in-app URL fetching (CORS, JS-rendered pages, `connect-src 'self'`, no backend); paste text remains the path. Owner to confirm.
 10. **Progress photos:** decided in [ADR 0010](decisions/0010-progress-photos.md): local-only resized JPEGs in IndexedDB, kept out of the JSON backup and saved in a separate photos archive; build only if wanted. Owner to confirm.
 11. **Monetization and store distribution** (paid upfront / free + one-time Pro / free with ads): facts and tradeoffs collected in [docs/distribution-research.md](distribution-research.md); decision is the owner's (#225). Not decided; no store build exists (#103).
+12. **Exercise demonstration media** (GIFs, video, images on the exercise page): decided in [ADR 0015](decisions/0015-exercise-media.md): no third-party media bundled, embedded or downloaded (free-exercise-db images are scraped; ExerciseDB and MuscleWiki forbid local storage; YouTube forbids caching and needs a third-party frame; wger is CC-BY-SA and covers about 4 in 10 seed exercises). Text cues stay, plus an external "find a demo video" link; self-drawn SVG diagrams only if wanted. Owner to confirm.
 
 ---
 

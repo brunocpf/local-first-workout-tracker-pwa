@@ -4,6 +4,8 @@ The MVP ships a **self-written seed catalog** (~100 exercises in `src/lib/catalo
 
 Evaluation of [wger](https://wger.de/) ([docs](https://wger.readthedocs.io/en/latest/), [repo](https://github.com/wger-project/wger)) as a larger catalog was evaluated in [ADR 0009](decisions/0009-wger-catalog.md): wger text and media are **not** bundled; at most an optional text-only, CC-BY-SA "Extended catalog" pack may follow on demand, never images or video. Before bundling anything third-party: verify the API/schema, check the license per data type (text, images, video differ), record attribution + license in each exercise's `source`, and provide fallbacks for missing media.
 
+Exercise demonstration media (free-exercise-db, wger, ExerciseDB, MuscleWiki, YouTube) was evaluated in [ADR 0015](decisions/0015-exercise-media.md): none is bundled, embedded or downloaded; any in-app diagrams would be drawn for this project.
+
 _No third-party data is bundled._
 
 ## Icons
