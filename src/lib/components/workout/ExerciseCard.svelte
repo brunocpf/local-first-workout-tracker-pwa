@@ -10,6 +10,9 @@
   import SegmentedControl from "#lib/components/ui/SegmentedControl.svelte";
   import Select from "#lib/components/ui/Select.svelte";
   import Sheet from "#lib/components/ui/Sheet.svelte";
+  import PlateCalculatorSheet from "#lib/components/tools/PlateCalculatorSheet.svelte";
+  import { settings } from "#lib/settings.svelte";
+  import { DEFAULT_BAR_KG, DEFAULT_PLATE_INVENTORY } from "#lib/tools/plates";
   import TextField from "#lib/components/ui/TextField.svelte";
   import SetRow from "#lib/components/workout/SetRow.svelte";
   import { alignPrevious, prefillFor, type SetValues } from "#lib/logger/previousValues";
@@ -41,6 +44,7 @@
     onreplace,
     loadSuggestions,
     excludeIds = [],
+    barbell = false,
   }: {
     exercise: SessionExercise;
     index: number;
@@ -79,6 +83,8 @@
     loadSuggestions?: () => Promise<Exercise[]>;
     /** Exercises the picker hides (the exercise itself and the others in the workout). */
     excludeIds?: string[];
+    /** Barbell exercise: the set menu offers the plate calculator. */
+    barbell?: boolean;
   } = $props();
 
   const previous = $derived(alignPrevious(exercise.sets, previousSets));
@@ -115,6 +121,14 @@
   function setAct(fn: (id: string) => void) {
     setMenuOpen = false;
     if (setMenu) fn(setMenu.id);
+  }
+
+  let platesOpen = $state(false);
+  let plateTargetKg = $state<number | undefined>();
+  function openPlates() {
+    setMenuOpen = false;
+    plateTargetKg = menuSet?.weight ?? (menuSet ? prefillFor(menuSet, previous[exercise.sets.indexOf(menuSet)], prescribed(menuSet)).weight : undefined);
+    platesOpen = true;
   }
 
   let menuOpen = $state(false);
@@ -246,6 +260,7 @@
 
 <Sheet bind:open={setMenuOpen} title="{setMenu?.name ?? 'Set'} · {exercise.exerciseNameSnapshot}">
   <div class="menu">
+    {#if barbell}<Button block icon="dumbbell" onclick={openPlates}>Plate calculator</Button>{/if}
     <Button block icon="copy" onclick={() => setAct(onduplicateset)}>Duplicate set</Button>
     {#if menuSet}
       <SegmentedControl
@@ -261,6 +276,16 @@
     <Button block variant="danger" icon="trash" onclick={() => setAct(ondeleteset)}>Delete set</Button>
   </div>
 </Sheet>
+
+{#if barbell}
+  <PlateCalculatorSheet
+    bind:open={platesOpen}
+    targetKg={plateTargetKg}
+    {unit}
+    barKg={settings.barWeightKg ?? DEFAULT_BAR_KG}
+    inventory={settings.plateInventory ?? DEFAULT_PLATE_INVENTORY}
+  />
+{/if}
 
 <Sheet bind:open={menuOpen} title={exercise.exerciseNameSnapshot}>
   <div class="menu">

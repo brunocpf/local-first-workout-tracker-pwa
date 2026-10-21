@@ -5,6 +5,7 @@
   import InstallHint from "#lib/components/InstallHint.svelte";
   import BackupSection from "#lib/components/settings/BackupSection.svelte";
   import NotificationsSection from "#lib/components/settings/NotificationsSection.svelte";
+  import PlateSettings from "#lib/components/settings/PlateSettings.svelte";
   import Banner from "#lib/components/ui/Banner.svelte";
   import Button from "#lib/components/ui/Button.svelte";
   import Card from "#lib/components/ui/Card.svelte";
@@ -100,6 +101,10 @@
     </div>
   </Card>
 
+  <Card as="section" header={plates}>
+    <PlateSettings onerror={() => (saveError = "Couldn't save that change. Storage may be unavailable.")} />
+  </Card>
+
   {#if pushConfigured}
     <Card as="section" header={notifications}>
       <NotificationsSection />
@@ -193,6 +198,7 @@
 
 {#snippet units()}Units{/snippet}
 {#snippet workout()}Workout{/snippet}
+{#snippet plates()}Plate calculator{/snippet}
 {#snippet notifications()}Notifications{/snippet}
 {#snippet appearance()}Appearance{/snippet}
 {#snippet calendar()}Calendar{/snippet}

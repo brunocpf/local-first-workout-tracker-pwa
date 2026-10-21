@@ -1,0 +1,111 @@
+<script lang="ts">
+  // Plate calculator (design.md §7). Shows what to load on each side of the bar for a target weight, in the display
+  // unit's plate system. Pure maths lives in `#lib/tools/plates`; this only renders it.
+  import { untrack } from "svelte";
+  import NumberField from "#lib/components/ui/NumberField.svelte";
+  import Sheet from "#lib/components/ui/Sheet.svelte";
+  import { formatNumber } from "#lib/numberInput";
+  import { platesPerSide } from "#lib/tools/plates";
+  import { displayWeight, toKg } from "#lib/units";
+  import type { PlateInventory, WeightUnit } from "#lib/types";
+
+  let {
+    open = $bindable(false),
+    targetKg,
+    unit,
+    barKg,
+    inventory,
+  }: {
+    open?: boolean;
+    /** Weight the sheet starts with, in kg (stored units). */
+    targetKg?: number;
+    unit: WeightUnit;
+    /** Empty bar, in kg. */
+    barKg: number;
+    inventory: PlateInventory;
+  } = $props();
+
+  // Display-unit value of the field; seeded each time the sheet opens, then owned by the user.
+  let value = $state<number | null>(null);
+  $effect(() => {
+    if (open) value = untrack(() => (targetKg === undefined ? null : displayWeight(targetKg, unit)));
+  });
+
+  const result = $derived(value === null ? undefined : platesPerSide(toKg(value, unit), unit, barKg, inventory));
+  const heaviest = $derived(Math.max(1, ...inventory[unit].map((p) => p.weight)));
+  const fmt = (n: number) => formatNumber(n);
+  const barShown = $derived(displayWeight(barKg, unit));
+  /** Plates drawn one by one, heaviest next to the bar. */
+  const stack = $derived((result?.perSide ?? []).flatMap((p) => Array.from({ length: p.count }, () => p.weight)));
+  const summary = $derived(
+    result?.perSide.length ? result.perSide.map((p) => `${p.count} × ${fmt(p.weight)}`).join(", ") : "No plates",
+  );
+</script>
+
+<Sheet bind:open title="Plate calculator" description="Plates to load on each side of the bar.">
+  <div class="calc">
+    <NumberField
+      label="Target weight, {unit}"
+      suffix={unit}
+      value={value}
+      onchange={(n) => (value = n)}
+    />
+    <p class="bar">Bar: {fmt(barShown)} {unit}</p>
+
+    {#if result}
+      <div class="stack" role="img" aria-label="Each side: {summary}">
+        <span class="bar-end" aria-hidden="true"></span>
+        {#each stack as weight, i (i)}
+          <span class="plate" aria-hidden="true" style:block-size="{2 + (weight / heaviest) * 4}rem"></span>
+        {/each}
+      </div>
+      <p class="line" data-testid="plate-summary">{summary} <span class="muted">per side</span></p>
+      <p class="muted">
+        {#if result.remainder < 0}
+          Below the bar: {fmt(barShown)} {unit} is the lightest load.
+        {:else if result.remainder === 0}
+          Exactly {fmt(result.achieved)} {unit}.
+        {:else}
+          Closest load: {fmt(result.achieved)} {unit} ({fmt(result.remainder)} {unit} short with your plates).
+        {/if}
+      </p>
+    {:else}
+      <p class="muted">Enter a weight to see the plates.</p>
+    {/if}
+  </div>
+</Sheet>
+
+<style>
+  .calc { display: flex; flex-direction: column; gap: var(--space-3); min-inline-size: 0; }
+  p { margin: 0; overflow-wrap: anywhere; }
+  .bar, .muted { font-size: var(--text-sm); color: var(--color-text-muted); }
+  .line { font-size: var(--text-md); font-weight: var(--weight-semibold); }
+  .line .muted { font-weight: var(--weight-regular); }
+  .stack {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-block-size: 6rem;
+    padding: var(--space-2);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-2);
+    overflow: hidden;
+  }
+  .bar-end {
+    flex: none;
+    inline-size: 1.5rem;
+    block-size: 0.5rem;
+    border-radius: var(--radius-sm);
+    background: var(--color-border-strong);
+  }
+  .plate {
+    flex: none;
+    inline-size: 0.75rem;
+    min-inline-size: 0.5rem;
+    border-radius: var(--radius-sm);
+    background: var(--color-accent);
+  }
+  @media (forced-colors: active) {
+    .plate, .bar-end { background: CanvasText; }
+  }
+</style>
