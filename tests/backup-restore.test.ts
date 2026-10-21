@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildBackup, serializeBackup } from "#lib/backup/export";
-import type { BackupV1 } from "#lib/backup/format";
+import type { BackupV2 } from "#lib/backup/format";
 import {
   InvalidBackupError,
   MAX_BACKUP_BYTES,
@@ -18,13 +18,20 @@ import { DEFAULT_BAR_KG, DEFAULT_PLATE_INVENTORY } from "#lib/tools/plates";
 import type { WorkoutSession } from "#lib/types";
 
 const FIXTURE_TEXT = readFileSync("tests/fixtures/backup-v1.json", "utf8");
+const FIXTURE_V2_TEXT = readFileSync("tests/fixtures/backup-v2.json", "utf8");
 const T = "2026-04-01T10:00:00.000Z";
 let n = 0;
 let d: AppDB;
 
 const freshDb = () => new AppDB(`restore-test-${Date.now()}-${n++}`);
 
-const fixture = (): BackupV1 => {
+const parseV2 = (): BackupV2 => {
+  const r = parseBackup(FIXTURE_V2_TEXT);
+  if (!r.ok) throw new Error(r.errors.join("\n"));
+  return r.backup;
+};
+
+const fixture = (): BackupV2 => {
   const r = parseBackup(FIXTURE_TEXT);
   if (!r.ok) throw new Error(r.errors.join("\n"));
   return r.backup;
@@ -37,6 +44,7 @@ const snapshot = async (database: AppDB) => ({
   routines: await database.routines.toArray(),
   sessions: await database.sessions.toArray(),
   settings: await database.settings.toArray(),
+  measurements: await database.measurements.toArray(),
 });
 
 /** Export without the fields a restore legitimately changes. */
@@ -74,6 +82,7 @@ async function seedExistingData(database: AppDB) {
   await setArchived("barbell_bench_press", true, database);
   await database.routines.add({ id: "old-routine", name: "Old", exercises: [], createdAt: T, updatedAt: T });
   await database.sessions.bulkAdd([session("old-1", T), session("old-2", "2026-04-05T10:00:00.000Z")]);
+  await database.measurements.add({ id: "old-m", kind: "bodyweight", value: 90, measuredAt: T, timeZone: "UTC" });
   await database.settings.put({
     key: SETTINGS_KEY,
     weightUnit: "kg",
@@ -90,6 +99,67 @@ beforeEach(() => {
 });
 
 describe("parseBackup", () => {
+  it("migrates a v1 file forward to v2 with no measurements", () => {
+    const r = parseBackup(FIXTURE_TEXT);
+    expect(r.ok && [r.backup.backupVersion, r.backup.data.measurements]).toEqual([2, []]);
+  });
+
+  it("accepts the frozen v2 fixture and keeps its measurements", () => {
+    const r = parseBackup(FIXTURE_V2_TEXT);
+    expect(r.ok && r.backup.data.measurements).toHaveLength(3);
+  });
+
+  it("requires measurements in a v2 file and rejects invalid ones with their path", () => {
+    const raw = JSON.parse(FIXTURE_V2_TEXT);
+    const missing = { ...raw, data: { ...raw.data, measurements: undefined } };
+    expect(parseBackup(JSON.stringify(missing)).ok).toBe(false);
+
+    raw.data.measurements[0].kind = "elbow";
+    raw.data.measurements[1].value = 140; // body fat above 100 %
+    raw.data.measurements[2].value = -1;
+    raw.data.measurements.push({ ...raw.data.measurements[2], value: 80 }); // duplicate id
+    const r = parseBackup(JSON.stringify(raw));
+    expect(r.ok).toBe(false);
+    if (!r.ok)
+      expect(r.errors).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(/^data\.measurements\[0\]\.kind: /),
+          expect.stringMatching(/^data\.measurements\[1\]\.value: /),
+          expect.stringMatching(/^data\.measurements\[2\]\.value: /),
+        ]),
+      );
+    // The duplicate id is reported once the rest of the file is otherwise valid.
+    const dup = JSON.parse(FIXTURE_V2_TEXT);
+    dup.data.measurements.push({ ...dup.data.measurements[0] });
+    const d2 = parseBackup(JSON.stringify(dup));
+    expect(!d2.ok && d2.errors).toEqual(["data.measurements[3].id: duplicate id meas-bw-1"]);
+  });
+
+  it("reports a missing data object, not the format version, for a malformed v1 file", () => {
+    for (const raw of [{ backupVersion: 1 }, { backupVersion: 1, data: [] }, { backupVersion: 1, data: null }]) {
+      const r = parseBackup(JSON.stringify(raw));
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.errors.join("\n")).not.toMatch(/backupVersion/);
+    }
+  });
+
+  it("rejects measurements the repository would never store: bad zone, non-canonical timestamp, long notes", () => {
+    const raw = JSON.parse(FIXTURE_V2_TEXT);
+    raw.data.measurements[0].timeZone = "Mars/Base";
+    raw.data.measurements[1].measuredAt = "2026-02-27T07:45:00Z"; // valid ISO, but sorts wrongly against ".500Z"
+    raw.data.measurements[2].notes = "x".repeat(1001);
+    const r = parseBackup(JSON.stringify(raw));
+    expect(r.ok).toBe(false);
+    if (!r.ok)
+      expect(r.errors).toEqual([
+        expect.stringMatching(/^data\.measurements\[0\]\.timeZone: /),
+        expect.stringMatching(/^data\.measurements\[1\]\.measuredAt: /),
+        expect.stringMatching(/^data\.measurements\[2\]\.notes: /),
+      ]);
+    raw.data.measurements[0].timeZone = "";
+    const empty = parseBackup(JSON.stringify(raw));
+    expect(!empty.ok && empty.errors[0]).toMatch(/^data\.measurements\[0\]\.timeZone: /);
+  });
   it("accepts the frozen v1 fixture", () => {
     expect(parseBackup(FIXTURE_TEXT).ok).toBe(true);
   });
@@ -108,7 +178,7 @@ describe("parseBackup", () => {
   });
 
   it("asks to update the app for a newer format version", () => {
-    const r = parseBackup(JSON.stringify({ ...JSON.parse(FIXTURE_TEXT), backupVersion: 2 }));
+    const r = parseBackup(JSON.stringify({ ...JSON.parse(FIXTURE_TEXT), backupVersion: 3 }));
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errors[0]).toMatch(/newer version.*Update the app/);
   });
@@ -192,18 +262,20 @@ describe("summaries", () => {
       routines: 2,
       programs: 1,
       customExercises: 1,
+      measurements: 0,
       latestSessionAt: "2026-03-02T08:30:00.000Z",
     });
   });
 
   it("summarizes current data, including an empty database", async () => {
-    expect(await summarizeCurrentData(d)).toEqual({ sessions: 0, routines: 0, programs: 0, customExercises: 0 });
+    expect(await summarizeCurrentData(d)).toEqual({ sessions: 0, routines: 0, programs: 0, customExercises: 0, measurements: 0 });
     await seedExistingData(d);
     expect(await summarizeCurrentData(d)).toEqual({
       sessions: 2,
       routines: 1,
       programs: 0,
       customExercises: 1,
+      measurements: 1,
       latestSessionAt: "2026-04-05T10:00:00.000Z",
     });
   });
@@ -215,6 +287,9 @@ describe("restoreBackup", () => {
     const out = await buildBackup({ now: new Date("2026-03-02T09:00:00.000Z") }, d);
     // The fixture predates `timerSound`: an old backup restores, and export fills in the default.
     const expected = JSON.parse(FIXTURE_TEXT);
+    // A v1 file is migrated forward: new format version, no measurements.
+    expected.backupVersion = 2;
+    expected.data.measurements = [];
     expected.data.settings.timerSound = true;
     // Settings added after the fixture was frozen come back as defaults.
     expected.data.settings.backupReminderDays = 14;
@@ -223,6 +298,28 @@ describe("restoreBackup", () => {
     expected.data.settings.barWeightKg = DEFAULT_BAR_KG;
     expected.data.settings.plateInventory = DEFAULT_PLATE_INVENTORY;
     expect(out).toEqual(expected);
+  });
+
+  it("restores the frozen v2 fixture exactly, measurements included", async () => {
+    await restoreBackup(parseV2(), d);
+    expect((await d.measurements.orderBy("measuredAt").toArray()).map((m) => m.id)).toEqual(["meas-bw-1", "meas-bf-1", "meas-waist-1"]);
+    expect((await d.measurements.get("meas-bf-1"))?.notes).toBe("Calipers, morning");
+    const out = await buildBackup({ now: new Date("2026-03-03T09:00:00.000Z") }, d);
+    const expected = JSON.parse(FIXTURE_V2_TEXT);
+    expected.data.settings.timerSound = true;
+    expected.data.settings.backupReminderDays = 14;
+    expected.data.settings.backupReminderSessions = 10;
+    expected.data.settings.effortInput = "off";
+    expected.data.settings.barWeightKg = DEFAULT_BAR_KG;
+    expected.data.settings.plateInventory = DEFAULT_PLATE_INVENTORY;
+    expect(out).toEqual(expected);
+  });
+
+  it("restoring a v1 backup replaces existing measurements with none", async () => {
+    await seedExistingData(d);
+    expect(await d.measurements.count()).toBe(1);
+    await restoreBackup(fixture(), d);
+    expect(await d.measurements.count()).toBe(0);
   });
 
   it("recomputes the exerciseIds index", async () => {
@@ -321,7 +418,7 @@ describe("restoreBackup", () => {
     const dup = fixture();
     dup.data.routines.push(dup.data.routines[0]);
     await expect(restoreBackup(dup, d)).rejects.toBeInstanceOf(InvalidBackupError);
-    await expect(restoreBackup({} as BackupV1, d)).rejects.toBeInstanceOf(InvalidBackupError);
+    await expect(restoreBackup({} as BackupV2, d)).rejects.toBeInstanceOf(InvalidBackupError);
     expect(await snapshot(d)).toEqual(before);
   });
 

@@ -14,12 +14,12 @@ vi.mock("$app/paths", () => ({ resolve: (p: string) => p }));
 let n = 0;
 const uniqueName = () => `lifecycle-${++n}-${Math.random()}`;
 
-/** Simulates a newer app version in another tab: same database, higher schema version. */
+/** Simulates a newer app version in another tab: same database, higher schema version (above AppDB's own latest). */
 function newerVersion(name: string) {
   return new (class extends AppDB {
     constructor() {
       super(name);
-      this.version(2).stores({ sessions: "id, status, startedAt, routineId, [status+startedAt], *exerciseIds, endedAt" });
+      this.version(3).stores({ sessions: "id, status, startedAt, routineId, [status+startedAt], *exerciseIds, endedAt" });
     }
   })();
 }
@@ -47,7 +47,7 @@ describe("versionchange (another tab opens a newer schema)", () => {
     expect(first.status.versionChanged).toBe(true);
     expect(changes).toEqual([true]);
     expect(first.isOpen()).toBe(false);
-    expect(next.verno).toBe(2);
+    expect(next.verno).toBe(3);
     expect(await next.settings.get("settings")).toMatchObject({ weightUnit: "lb" });
     // No silent auto-reopen with the old schema code.
     await expect(first.sessions.toArray()).rejects.toThrow(Dexie.DatabaseClosedError);

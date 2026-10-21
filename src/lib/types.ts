@@ -138,6 +138,50 @@ export type WorkoutSession = {
 
 export type WeightUnit = "kg" | "lb";
 
+/** What a body measurement records. Stored units: bodyweight in kg, body fat in %, every other kind in cm. */
+export const MEASUREMENT_KINDS = [
+  "bodyweight",
+  "body_fat",
+  "neck",
+  "shoulders",
+  "chest",
+  "waist",
+  "hips",
+  "arm",
+  "forearm",
+  "thigh",
+  "calf",
+] as const;
+export type MeasurementKind = (typeof MEASUREMENT_KINDS)[number];
+
+/** Largest accepted `value` per kind (generous sanity bound, in the stored unit); values must also be > 0. */
+export const MEASUREMENT_MAX: Record<MeasurementKind, number> = {
+  bodyweight: 1000,
+  body_fat: 100,
+  neck: 300,
+  shoulders: 500,
+  chest: 500,
+  waist: 500,
+  hips: 500,
+  arm: 300,
+  forearm: 300,
+  thigh: 300,
+  calf: 300,
+};
+
+/** A bodyweight or tape measurement at a point in time. Never edited into history: add a new one or delete. */
+export type BodyMeasurement = {
+  id: string;
+  kind: MeasurementKind;
+  /** kg for `bodyweight`, % for `body_fat`, cm otherwise (display unit conversion is a UI concern). */
+  value: number;
+  /** ISO 8601 UTC instant the measurement was taken. */
+  measuredAt: string;
+  /** IANA zone the user was in, for local-day grouping. */
+  timeZone: string;
+  notes?: string;
+};
+
 /** One plate size in the user's inventory. `weight` is in that unit's system (45 for lb, 25 for kg); `count` is how many are available per side. */
 export type PlateStock = { weight: number; count: number };
 
