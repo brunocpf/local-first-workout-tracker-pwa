@@ -8,8 +8,10 @@
   import IconButton from "#lib/components/ui/IconButton.svelte";
   import ListRow from "#lib/components/ui/ListRow.svelte";
   import PageHeader from "#lib/components/ui/PageHeader.svelte";
+  import Select from "#lib/components/ui/Select.svelte";
   import Sheet from "#lib/components/ui/Sheet.svelte";
   import TextField from "#lib/components/ui/TextField.svelte";
+  import { WEEKDAYS, scheduleByDay, setProgramSchedule, weekdayLabel, type Weekday } from "#lib/routines/schedule";
   import {
     deleteProgram,
     getProgram,
@@ -32,7 +34,14 @@
   let nameError = $state<string>();
   let addOpen = $state(false);
   let deleteOpen = $state(false);
+  // Weekday -> routine id ("" = rest day); saved with the button so a half-edited week is never written.
+  let draft = $state<Record<Weekday, string>>(emptyDraft());
+  let savedDraft = $state<Record<Weekday, string>>(emptyDraft());
+  const scheduleDirty = $derived(WEEKDAYS.some((d) => draft[d] !== savedDraft[d]));
 
+  function emptyDraft() {
+    return Object.fromEntries(WEEKDAYS.map((d) => [d, ""])) as Record<Weekday, string>;
+  }
   const backHref = resolve("/routines");
   const count = (r: Routine) => `${r.exercises.length} ${r.exercises.length === 1 ? "exercise" : "exercises"}`;
 
@@ -47,6 +56,13 @@
       program = found;
       name = found.name;
       members = grouped.programs.find((p) => p.program.id === id)?.routines ?? [];
+      const assigned = scheduleByDay(found);
+      const ids = new Set(members.map((r) => r.id));
+      savedDraft = Object.fromEntries(WEEKDAYS.map((d) => [d, assigned[d] && ids.has(assigned[d]) ? assigned[d] : ""])) as Record<
+        Weekday,
+        string
+      >;
+      draft = { ...savedDraft };
       // Routines already in another program can be moved here too; show where they are now.
       available = [...grouped.standalone, ...grouped.programs.filter((p) => p.program.id !== id).flatMap((p) => p.routines)];
       failed = false;
@@ -108,6 +124,17 @@
       toast("Couldn't remove the routine");
     }
     await load();
+  }
+
+  async function saveSchedule() {
+    if (!program) return;
+    try {
+      program = await setProgramSchedule(program.id, draft);
+      savedDraft = { ...draft };
+      toast("Schedule saved");
+    } catch {
+      toast("Couldn't save the schedule");
+    }
   }
 
   async function removeProgram(deleteRoutines: boolean) {
@@ -190,6 +217,29 @@
     {/if}
     <div class="add"><Button icon="plus" onclick={() => (addOpen = true)}>Add routines</Button></div>
   </section>
+
+  {#if members.length > 0}
+    <section aria-labelledby="schedule">
+      <h2 id="schedule">Weekly schedule</h2>
+      <p class="muted">Optional. Home suggests the routine for today; nothing is missed or penalized if you skip it.</p>
+      <form
+        class="schedule"
+        onsubmit={(e) => {
+          e.preventDefault();
+          void saveSchedule();
+        }}
+      >
+        {#each WEEKDAYS as day (day)}
+          <Select
+            label={weekdayLabel(day)}
+            bind:value={draft[day]}
+            options={[{ value: "", label: "Rest day" }, ...members.map((r) => ({ value: r.id, label: r.name }))]}
+          />
+        {/each}
+        <Button type="submit" variant="secondary" disabled={!scheduleDirty}>Save schedule</Button>
+      </form>
+    </section>
+  {/if}
 {/if}
 
 <Sheet bind:open={addOpen} title="Add routines">
@@ -243,6 +293,16 @@
   }
   .add {
     margin-block-start: var(--space-3);
+  }
+  .schedule {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+    margin-block-start: var(--space-2);
+  }
+  .schedule > :global(.field) {
+    align-self: stretch;
   }
   .menu {
     display: flex;
