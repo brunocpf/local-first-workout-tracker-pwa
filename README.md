@@ -48,6 +48,7 @@ Modules are added when there is code for them. Domain logic lives in `src/lib` (
 - [PWA install (iOS, Android, desktop)](docs/pwa-install.md)
 - [Known browser limitations](docs/browser-limitations.md)
 - [Exercise data attribution](docs/attribution.md)
+- [Third-party licenses (commercial-use audit)](docs/licenses.md)
 - [Architecture decisions](docs/decisions/) (0005: platforms and MVP scope)
 
 ## Deployment

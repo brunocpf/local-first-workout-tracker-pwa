@@ -11,3 +11,5 @@ _No third-party data is bundled._
 The icon set in `src/lib/icons.ts` uses geometry from [Lucide](https://lucide.dev) (ISC licence; portions derived from Feather, MIT). Copyright (c) for Lucide Contributors and Cole Bemis 2013-2022. Icons are inlined as path data; no icon font, sprite or remote file is shipped.
 
 > Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
+
+See [licenses.md](licenses.md) for the full dependency audit; the bundled library notices ship as `/THIRD_PARTY_NOTICES.txt`.
