@@ -17,6 +17,7 @@
   import { formatBytes } from "#lib/diagnostics";
   import { isPushConfigured } from "#lib/push";
   import { isStandalone } from "#lib/pwa/install";
+  import { DEFAULT_PROGRESSION_INCREMENT } from "#lib/progress/progression";
   import { settings, updateSettings } from "#lib/settings.svelte";
   import { getPersistenceStatus, requestPersistentStorage, type PersistenceStatus } from "#lib/storage/persistence";
   import type { EffortInput, LengthUnit, UserSettings } from "#lib/types";
@@ -110,6 +111,23 @@
           { value: "rir", label: "RIR" },
         ]}
       />
+      <Switch
+        label="Progression suggestions"
+        description="Suggest a weight and reps from your last session. Never applied automatically."
+        bind:checked={() => settings.progressionEnabled ?? false, (v) => save({ progressionEnabled: v })}
+      />
+      {#if settings.progressionEnabled}
+        <NumberField
+          label="Increment"
+          suffix={settings.weightUnit}
+          min={0.25}
+          max={50}
+          value={(settings.progressionIncrement ?? DEFAULT_PROGRESSION_INCREMENT)[settings.weightUnit]}
+          onchange={(n) =>
+            n !== null &&
+            save({ progressionIncrement: { ...DEFAULT_PROGRESSION_INCREMENT, ...settings.progressionIncrement, [settings.weightUnit]: n } })}
+        />
+      {/if}
     </div>
   </Card>
 
