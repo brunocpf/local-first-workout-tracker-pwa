@@ -26,3 +26,9 @@ export async function commitHevyImport(plan: HevyPlan): Promise<number> {
     return written;
   });
 }
+
+/** Which of `ids` are already stored sessions (the CSV import keeps a file's session ids; a clash gets a fresh id instead of aborting the write). */
+export async function existingSessionIds(ids: readonly string[]): Promise<Set<string>> {
+  const found = await db.sessions.bulkGet([...ids]);
+  return new Set(found.flatMap((s) => (s === undefined ? [] : [s.id])));
+}
