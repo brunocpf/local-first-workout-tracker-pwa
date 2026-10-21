@@ -98,8 +98,8 @@
   main {
     max-inline-size: var(--content-max);
     margin-inline: auto;
-    padding: var(--safe-top) var(--gutter) var(--shell-bottom);
-    padding-block-start: calc(var(--safe-top) + var(--space-4));
+    /* Every page starts with its sticky PageHeader, which adds the top safe area itself. */
+    padding: 0 var(--gutter) var(--shell-bottom);
     overflow-wrap: anywhere;
   }
   ul {
@@ -116,7 +116,7 @@
     position: fixed;
     inset-inline: 0;
     bottom: 0;
-    z-index: var(--z-sticky);
+    z-index: var(--z-nav);
     display: flex;
     background: var(--color-bg);
     border-block-start: var(--border-w) solid var(--color-border);
@@ -163,15 +163,17 @@
     background: var(--color-surface-3);
   }
 
-  /* Phones: five tabs in the bar; Settings is a compact link at the top end of the page. */
-  .settings {
+  /* Phones: five tabs in the bar; Settings is an icon link in the trailing slot of the page header, which keeps
+     that slot free through --header-end-reserve. `.tabbar .settings` outranks `.tabbar a`. */
+  .tabbar .settings {
     position: fixed;
-    inset-block-start: calc(var(--safe-top) + var(--space-1));
-    inset-inline-end: calc(var(--safe-right) + var(--space-1));
+    inset-block-start: calc(var(--safe-top) + (var(--header-h) - var(--tap-min)) / 2);
+    inset-inline-end: calc(var(--safe-right) + var(--gutter) - var(--space-2));
     inline-size: var(--tap-min);
     flex: none;
+    border-radius: var(--radius-md);
   }
-  .settings span {
+  .tabbar .settings span {
     position: absolute;
     inline-size: 1px;
     block-size: 1px;
@@ -179,8 +181,8 @@
     clip-path: inset(50%);
     white-space: nowrap;
   }
-  .app:not(.nav-hidden) main {
-    padding-block-start: calc(var(--safe-top) + var(--tap-min) + var(--space-2));
+  .app:not(.nav-hidden) {
+    --header-end-reserve: var(--tap-min);
   }
   :global(:root:has(.tabbar)) {
     --shell-bottom: calc(var(--tabbar-h) + var(--safe-bottom));
@@ -231,20 +233,21 @@
     li {
       display: block;
     }
-    .settings {
+    .tabbar .settings {
       position: relative;
       inset: auto;
       inline-size: 100%;
       margin-block-start: auto;
+      border-radius: 0;
     }
-    .settings span {
+    .tabbar .settings span {
       position: static;
       inline-size: auto;
       block-size: auto;
       clip-path: none;
     }
-    .app:not(.nav-hidden) main {
-      padding-block-start: calc(var(--safe-top) + var(--space-4));
+    .app:not(.nav-hidden) {
+      --header-end-reserve: 0px;
     }
   }
 </style>
