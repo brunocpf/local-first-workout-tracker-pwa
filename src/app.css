@@ -170,8 +170,8 @@ button:disabled { cursor: not-allowed; color: var(--color-text-disabled); }
 }
 
 /* Page transitions (design.md §3.5, src/lib/ui/navTransition.ts). Only run where `startViewTransition` exists and
-   motion is welcome; `data-nav` on <html> holds the direction while one runs. Short, so the snapshot overlay
-   (which ignores taps) is gone before the next tap. Tabs cross-fade; a detail slides in a little from the end
+   motion is welcome, never into or out of the logger; `data-nav` on <html> holds the direction while one runs.
+   Short, because the browser doesn't deliver taps to the page while one runs (a tap skips it, see the script). Tabs cross-fade; a detail slides in a little from the end
    and slides back out to its parent. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
@@ -188,7 +188,7 @@ button:disabled { cursor: not-allowed; color: var(--color-text-disabled); }
 ::view-transition-new(tabbar) { animation: none; }
 ::view-transition-old(tabbar) { display: none; }
 ::view-transition-group(tab-indicator) {
-  animation-duration: var(--duration-base);
+  animation-duration: var(--duration-fast);
   animation-timing-function: var(--ease-standard);
 }
 @keyframes vt-in { from { opacity: 0; } }

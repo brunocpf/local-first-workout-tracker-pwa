@@ -38,4 +38,11 @@ describe("shouldTransition", () => {
     expect(shouldTransition(nav("/history", "/history"), supported, win(false))).toBe(false);
     expect(shouldTransition(nav(null, "/history"), supported, win(false))).toBe(false);
   });
+
+  it("never runs into or out of the logger", () => {
+    expect(shouldTransition(nav("/", "/workout"), supported, win(false))).toBe(false);
+    expect(shouldTransition(nav("/workout", "/history"), supported, win(false))).toBe(false);
+    const based = (p: string) => p.replace(/^\/app/, "") || "/";
+    expect(shouldTransition(nav("/app/workout", "/app/history"), supported, win(false), based)).toBe(false);
+  });
 });
