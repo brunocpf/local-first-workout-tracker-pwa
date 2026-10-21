@@ -18,7 +18,7 @@
   import { isStandalone } from "#lib/pwa/install";
   import { settings, updateSettings } from "#lib/settings.svelte";
   import { getPersistenceStatus, requestPersistentStorage, type PersistenceStatus } from "#lib/storage/persistence";
-  import type { UserSettings } from "#lib/types";
+  import type { EffortInput, UserSettings } from "#lib/types";
 
   const pushConfigured = isPushConfigured();
   let standalone = $state(false);
@@ -86,6 +86,16 @@
         label="Auto-start rest timer"
         description="Start the timer when you complete a set."
         bind:checked={() => settings.autoStartRestTimer, (v) => save({ autoStartRestTimer: v })}
+      />
+      <SegmentedControl
+        legend="Effort per set"
+        legendVisible
+        bind:value={() => settings.effortInput ?? "off", (v) => save({ effortInput: v as EffortInput })}
+        options={[
+          { value: "off", label: "Off" },
+          { value: "rpe", label: "RPE" },
+          { value: "rir", label: "RIR" },
+        ]}
       />
     </div>
   </Card>

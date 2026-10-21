@@ -250,6 +250,7 @@
             else e.restSeconds = seconds;
           })}
         {unit}
+        effortInput={settings.effortInput}
         onaddset={() => withExercise(exercise.id, (e) => addSet(e))}
         onsetchange={(setId: string, patch: SetPatch) => withExercise(exercise.id, (e) => updateSet(e, setId, patch))}
         ontoggleset={(setId) => toggleSet(exercise.id, setId)}

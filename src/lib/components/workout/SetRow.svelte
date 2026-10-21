@@ -6,10 +6,11 @@
   import Icon from "#lib/components/ui/Icon.svelte";
   import NumberField from "#lib/components/ui/NumberField.svelte";
   import type { SetValues } from "#lib/logger/previousValues";
+  import { effortLabel, effortOf, effortOptions, effortTarget } from "#lib/logger/effort";
   import { formatNumber } from "#lib/numberInput";
   import { keepAboveKeyboard } from "#lib/ui/keyboard";
   import { displayWeight, toKg } from "#lib/units";
-  import type { LoggedSet, PrescribedSet, WeightUnit } from "#lib/types";
+  import type { EffortInput, LoggedSet, PrescribedSet, WeightUnit } from "#lib/types";
 
   let {
     set,
@@ -20,8 +21,10 @@
     prescribed,
     prefill = {},
     pr = false,
+    effort = "off",
     onweight,
     onreps,
+    oneffort,
     ontoggle,
     onmenu,
   }: {
@@ -33,14 +36,18 @@
     unit: WeightUnit;
     previous?: Pick<LoggedSet, "weight" | "reps">;
     /** The routine's prescription for this set, shown under the previous values. */
-    prescribed?: Pick<PrescribedSet, "repRange" | "targetWeight">;
+    prescribed?: Pick<PrescribedSet, "repRange" | "targetWeight" | "targetRpe" | "targetRir">;
     /** Shown as placeholders and stored by one-tap complete (kg). */
     prefill?: SetValues;
     /** This completed set is a new personal record (PRD §10.1); computed by the page, never stored. */
     pr?: boolean;
+    /** Effort measure to log (settings `effortInput`); `off` renders nothing. */
+    effort?: EffortInput;
     /** Typed weight in kg (`undefined` when cleared). Never called with a value the user didn't type. */
     onweight: (kg: number | undefined) => void;
     onreps: (reps: number | undefined) => void;
+    /** Chosen RPE or RIR for the active `effort` mode (`undefined` when cleared). */
+    oneffort?: (value: number | undefined) => void;
     /** Completes (storing the prefill for empty fields) or un-completes the set. */
     ontoggle: () => void;
     onmenu: () => void;
@@ -68,7 +75,16 @@
     return reps ? `${reps} reps` : weight ? `@ ${weight}` : undefined;
   });
 
+  const effortValue = $derived(effortOf(set, effort));
+  const effortTargetValue = $derived(effortTarget(prescribed, effort));
+
+  function pickEffort(e: Event & { currentTarget: HTMLSelectElement }) {
+    const v = e.currentTarget.value;
+    oneffort?.(v === "" ? undefined : Number(v));
+  }
+
   // Polite announcement for a reverted entry (design.md §6.5); cleared first so a repeat is read again.
+  const id = $props.id();
   let status = $state("");
   function announce(text: string) {
     status = "";
@@ -132,6 +148,19 @@
   >
     <span class="mark">{#if completed}<Icon name="check" size="1.25rem" />{/if}</span>
   </button>
+  {#if effort !== "off"}
+    {@const mode = effort}
+    <div class="effort">
+      <label class="effort-label" for="{id}-effort">{effortLabel(mode)}</label>
+      <select id="{id}-effort" aria-label="{name} {effortLabel(mode)}" value={effortValue === undefined ? "" : String(effortValue)} onchange={pickEffort}>
+        <option value="">–</option>
+        {#each effortOptions(mode, effortValue) as v (v)}
+          <option value={String(v)}>{v}</option>
+        {/each}
+      </select>
+      {#if effortTargetValue !== undefined}<span class="target tabular"><span class="vh">Target:</span> {effortLabel(mode)} {effortTargetValue}</span>{/if}
+    </div>
+  {/if}
   <span class="vh" role="status">{status}</span>
 </li>
 
@@ -189,6 +218,30 @@
     color: var(--color-text-muted);
     overflow-wrap: anywhere;
   }
+
+  /* Second line spanning the whole row, so it works in both the wide and the narrow grid layout. */
+  .effort {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    padding-inline: var(--space-1);
+  }
+  .effort-label { font-size: var(--text-sm); color: var(--color-text-muted); text-transform: uppercase; }
+  .effort select {
+    appearance: auto;
+    min-inline-size: 5rem;
+    min-block-size: var(--tap-min);
+    padding-inline: var(--space-2);
+    border: var(--border-w) solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-2);
+    color: var(--color-text);
+    font: inherit;
+    font-size: max(1rem, 16px);
+  }
+  .effort select:focus-visible { outline: var(--focus-w) solid var(--color-focus); outline-offset: var(--focus-offset); }
 
   .pr { align-self: start; margin-block-start: var(--space-1); }
 

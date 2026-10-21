@@ -14,7 +14,7 @@
   import SetRow from "#lib/components/workout/SetRow.svelte";
   import { alignPrevious, prefillFor, type SetValues } from "#lib/logger/previousValues";
   import type { SetPatch, SupersetInfo } from "#lib/logger/workout";
-  import type { Exercise, LoggedSet, SessionExercise, SetType, WeightUnit } from "#lib/types";
+  import type { EffortInput, Exercise, LoggedSet, SessionExercise, SetType, WeightUnit } from "#lib/types";
 
   let {
     exercise,
@@ -26,6 +26,7 @@
     defaultRestSeconds,
     onrest,
     unit,
+    effortInput = "off",
     previousSets = [],
     prSetIds,
     onaddset,
@@ -53,6 +54,8 @@
     /** `undefined` clears the override (back to the default). */
     onrest: (seconds: number | undefined) => void;
     unit: WeightUnit;
+    /** Settings `effortInput`: shows an RPE or RIR selector on every set row; `off` hides it. */
+    effortInput?: EffortInput;
     /** Sets of this exercise from the last completed session (`loadPreviousSets`). */
     previousSets?: LoggedSet[];
     /** Ids of this exercise's sets that are new PRs (`prSetIds`); omit where PRs aren't shown. */
@@ -224,6 +227,8 @@
             prescribed={prescribed(set)}
             prefill={prefillFor(set, previous[i], prescribed(set))}
             pr={prSetIds?.has(set.id) ?? false}
+            effort={effortInput}
+            oneffort={(v) => onsetchange(set.id, effortInput === "rir" ? { rir: v } : { rpe: v })}
             onweight={(weight) => onsetchange(set.id, { weight })}
             onreps={(reps) => onsetchange(set.id, { reps })}
             ontoggle={() => ontoggleset(set.id, prefillFor(set, previous[i], prescribed(set)))}

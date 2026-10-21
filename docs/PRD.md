@@ -198,7 +198,7 @@ Shows per exercise: name, previous performance, set number, weight, reps, comple
 - Weight and reps independently editable; prefilled from the previous matching set (§8.4) or the routine target.
 - **Completing a prefilled set is one tap.** Editing a value never completes the set; completion is undoable.
 - Quick duplicate of a set; undo for recent destructive actions; keyboard dismissal keeps input.
-- Optional per set: RPE, RIR, duration, distance, notes (UI for RPE/RIR is P1; the model supports them from v1).
+- Optional per set: RPE, RIR, duration, distance, notes (UI for RPE/RIR is P1; the model supports them from v1). The setting `effortInput` (`off` default, `rpe` or `rir`) adds a compact selector under each set row (RPE 6–10 in 0.5 steps; RIR 0–5) showing the prescribed target, and history detail shows the value; with `off` nothing is shown (stored values are kept).
 
 ### 8.4 Previous values
 

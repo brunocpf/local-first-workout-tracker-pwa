@@ -219,6 +219,7 @@ describe("restoreBackup", () => {
     // Settings added after the fixture was frozen come back as defaults.
     expected.data.settings.backupReminderDays = 14;
     expected.data.settings.backupReminderSessions = 10;
+    expected.data.settings.effortInput = "off";
     expected.data.settings.barWeightKg = DEFAULT_BAR_KG;
     expected.data.settings.plateInventory = DEFAULT_PLATE_INVENTORY;
     expect(out).toEqual(expected);
