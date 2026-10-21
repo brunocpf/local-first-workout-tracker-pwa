@@ -243,7 +243,18 @@
   }
   .effort select:focus-visible { outline: var(--focus-w) solid var(--color-focus); outline-offset: var(--focus-offset); }
 
-  .pr { align-self: start; margin-block-start: var(--space-1); }
+  .pr {
+    align-self: start;
+    margin-block-start: var(--space-1);
+    /* The badge pops in once when the completed set turns out to be a record; the badge text is the signal. */
+    animation: badge-in var(--duration-base) var(--ease-enter);
+    @media (prefers-reduced-motion: reduce) {
+      animation: none;
+    }
+  }
+  @keyframes badge-in {
+    from { opacity: 0; transform: scale(0.6); }
+  }
 
   .target {
     font-size: var(--text-xs);

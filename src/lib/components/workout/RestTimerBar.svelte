@@ -228,7 +228,7 @@
       aria-valuemax={total}
       aria-valuenow={remaining}
     >
-      <div class="fill" style:inline-size="{percent}%"></div>
+      <div class="fill" style:transform="scaleX({percent / 100})"></div>
     </div>
     <div class="row">
       <span class="time tabular" role="timer" aria-label="Rest remaining">
@@ -280,9 +280,16 @@
     block-size: 4px;
     background: var(--color-surface-3);
   }
+  /* Scaled, not resized: the compositor glides between whole-second updates without layout. Under reduced
+     motion it steps once a second instead. */
   .fill {
     block-size: 100%;
     background: var(--color-accent);
+    transform-origin: left;
+    transition: transform 1s linear;
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
   }
   .row {
     display: flex;
