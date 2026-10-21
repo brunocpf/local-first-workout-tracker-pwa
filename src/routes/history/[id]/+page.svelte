@@ -184,16 +184,12 @@
 {/if}
 
 <style>
+  /* Three columns when the values fit, fewer otherwise: a stat value never breaks inside a number or unit. */
   .stats {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
     gap: var(--space-2);
     margin-block: var(--space-4);
-  }
-  @media (width < 20em) {
-    .stats {
-      grid-template-columns: 1fr;
-    }
   }
   .stat {
     display: flex;
@@ -205,6 +201,7 @@
     line-height: var(--leading-2xl);
     font-weight: var(--weight-bold);
     font-variant-numeric: tabular-nums;
+    overflow-wrap: normal;
   }
   .stat span {
     font-size: var(--text-xs);

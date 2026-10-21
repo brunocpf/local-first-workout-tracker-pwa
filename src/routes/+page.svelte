@@ -129,7 +129,7 @@
 {/if}
 
 <div class="start">
-  <Button variant="primary" size="lg" block icon="plus" loading={starting} onclick={start}>
+  <Button variant="primary" size="lg" block icon={active.session ? "play" : "plus"} loading={starting} onclick={start}>
     {active.session ? "Resume workout" : "Start workout"}
   </Button>
 </div>
