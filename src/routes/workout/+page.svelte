@@ -125,6 +125,15 @@
 
   onMount(warmUpAlerts);
 
+  // Catalog ids of barbell exercises: they get the plate calculator in the set menu. Optional, so a failure just hides it.
+  let barbellIds = $state<ReadonlySet<string>>(new Set());
+  onMount(() => {
+    listExercises().then(
+      (all) => (barbellIds = new Set(all.filter((e) => e.equipment.includes("barbell")).map((e) => e.id))),
+      () => {},
+    );
+  });
+
   // Previous sets per exercise id, loaded once per exercise. Reads only `exerciseId`s, so typing never reruns it.
   let previous = $state<Record<string, LoggedSet[]>>({});
   // Bookkeeping only: nothing renders from it.
@@ -357,6 +366,7 @@
           onreplace={(to) => replace(exercise, to)}
           loadSuggestions={() => loadSuggestions(exercise)}
           excludeIds={active.session.exercises.map((e) => e.exerciseId)}
+          barbell={barbellIds.has(exercise.exerciseId)}
         />
         </div>
       {/each}
