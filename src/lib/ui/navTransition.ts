@@ -55,15 +55,23 @@ export function startNavTransition(nav: Navigation, relative: (pathname: string)
       resolve();
       await nav.complete;
     });
+    // A skipped transition rejects `ready`; an interrupted navigation rejects `nav.complete`, which rejects
+    // `updateCallbackDone` and `finished` too. None of that is an error here: the router has already moved on.
+    transition.ready.catch(ignore);
+    transition.updateCallbackDone.catch(ignore);
     // The tap that lands on the snapshot is lost, but it ends the transition so the next one isn't.
     const skip = () => transition.skipTransition();
     document.addEventListener("pointerdown", skip, { capture: true });
-    transition.finished.finally(() => {
-      document.removeEventListener("pointerdown", skip, { capture: true });
-      // A newer navigation may have started (and set its own direction) before this one finished.
-      if (id === current) delete root.dataset.nav;
-    });
+    transition.finished
+      .catch(ignore)
+      .finally(() => {
+        document.removeEventListener("pointerdown", skip, { capture: true });
+        // A newer navigation may have started (and set its own direction) before this one finished.
+        if (id === current) delete root.dataset.nav;
+      });
   });
 }
+
+const ignore = () => {};
 
 let current = 0;

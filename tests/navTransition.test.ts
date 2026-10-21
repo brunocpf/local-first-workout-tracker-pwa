@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { navDirection, shouldTransition } from "#lib/ui/navTransition";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { navDirection, shouldTransition, startNavTransition } from "#lib/ui/navTransition";
 
 describe("navDirection", () => {
   it("slides forward into a nested page and back to its parent", () => {
@@ -44,5 +44,59 @@ describe("shouldTransition", () => {
     expect(shouldTransition(nav("/workout", "/history"), supported, win(false))).toBe(false);
     const based = (p: string) => p.replace(/^\/app/, "") || "/";
     expect(shouldTransition(nav("/app/workout", "/app/history"), supported, win(false), based)).toBe(false);
+  });
+});
+
+describe("startNavTransition", () => {
+  const target = (path: string) => ({ url: new URL(`https://x.test${path}`), route: { id: path } });
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    // @ts-expect-error -- jsdom has no View Transitions; the tests add a fake
+    delete document.startViewTransition;
+  });
+
+  /** A fake whose promises all reject, like a transition that was skipped while its navigation was interrupted. */
+  function fakeSkippedTransition() {
+    const skipTransition = vi.fn();
+    document.startViewTransition = ((update: () => Promise<void>) => {
+      const done = Promise.resolve().then(update);
+      const aborted = Promise.reject(new DOMException("Transition was skipped", "AbortError"));
+      return { ready: aborted, updateCallbackDone: done, finished: done, skipTransition, types: new Set() };
+    }) as unknown as typeof document.startViewTransition;
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    return skipTransition;
+  }
+
+  it("lets the router update and swallows the rejections of a skipped or interrupted transition", async () => {
+    fakeSkippedTransition();
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    try {
+      const complete = Promise.reject(new Error("navigation aborted"));
+      complete.catch(() => {}); // SvelteKit handles its own rejection; only ours matter here
+      const ready = startNavTransition({ from: target("/history"), to: target("/history/a"), complete }, (p) => p);
+      await expect(ready).resolves.toBeUndefined();
+      await settle();
+      await settle();
+      expect(unhandled).not.toHaveBeenCalled();
+      expect(document.documentElement.dataset.nav).toBeUndefined();
+    } finally {
+      process.off("unhandledRejection", unhandled);
+    }
+  });
+
+  it("a tap skips the running transition", async () => {
+    const skip = fakeSkippedTransition();
+    let finish!: () => void;
+    const complete = new Promise<void>((r) => (finish = r));
+    await startNavTransition({ from: target("/history"), to: target("/history/a"), complete }, (p) => p);
+    document.dispatchEvent(new Event("pointerdown"));
+    expect(skip).toHaveBeenCalledOnce();
+    finish();
+    await settle();
+    document.dispatchEvent(new Event("pointerdown"));
+    expect(skip).toHaveBeenCalledOnce(); // the listener is gone once the transition is over
   });
 });
