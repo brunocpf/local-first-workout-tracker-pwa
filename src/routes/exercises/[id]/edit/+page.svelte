@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, tn } from "#lib/i18n.svelte";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
@@ -42,7 +43,7 @@
   });
 
   const detail = () => resolve(`/exercises/${id}` as "/");
-  const back = $derived({ href: detail(), label: "Back to exercise" });
+  const back = $derived({ href: detail(), label: t("ex.backTo") });
 
   async function run(action: () => Promise<void>, message: string) {
     error = "";
@@ -57,7 +58,7 @@
     run(async () => {
       await updateCustomExercise(id, values);
       await goto(resolve(`/exercises/${id}` as "/"));
-    }, "Couldn’t save the exercise. Try again.");
+    }, t("ex.saveFailed"));
 
   const toggleArchive = () =>
     run(async () => {
@@ -65,23 +66,23 @@
       const archive = !exercise.archivedAt;
       await setArchived(id, archive);
       exercise = await getExercise(id);
-      toast(archive ? "Exercise archived" : "Exercise restored");
-    }, "Couldn’t update the exercise. Try again.");
+      toast(archive ? t("ex.archivedToast") : t("ex.restoredToast"));
+    }, t("ex.updateFailed"));
 
   async function remove() {
     if (!exercise) return;
     const ok = await confirm({
-      title: `Delete “${exercise.name}”?`,
-      body: "It isn’t used in any workout or routine. This can’t be undone.",
-      confirmLabel: "Delete exercise",
+      title: t("ex.deleteTitle", { name: exercise.name }),
+      body: t("ex.deleteBody"),
+      confirmLabel: t("ex.deleteConfirm"),
       danger: true,
     });
     if (!ok) return;
     await run(async () => {
       await deleteCustomExercise(id);
-      toast("Exercise deleted");
+      toast(t("ex.deleted"));
       await goto(resolve("/exercises"));
-    }, "Couldn’t delete the exercise. It may now be in use; archive it instead.");
+    }, t("ex.deleteFailed"));
   }
 
   async function merge([target]: Exercise[]) {
@@ -89,55 +90,54 @@
     const fromName = exercise.name;
     await run(async () => {
       const counts = await mergePreview(id, target.id);
-      const n = (c: number, one: string) => `${c} ${one}${c === 1 ? "" : "s"}`;
       const ok = await confirm({
-        title: `Merge into “${target.name}”?`,
-        body: `${n(counts.sessions, "workout")} and ${n(counts.routines, "routine")} will use “${target.name}” instead. “${fromName}” will be deleted and kept as an alias. This can’t be undone.`,
-        confirmLabel: "Merge exercises",
+        title: t("ex.mergeTitle", { name: target.name }),
+        body: t("ex.mergeBody", { workouts: tn("count.workouts", counts.sessions), routines: tn("count.routines", counts.routines), target: target.name, from: fromName }),
+        confirmLabel: t("ex.mergeConfirm"),
         danger: true,
       });
       if (!ok) return;
       await mergeExercises(id, target.id);
-      toast("Exercises merged");
+      toast(t("ex.merged"));
       await goto(resolve(`/exercises/${target.id}` as "/"));
-    }, "Couldn’t merge the exercises. Nothing was changed.");
+    }, t("ex.mergeFailed"));
   }
 </script>
 
 {#if failed}
-  <PageHeader title="Edit exercise" {back} />
-  <EmptyState icon="alert-triangle" title="Couldn’t load exercise" body="Reload the app and try again." />
+  <PageHeader title={t("ex.editTitle")} {back} />
+  <EmptyState icon="alert-triangle" title={t("ex.loadOneFailed")} body={t("history.reloadHint")} />
 {:else if loaded && !exercise}
-  <PageHeader title="Edit exercise" {back} />
-  <EmptyState icon="search" title="Exercise not found" />
+  <PageHeader title={t("ex.editTitle")} {back} />
+  <EmptyState icon="search" title={t("ex.notFound")} />
 {:else if exercise && !exercise.isCustom}
-  <PageHeader title="Edit exercise" {back} />
-  <EmptyState icon="info" title="Built-in exercises can’t be edited" />
+  <PageHeader title={t("ex.editTitle")} {back} />
+  <EmptyState icon="info" title={t("ex.builtinLocked")} />
 {:else if exercise}
-  <PageHeader title="Edit exercise" {back} />
+  <PageHeader title={t("ex.editTitle")} {back} />
   {#if error}<Banner variant="danger" urgent>{error}</Banner>{/if}
-  {#if exercise.archivedAt}<Banner variant="info">This exercise is archived and hidden from pickers.</Banner>{/if}
+  {#if exercise.archivedAt}<Banner variant="info">{t("ex.archivedBanner")}</Banner>{/if}
 
   <div class="body">
     <ExerciseForm
       initial={exercise}
-      submitLabel="Save changes"
+      submitLabel={t("ex.saveChanges")}
       onsubmit={save}
       oncancel={() => goto(resolve(`/exercises/${id}` as "/"))}
     />
 
     <section>
-      <h2>Manage</h2>
+      <h2>{t("ex.manage")}</h2>
       <div class="manage">
-        <Button block onclick={toggleArchive}>{exercise.archivedAt ? "Unarchive" : "Archive"}</Button>
-        <Button block onclick={() => (mergeOpen = true)}>Merge into…</Button>
-        {#if !referenced}<Button variant="danger" block onclick={remove}>Delete exercise</Button>{/if}
+        <Button block onclick={toggleArchive}>{exercise.archivedAt ? t("ex.unarchive") : t("ex.archive")}</Button>
+        <Button block onclick={() => (mergeOpen = true)}>{t("ex.mergeInto")}</Button>
+        {#if !referenced}<Button variant="danger" block onclick={remove}>{t("ex.deleteConfirm")}</Button>{/if}
       </div>
-      {#if referenced}<p class="hint">Used in workouts or routines, so it can be archived or merged but not deleted.</p>{/if}
+      {#if referenced}<p class="hint">{t("ex.usedHint")}</p>{/if}
     </section>
   </div>
 
-  <ExercisePicker bind:open={mergeOpen} title="Merge into…" excludeIds={[id]} allowCreate={false} onpick={merge} />
+  <ExercisePicker bind:open={mergeOpen} title={t("ex.mergeInto")} excludeIds={[id]} allowCreate={false} onpick={merge} />
 {/if}
 
 <style>

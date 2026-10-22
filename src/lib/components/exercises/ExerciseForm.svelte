@@ -16,22 +16,17 @@
   import { untrack } from "svelte";
   // Create/edit form for custom exercises (PRD §6.4). Emits plain values; the caller persists them.
   import { EQUIPMENT, MUSCLES } from "#lib/catalog/vocab";
+  import { equipmentLabel, exerciseTypeLabel, muscleLabel } from "#lib/catalog/labels";
+  import { t } from "#lib/i18n.svelte";
   import Button from "#lib/components/ui/Button.svelte";
   import Select from "#lib/components/ui/Select.svelte";
   import Switch from "#lib/components/ui/Switch.svelte";
   import TextField from "#lib/components/ui/TextField.svelte";
-  const TYPES: { value: ExerciseType; label: string }[] = [
-    { value: "weighted_reps", label: "Weight × reps" },
-    { value: "bodyweight_reps", label: "Bodyweight reps" },
-    { value: "weighted_bodyweight", label: "Bodyweight + added weight" },
-    { value: "assisted_bodyweight", label: "Assisted bodyweight" },
-    { value: "duration", label: "Duration" },
-    { value: "distance", label: "Distance" },
-  ];
+  const TYPES = $derived((["weighted_reps", "bodyweight_reps", "weighted_bodyweight", "assisted_bodyweight", "duration", "distance"] as const).map((value) => ({ value, label: exerciseTypeLabel(value) })));
 
   let {
     initial,
-    submitLabel = "Save",
+    submitLabel,
     onsubmit,
     oncancel,
   }: {
@@ -51,11 +46,6 @@
   let secondary = $state<string[]>([...(seed?.secondaryMuscles ?? [])]);
   let isUnilateral = $state(seed?.isUnilateral ?? false);
   let saving = $state(false);
-
-  const label = (id: string) => {
-    const s = id.replaceAll("_", " ");
-    return s.charAt(0).toUpperCase() + s.slice(1);
-  };
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
@@ -79,42 +69,42 @@
 </script>
 
 <form onsubmit={submit}>
-  <TextField label="Name" bind:value={name} required autocomplete="off" enterkeyhint="next" />
-  <TextField label="Aliases" bind:value={aliasText} hint="Other names, separated by commas" autocomplete="off" />
-  <Select label="Exercise type" bind:value={exerciseType} options={TYPES} />
+  <TextField label={t("form.name")} bind:value={name} required autocomplete="off" enterkeyhint="next" />
+  <TextField label={t("form.aliases")} bind:value={aliasText} hint={t("form.aliasesHint")} autocomplete="off" />
+  <Select label={t("form.type")} bind:value={exerciseType} options={TYPES} />
 
   <fieldset>
-    <legend>Equipment</legend>
+    <legend>{t("form.equipment")}</legend>
     <div class="chips">
       {#each EQUIPMENT as id (id)}
-        <label class="chip"><input type="checkbox" value={id} bind:group={equipment} /><span>{label(id)}</span></label>
+        <label class="chip"><input type="checkbox" value={id} bind:group={equipment} /><span>{equipmentLabel(id)}</span></label>
       {/each}
     </div>
   </fieldset>
 
   <fieldset>
-    <legend>Primary muscles</legend>
+    <legend>{t("form.primary")}</legend>
     <div class="chips">
       {#each MUSCLES as id (id)}
-        <label class="chip"><input type="checkbox" value={id} bind:group={primary} /><span>{label(id)}</span></label>
+        <label class="chip"><input type="checkbox" value={id} bind:group={primary} /><span>{muscleLabel(id)}</span></label>
       {/each}
     </div>
   </fieldset>
 
   <fieldset>
-    <legend>Secondary muscles</legend>
+    <legend>{t("form.secondary")}</legend>
     <div class="chips">
       {#each MUSCLES as id (id)}
-        <label class="chip"><input type="checkbox" value={id} bind:group={secondary} /><span>{label(id)}</span></label>
+        <label class="chip"><input type="checkbox" value={id} bind:group={secondary} /><span>{muscleLabel(id)}</span></label>
       {/each}
     </div>
   </fieldset>
 
-  <Switch label="Unilateral" description="Reps are logged per side" bind:checked={isUnilateral} />
+  <Switch label={t("form.unilateral")} description={t("form.unilateralDesc")} bind:checked={isUnilateral} />
 
   <div class="actions">
-    <Button type="submit" variant="primary" block loading={saving} disabled={name.trim() === ""}>{submitLabel}</Button>
-    {#if oncancel}<Button variant="ghost" block disabled={saving} onclick={oncancel}>Cancel</Button>{/if}
+    <Button type="submit" variant="primary" block loading={saving} disabled={name.trim() === ""}>{submitLabel ?? t("common.save")}</Button>
+    {#if oncancel}<Button variant="ghost" block disabled={saving} onclick={oncancel}>{t("common.cancel")}</Button>{/if}
   </div>
 </form>
 

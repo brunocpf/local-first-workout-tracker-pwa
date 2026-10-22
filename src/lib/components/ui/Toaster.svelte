@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "#lib/i18n.svelte";
   // The single toast host, mounted once in +layout.svelte (design.md §6.12). The region is always in the DOM so
   // screen readers announce each toast as it is added. It is one `popover="manual"` stack in the top layer (never
   // light-dismissed); without the Popover API it is a `position: fixed` region instead. Toasts wait while a modal
@@ -83,27 +84,27 @@
   class:open={!popover}
   popover={popover ? "manual" : undefined}
   aria-live="polite"
-  aria-label="Notifications"
+  aria-label={t("common.notifications")}
   onfocusin={trackFocus}
 >
-  {#each toasts as t (t.id)}
+  {#each toasts as item (item.id)}
     <div
       class="toast"
       role="group"
-      data-toast={t.id}
+      data-toast={item.id}
       out:leave
-      onpointerenter={() => hold(t.id, "hover")}
-      onpointerleave={() => release(t.id, "hover")}
-      onfocusin={() => hold(t.id, "focus")}
+      onpointerenter={() => hold(item.id, "hover")}
+      onpointerleave={() => release(item.id, "hover")}
+      onfocusin={() => hold(item.id, "focus")}
       onfocusout={(e) => {
-        if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) release(t.id, "focus");
+        if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) release(item.id, "focus");
       }}
     >
-      <p class="message">{t.message}</p>
-      {#if t.action}
-        <Button variant="ghost" size="sm" onclick={() => act(t.id)}>{t.action.label}</Button>
+      <p class="message">{item.message}</p>
+      {#if item.action}
+        <Button variant="ghost" size="sm" onclick={() => act(item.id)}>{item.action.label}</Button>
       {/if}
-      <IconButton icon="x" label="Dismiss" size="sm" onclick={() => dismiss(t.id)} />
+      <IconButton icon="x" label={t("common.dismiss")} size="sm" onclick={() => dismiss(item.id)} />
     </div>
   {/each}
 </section>

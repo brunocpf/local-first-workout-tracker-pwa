@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { measurementLabel } from "#lib/catalog/labels";
+  import { formatLocaleNumber } from "#lib/format";
+  import { intlLocale } from "#lib/i18n.svelte";
+  import { t } from "#lib/i18n.svelte";
   import { onMount } from "svelte";
   import { resolve } from "$app/paths";
   import LineChart from "#lib/components/charts/LineChart.svelte";
@@ -10,7 +14,7 @@
   import NumberField from "#lib/components/ui/NumberField.svelte";
   import PageHeader from "#lib/components/ui/PageHeader.svelte";
   import Select from "#lib/components/ui/Select.svelte";
-  import { displayMeasurement, MEASUREMENT_LABELS, measurementUnit, toStoredMeasurement } from "#lib/measurements";
+  import { displayMeasurement, measurementUnit, toStoredMeasurement } from "#lib/measurements";
   import { settings } from "#lib/settings.svelte";
   import { addMeasurement, deleteMeasurement, listMeasurements } from "#lib/storage/measurements";
   import { localDate } from "#lib/time";
@@ -19,7 +23,7 @@
   import { toast } from "#lib/ui/toast.svelte";
 
   const OTHER_KINDS = MEASUREMENT_KINDS.filter((k) => k !== "bodyweight");
-  const kindOptions = (kinds: readonly MeasurementKind[]) => kinds.map((k) => ({ value: k, label: MEASUREMENT_LABELS[k] }));
+  const kindOptions = (kinds: readonly MeasurementKind[]) => kinds.map((k) => ({ value: k, label: measurementLabel(k) }));
 
   let items = $state<BodyMeasurement[]>([]);
   let loaded = $state(false);
@@ -51,16 +55,16 @@
   onMount(load);
 
   async function log(kind: MeasurementKind, typed: number | null): Promise<string | undefined> {
-    if (typed === null || typed <= 0) return "Enter a value above 0.";
-    if (typed > maxOf(kind)) return `Enter a value up to ${maxOf(kind)} ${unitOf(kind)}.`;
+    if (typed === null || typed <= 0) return t("body.errPositive");
+    if (typed > maxOf(kind)) return t("body.errMax", { max: maxOf(kind), unit: unitOf(kind) });
     saving = true;
     try {
       await addMeasurement({ kind, value: toStoredMeasurement(kind, typed, units) });
       shown = kind;
-      toast(`${MEASUREMENT_LABELS[kind]} logged`);
+      toast(t("body.logged", { kind: measurementLabel(kind) }));
       await load();
     } catch {
-      return "Couldn't save that measurement. Storage may be unavailable.";
+      return t("body.saveFailed");
     } finally {
       saving = false;
     }
@@ -81,22 +85,22 @@
   async function remove(m: BodyMeasurement) {
     const label = `${show(m.kind, m.value)} ${unitOf(m.kind)}`;
     const ok = await confirm({
-      title: "Delete measurement?",
-      body: `${MEASUREMENT_LABELS[m.kind]} ${label} on ${dateText(m)} will be removed.`,
-      confirmLabel: "Delete measurement",
+      title: t("body.deleteTitle"),
+      body: t("body.deleteBody", { kind: measurementLabel(m.kind), value: label, date: dateText(m) }),
+      confirmLabel: t("body.deleteConfirm"),
       danger: true,
     });
     if (!ok) return;
     try {
       await deleteMeasurement(m.id);
-      toast("Measurement deleted");
+      toast(t("body.deleted"));
       await load();
     } catch {
-      toast("Couldn't delete that measurement");
+      toast(t("body.deleteFailed"));
     }
   }
 
-  const dateFmt = new Intl.DateTimeFormat(undefined, { timeZone: "UTC", dateStyle: "medium" });
+  const dateFmt = $derived(new Intl.DateTimeFormat(intlLocale(), { timeZone: "UTC", dateStyle: "medium" }));
   const dayOf = (m: BodyMeasurement) => localDate({ startedAt: m.measuredAt, timeZone: m.timeZone });
   const dateText = (m: BodyMeasurement) => dateFmt.format(new Date(`${dayOf(m)}T00:00:00Z`));
 
@@ -106,56 +110,56 @@
   const latest = $derived(points.at(-1));
 </script>
 
-<PageHeader title="Body measurements" back={{ href: resolve("/progress"), label: "Back to progress" }} />
+<PageHeader title={t("body.title")} back={{ href: resolve("/progress"), label: t("body.back") }} />
 
 {#if failed}
-  <EmptyState icon="alert-triangle" title="Couldn’t load measurements" body="Reload the app and try again." />
+  <EmptyState icon="alert-triangle" title={t("body.loadFailed")} body={t("history.reloadHint")} />
 {:else}
   <div class="sections">
     <Card as="section" header={logWeight}>
       <form onsubmit={submitWeight} novalidate>
         <NumberField
-          label="Bodyweight"
+          label={t("body.bodyweight")}
           suffix={unitOf("bodyweight")}
           bind:value={weight}
           max={maxOf("bodyweight")}
           error={weightError}
           enterkeyhint="done"
         />
-        <Button type="submit" variant="primary" loading={saving}>Log bodyweight</Button>
+        <Button type="submit" variant="primary" loading={saving}>{t("body.logWeight")}</Button>
       </form>
     </Card>
 
     <Card as="section" header={logOther}>
       <form onsubmit={submitOther} novalidate>
-        <Select label="Measurement" bind:value={otherKind} options={kindOptions(OTHER_KINDS)} />
+        <Select label={t("body.measurement")} bind:value={otherKind} options={kindOptions(OTHER_KINDS)} />
         <NumberField
-          label="Value"
+          label={t("body.value")}
           suffix={unitOf(otherKind as MeasurementKind)}
           bind:value={other}
           max={maxOf(otherKind as MeasurementKind)}
           error={otherError}
         />
-        <Button type="submit" variant="primary" loading={saving}>Add measurement</Button>
+        <Button type="submit" variant="primary" loading={saving}>{t("body.add")}</Button>
       </form>
     </Card>
 
     <Card as="section" header={history}>
       <div class="stack">
-        <Select label="Show" bind:value={shown} options={kindOptions(MEASUREMENT_KINDS)} />
+        <Select label={t("body.show")} bind:value={shown} options={kindOptions(MEASUREMENT_KINDS)} />
         {#if loaded && ofKind.length === 0}
-          <EmptyState icon="chart" title="No {MEASUREMENT_LABELS[kind].toLowerCase()} yet" body="Log a value above to start a chart." />
+          <EmptyState icon="chart" title={t("body.noneYet", { kind: measurementLabel(kind).toLowerCase() })} body={t("body.logAbove")} />
         {:else if latest}
           <p class="headline">
-            <span class="big tabular">{latest.value.toLocaleString()} {unitOf(kind)}</span>
-            <span class="muted">Latest</span>
+            <span class="big tabular">{formatLocaleNumber(latest.value)} {unitOf(kind)}</span>
+            <span class="muted">{t("body.latest")}</span>
           </p>
           <LineChart
             {points}
-            label={MEASUREMENT_LABELS[kind]}
+            label={measurementLabel(kind)}
             unit={unitOf(kind)}
-            emptyTitle="No data yet"
-            emptyBody="Log a value above to start a chart."
+            emptyTitle={t("chart.noDataTitle")}
+            emptyBody={t("body.logAbove")}
           />
         {/if}
       </div>
@@ -163,15 +167,15 @@
 
     {#if ofKind.length > 0}
       <Card as="section" header={entries} padding="none">
-        <ul class="entries" aria-label="{MEASUREMENT_LABELS[kind]} entries">
+        <ul class="entries" aria-label={t("body.entriesLabel", { kind: measurementLabel(kind) })}>
           {#each ofKind as m (m.id)}
             <li>
-              <ListRow title="{show(m.kind, m.value).toLocaleString()} {unitOf(m.kind)}" subtitle={dateText(m)}>
+              <ListRow title="{formatLocaleNumber(show(m.kind, m.value))} {unitOf(m.kind)}" subtitle={dateText(m)}>
                 {#snippet trailing()}
                   <IconButton
                     icon="trash"
                     variant="ghost"
-                    label="Delete {MEASUREMENT_LABELS[m.kind].toLowerCase()} {show(m.kind, m.value).toLocaleString()} {unitOf(m.kind)} from {dateText(m)}"
+                    label={t("body.deleteEntry", { kind: measurementLabel(m.kind).toLowerCase(), value: `${formatLocaleNumber(show(m.kind, m.value))} ${unitOf(m.kind)}`, date: dateText(m) })}
                     onclick={() => remove(m)}
                   />
                 {/snippet}
@@ -184,10 +188,10 @@
   </div>
 {/if}
 
-{#snippet logWeight()}Log bodyweight{/snippet}
-{#snippet logOther()}Other measurements{/snippet}
-{#snippet history()}Chart{/snippet}
-{#snippet entries()}Entries{/snippet}
+{#snippet logWeight()}{t("body.logWeight")}{/snippet}
+{#snippet logOther()}{t("body.otherKinds")}{/snippet}
+{#snippet history()}{t("body.chart")}{/snippet}
+{#snippet entries()}{t("body.entries")}{/snippet}
 
 <style>
   .sections,

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { equipmentLabel, muscleLabel } from "#lib/catalog/labels";
+  import { t, tn } from "#lib/i18n.svelte";
   // Sheet for choosing one or more exercises (design.md §7.4). Single mode picks on tap; multiple mode shows an "Add N" footer.
   import type { Snippet } from "svelte";
   import { groupForPicker, recentExerciseIds, searchExercises, type ExerciseFilters } from "#lib/catalog/search";
@@ -11,6 +13,7 @@
   import Sheet from "#lib/components/ui/Sheet.svelte";
   import TextField from "#lib/components/ui/TextField.svelte";
   import { createCustomExercise, listExercises } from "#lib/storage/exercises";
+  import { localizeExercises } from "#lib/catalog/localize";
   import { listCompletedSessions } from "#lib/storage/sessions";
   import type { Exercise } from "#lib/types";
 
@@ -18,7 +21,7 @@
     open = $bindable(false),
     multiple = false,
     excludeIds = [],
-    title = "Add exercise",
+    title,
     onpick,
     oncancel,
     createRow,
@@ -61,7 +64,7 @@
     );
     listExercises().then(
       (all) => {
-        exercises = all;
+        exercises = localizeExercises(all);
         loaded = true;
       },
       () => {
@@ -71,22 +74,19 @@
     );
   });
 
-  // "lower_back" → "lower back"; the first word of the line is capitalized.
-  const words = (ids: string[]) => ids.map((id) => id.replaceAll("_", " "));
-  const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-  const subtitle = (e: Exercise) => capitalize([...words(e.primaryMuscles), ...words(e.equipment)].join(" · "));
+  const subtitle = (e: Exercise) => [...e.primaryMuscles.map(muscleLabel), ...e.equipment.map(equipmentLabel)].join(" · ");
 
   const available = $derived(exercises.filter((e) => !excludeIds.includes(e.id)));
   const results = $derived(searchExercises(query, available, { filters }));
   // Empty query: Favorites, then Recent (last 5 completed sessions), then all. Typing or filtering by favorites shows one ranked list.
   const grouped = $derived(query.trim() === "" && !filters.favoritesOnly);
   const groups = $derived.by(() => {
-    if (!grouped) return [{ label: "Exercises", items: results }];
+    if (!grouped) return [{ label: t("picker.exercises"), items: results }];
     const g = groupForPicker(results, recentIds);
     return [
-      { label: "Favorites", items: g.favorites },
-      { label: "Recent", items: g.recent },
-      { label: g.favorites.length + g.recent.length > 0 ? "All exercises" : "Exercises", items: g.all },
+      { label: t("picker.favorites"), items: g.favorites },
+      { label: t("picker.recent"), items: g.recent },
+      { label: g.favorites.length + g.recent.length > 0 ? t("picker.all") : t("picker.exercises"), items: g.all },
     ].filter((x) => x.items.length > 0);
   });
 
@@ -99,7 +99,7 @@
       announcement = "";
       return;
     }
-    announceTimer = setTimeout(() => (announcement = `${n} ${n === 1 ? "result" : "results"}`), 500);
+    announceTimer = setTimeout(() => (announcement = tn("picker.results", n)), 500);
     return () => clearTimeout(announceTimer);
   });
 
@@ -138,7 +138,7 @@
       creating = false;
       finish([created]);
     } catch {
-      createError = "Couldn’t save the exercise. Try again.";
+      createError = t("ex.saveFailed");
     }
   }
 
@@ -157,10 +157,10 @@
 {#snippet content()}
   <div class="search">
     <TextField
-      label="Search exercises"
+      label={t("ex.search")}
       type="search"
       bind:value={query}
-      placeholder="Search exercises"
+      placeholder={t("ex.search")}
       autocomplete="off"
       enterkeyhint="search"
     />
@@ -168,10 +168,10 @@
   <ExerciseFiltersBar bind:filters />
 
   {#if failed}
-    <EmptyState icon="alert-triangle" title="Couldn’t load exercises" body="Close this and try again." />
+    <EmptyState icon="alert-triangle" title={t("ex.loadFailed")} body={t("picker.closeRetry")} />
   {:else if loaded}
     {#if results.length === 0}
-      <EmptyState icon="search" title={query.trim() ? `No exercise matches “${query.trim()}”` : "No exercises match"} />
+      <EmptyState icon="search" title={query.trim() ? t("ex.noMatchFor", { query: query.trim() }) : t("ex.noMatch")} />
     {:else}
       {#each groups as g (g.label)}
         <h3 class="heading">{g.label}</h3>
@@ -185,7 +185,7 @@
                 onclick={() => choose(e)}
               >
                 {#snippet leading()}
-                  {#if e.favorite}<span class="fav"><Icon name="star" size={16} /><span class="vh">Favorite</span></span>{/if}
+                  {#if e.favorite}<span class="fav"><Icon name="star" size={16} /><span class="vh">{t("picker.favorite")}</span></span>{/if}
                 {/snippet}
               </ListRow>
             </li>
@@ -198,7 +198,7 @@
     {:else if allowCreate}
       <div class="create">
         <Button variant="secondary" block icon="plus" onclick={startCreate}>
-          {query.trim() ? `Create “${query.trim()}”` : "Create custom exercise"}
+          {query.trim() ? t("picker.createNamed", { name: query.trim() }) : t("picker.createCustom")}
         </Button>
       </div>
     {/if}
@@ -208,29 +208,27 @@
 {/snippet}
 
 {#if multiple}
-  <Sheet bind:open {title} size="full" {onopen} {onclose}>
+  <Sheet bind:open title={title ?? t("picker.add")} size="full" {onopen} {onclose}>
     {@render content()}
     {#snippet actions()}
       <Button variant="primary" block disabled={selectedIds.length === 0} onclick={addSelected}>
-        {selectedIds.length === 0
-          ? "Select exercises"
-          : `Add ${selectedIds.length} ${selectedIds.length === 1 ? "exercise" : "exercises"}`}
+        {selectedIds.length === 0 ? t("picker.select") : tn("picker.addCount", selectedIds.length)}
       </Button>
     {/snippet}
   </Sheet>
 {:else}
-  <Sheet bind:open {title} size="full" {onopen} {onclose}>
+  <Sheet bind:open title={title ?? t("picker.add")} size="full" {onopen} {onclose}>
     {@render content()}
   </Sheet>
 {/if}
 
 {#if allowCreate && !createRow}
-  <Sheet bind:open={creating} title="New exercise" size="full">
+  <Sheet bind:open={creating} title={t("picker.newTitle")} size="full">
     {#if createError}<p class="error" role="alert">{createError}</p>{/if}
     {#key createName}
       <ExerciseForm
         initial={{ name: createName }}
-        submitLabel="Create and add"
+        submitLabel={t("picker.createAdd")}
         onsubmit={create}
         oncancel={() => (creating = false)}
       />

@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { progressionReason } from "#lib/format";
+  import { equipmentLabel, muscleLabel, setTypeLabel } from "#lib/catalog/labels";
+  import { t } from "#lib/i18n.svelte";
+  import { exerciseLabel } from "#lib/catalog/localize";
   // Presentational exercise card (design.md §8): the page decides how to persist. Reused for past sessions (T4.06).
   import Badge from "#lib/components/ui/Badge.svelte";
   import Button from "#lib/components/ui/Button.svelte";
@@ -107,12 +111,7 @@
     if (!applied || !suggestion || set.completedAt || set.type === "warmup" || set.type === "drop") return base;
     return { weight: suggestion.weightKg, reps: suggestion.reps };
   }
-  const setTypes: { value: SetType; label: string }[] = [
-    { value: "normal", label: "Normal" },
-    { value: "warmup", label: "Warm-up" },
-    { value: "drop", label: "Drop" },
-    { value: "failure", label: "Failure" },
-  ];
+  const setTypes = $derived((["normal", "warmup", "drop", "failure"] as const).map((value) => ({ value, label: setTypeLabel(value) })));
   /** Only normal sets are numbered; the others show W / D / F and are counted per type (design.md §7.2). */
   const labels = $derived.by(() => {
     const count: Record<SetType, number> = { normal: 0, warmup: 0, drop: 0, failure: 0 };
@@ -120,13 +119,13 @@
       const n = ++count[s.type];
       switch (s.type) {
         case "warmup":
-          return { label: "W", name: `Warm-up ${n}` };
+          return { label: "W", name: t("set.warmup", { n }) };
         case "drop":
-          return { label: "D", name: `Drop set ${n}` };
+          return { label: "D", name: t("set.drop", { n }) };
         case "failure":
-          return { label: "F", name: `Failure set ${n}` };
+          return { label: "F", name: t("set.failure", { n }) };
         default:
-          return { label: String(n), name: `Set ${n}` };
+          return { label: String(n), name: t("set.normal", { n }) };
       }
     });
   });
@@ -194,10 +193,8 @@
     pickerOpen = true;
   }
 
-  // "lower_back" → "lower back"; the first word of the line is capitalized.
   function describe(e: Exercise) {
-    const text = [...e.primaryMuscles, ...e.equipment].map((id) => id.replaceAll("_", " ")).join(" · ");
-    return text.charAt(0).toUpperCase() + text.slice(1);
+    return [...e.primaryMuscles.map(muscleLabel), ...e.equipment.map(equipmentLabel)].join(" · ");
   }
 
   let restOpen = $state(false);
@@ -205,13 +202,13 @@
   const restChoices = $derived.by(() => {
     const seconds = [...new Set([30, 45, 60, 90, 120, 150, 180, 240, 300, ...(exercise.restSeconds ? [exercise.restSeconds] : [])])];
     return [
-      { value: "", label: `Default (${fmtRest(defaultRestSeconds)})` },
+      { value: "", label: t("card.restDefault", { time: fmtRest(defaultRestSeconds) }) },
       ...seconds.sort((a, b) => a - b).map((n) => ({ value: String(n), label: fmtRest(n) })),
     ];
   });
 
   function fmtRest(n: number) {
-    return n % 60 === 0 ? `${n / 60} min` : n < 60 ? `${n} s` : `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`;
+    return n % 60 === 0 ? t("card.minutes", { n: n / 60 }) : n < 60 ? t("card.seconds", { n }) : `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`;
   }
 
   function openRest() {
@@ -248,27 +245,27 @@
 <Card as="article" padding="none">
   {#snippet header()}
     <div class="head">
-      <h2 class="name">{#if superset}<span class="tag"><Badge variant="accent"><span class="visually-hidden">Superset </span>{superset.letter}{superset.position + 1}</Badge></span>{/if}{exercise.exerciseNameSnapshot}</h2>
-      <IconButton icon="more-vertical" label="Exercise options for {exercise.exerciseNameSnapshot}" onclick={() => (menuOpen = true)} />
+      <h2 class="name">{#if superset}<span class="tag"><Badge variant="accent"><span class="visually-hidden">{t("card.superset")} </span>{superset.letter}{superset.position + 1}</Badge></span>{/if}{exerciseLabel(exercise.exerciseId, exercise.exerciseNameSnapshot)}</h2>
+      <IconButton icon="more-vertical" label={t("card.options", { name: exerciseLabel(exercise.exerciseId, exercise.exerciseNameSnapshot) })} onclick={() => (menuOpen = true)} />
     </div>
   {/snippet}
 
-  {#if exercise.notes}<p class="notes">Notes: {exercise.notes}</p>{/if}
+  {#if exercise.notes}<p class="notes">{t("card.notes", { notes: exercise.notes })}</p>{/if}
   {#if suggestion}
-    <div class="suggest" role="group" aria-label="Progression suggestion">
-      <p class="reason"><Icon name="chevron-up" size="1.1em" /> {applied ? "Suggestion applied to the remaining sets." : suggestion.reason}</p>
-      {#if !applied}<Button size="sm" onclick={() => (appliedKey = key)}>Apply</Button>{/if}
+    <div class="suggest" role="group" aria-label={t("card.suggestion")}>
+      <p class="reason"><Icon name="chevron-up" size="1.1em" /> {applied ? t("card.suggestionApplied") : progressionReason(suggestion.why, unit)}</p>
+      {#if !applied}<Button size="sm" onclick={() => (appliedKey = key)}>{t("card.apply")}</Button>{/if}
     </div>
   {/if}
   <div class="setlist">
     <div class="grid">
       <div class="colhead" aria-hidden="true">
-        <span class="h-label">Set</span>
-        <span class="h-prev">Previous</span>
+        <span class="h-label">{t("card.colSet")}</span>
+        <span class="h-prev">{t("card.colPrevious")}</span>
         <span class="h-weight">{unit}</span>
-        <span class="h-reps">Reps</span>
+        <span class="h-reps">{t("card.colReps")}</span>
       </div>
-      <ol class="sets" aria-label="Sets">
+      <ol class="sets" aria-label={t("card.sets")}>
         {#each exercise.sets as set, i (set.id)}
           <SetRow
             {set}
@@ -291,18 +288,18 @@
           />
         {/each}
       </ol>
-      <Button variant="ghost" size="sm" block icon="plus" onclick={onaddset}>Add set</Button>
+      <Button variant="ghost" size="sm" block icon="plus" onclick={onaddset}>{t("card.addSet")}</Button>
     </div>
   </div>
 </Card>
 
-<Sheet bind:open={setMenuOpen} title="{setMenu?.name ?? 'Set'} · {exercise.exerciseNameSnapshot}">
+<Sheet bind:open={setMenuOpen} title="{setMenu?.name ?? t('card.setFallback')} · {exerciseLabel(exercise.exerciseId, exercise.exerciseNameSnapshot)}">
   <div class="menu">
-    {#if barbell}<Button block icon="dumbbell" onclick={openPlates}>Plate calculator</Button>{/if}
-    <Button block icon="copy" onclick={() => setAct(onduplicateset)}>Duplicate set</Button>
+    {#if barbell}<Button block icon="dumbbell" onclick={openPlates}>{t("card.plates")}</Button>{/if}
+    <Button block icon="copy" onclick={() => setAct(onduplicateset)}>{t("card.duplicateSet")}</Button>
     {#if menuSet}
       <SegmentedControl
-        legend="Set type"
+        legend={t("card.setType")}
         legendVisible
         bind:value={() => menuSet.type, (type) => {
           setMenuOpen = false;
@@ -311,7 +308,7 @@
         options={setTypes}
       />
     {/if}
-    <Button block variant="danger" icon="trash" onclick={() => setAct(ondeleteset)}>Delete set</Button>
+    <Button block variant="danger" icon="trash" onclick={() => setAct(ondeleteset)}>{t("card.deleteSet")}</Button>
   </div>
 </Sheet>
 
@@ -325,65 +322,65 @@
   />
 {/if}
 
-<Sheet bind:open={menuOpen} title={exercise.exerciseNameSnapshot}>
+<Sheet bind:open={menuOpen} title={exerciseLabel(exercise.exerciseId, exercise.exerciseNameSnapshot)}>
   <div class="menu">
-    <Button block icon="chevron-up" disabled={index === 0} onclick={() => act(() => onmove(-1))}>Move up</Button>
-    <Button block icon="chevron-down" disabled={index === count - 1} onclick={() => act(() => onmove(1))}>Move down</Button>
+    <Button block icon="chevron-up" disabled={index === 0} onclick={() => act(() => onmove(-1))}>{t("card.moveUp")}</Button>
+    <Button block icon="chevron-down" disabled={index === count - 1} onclick={() => act(() => onmove(1))}>{t("card.moveDown")}</Button>
     {#if onjoin}
-      <Button block icon="link" disabled={!canJoin.previous} onclick={() => act(() => onjoin(-1))}>Superset with previous</Button>
-      <Button block icon="link" disabled={!canJoin.next} onclick={() => act(() => onjoin(1))}>Superset with next</Button>
+      <Button block icon="link" disabled={!canJoin.previous} onclick={() => act(() => onjoin(-1))}>{t("card.supersetPrev")}</Button>
+      <Button block icon="link" disabled={!canJoin.next} onclick={() => act(() => onjoin(1))}>{t("card.supersetNext")}</Button>
     {/if}
     {#if superset && onleave}
-      <Button block icon="x" onclick={() => act(onleave)}>Remove from superset</Button>
+      <Button block icon="x" onclick={() => act(onleave)}>{t("card.supersetLeave")}</Button>
     {/if}
     {#if onaddwarmups}
-      <Button block icon="plus" disabled={warmups.length === 0} onclick={() => act(() => onaddwarmups(warmups))}>Add warm-up sets</Button>
-      {#if warmups.length === 0}<p class="hint">Enter a working weight first (heavier than the empty bar).</p>{/if}
+      <Button block icon="plus" disabled={warmups.length === 0} onclick={() => act(() => onaddwarmups(warmups))}>{t("card.addWarmups")}</Button>
+      {#if warmups.length === 0}<p class="hint">{t("card.warmupHint")}</p>{/if}
     {/if}
-    <Button block icon="timer" onclick={openRest}>Rest time</Button>
-    <Button block icon="edit" onclick={openNotes}>Notes</Button>
+    <Button block icon="timer" onclick={openRest}>{t("card.restTime")}</Button>
+    <Button block icon="edit" onclick={openNotes}>{t("card.notesAction")}</Button>
     {#if onreplace}
-      <Button block icon="dumbbell" onclick={openReplace}>Replace exercise</Button>
+      <Button block icon="dumbbell" onclick={openReplace}>{t("card.replace")}</Button>
     {/if}
-    <Button block variant="danger" icon="trash" onclick={() => act(onremove)}>Remove exercise</Button>
+    <Button block variant="danger" icon="trash" onclick={() => act(onremove)}>{t("card.remove")}</Button>
   </div>
 </Sheet>
 
 {#if onreplace}
-  <Sheet bind:open={replaceOpen} title="Replace {exercise.exerciseNameSnapshot}" description="Your sets and targets carry over.">
+  <Sheet bind:open={replaceOpen} title={t("card.replaceTitle", { name: exerciseLabel(exercise.exerciseId, exercise.exerciseNameSnapshot) })} description={t("card.replaceDescription")}>
     <div class="menu">
       {#if suggestionsState === "loading"}
-        <p class="hint" role="status">Finding alternatives…</p>
+        <p class="hint" role="status">{t("card.findingAlternatives")}</p>
       {:else if suggestionsState === "failed"}
-        <p class="hint" role="alert">Couldn't load suggestions. You can still browse all exercises.</p>
+        <p class="hint" role="alert">{t("card.suggestionsFailed")}</p>
       {:else if suggestions.length === 0}
-        <p class="hint">No similar exercises found.</p>
+        <p class="hint">{t("card.noSimilar")}</p>
       {:else}
-        <ul class="suggestions" aria-label="Suggested alternatives">
+        <ul class="suggestions" aria-label={t("card.suggested")}>
           {#each suggestions as s (s.id)}
             <li><ListRow title={s.name} subtitle={describe(s)} onclick={() => replaceWith(s)} /></li>
           {/each}
         </ul>
       {/if}
-      <Button block icon="search" onclick={browse}>Browse all exercises</Button>
+      <Button block icon="search" onclick={browse}>{t("card.browseAll")}</Button>
     </div>
   </Sheet>
-  <ExercisePicker bind:open={pickerOpen} title="Replace exercise" excludeIds={[...excludeIds, exercise.exerciseId]} onpick={([to]) => to && replaceWith(to)} />
+  <ExercisePicker bind:open={pickerOpen} title={t("card.replace")} excludeIds={[...excludeIds, exercise.exerciseId]} onpick={([to]) => to && replaceWith(to)} />
 {/if}
 
-<Dialog bind:open={restOpen} title="Rest time">
-  <Select label="Rest after each set" bind:value={restDraft} options={restChoices} />
+<Dialog bind:open={restOpen} title={t("card.restDialog")}>
+  <Select label={t("card.restAfter")} bind:value={restDraft} options={restChoices} />
   {#snippet actions()}
-    <Button variant="ghost" onclick={() => (restOpen = false)}>Cancel</Button>
-    <Button variant="primary" onclick={saveRest}>Save</Button>
+    <Button variant="ghost" onclick={() => (restOpen = false)}>{t("common.cancel")}</Button>
+    <Button variant="primary" onclick={saveRest}>{t("common.save")}</Button>
   {/snippet}
 </Dialog>
 
-<Dialog bind:open={notesOpen} title="Exercise notes">
-  <TextField label="Notes" bind:value={draft} multiline />
+<Dialog bind:open={notesOpen} title={t("card.notesDialog")}>
+  <TextField label={t("card.notesLabel")} bind:value={draft} multiline />
   {#snippet actions()}
-    <Button variant="ghost" onclick={() => (notesOpen = false)}>Cancel</Button>
-    <Button variant="primary" onclick={saveNotes}>Save</Button>
+    <Button variant="ghost" onclick={() => (notesOpen = false)}>{t("common.cancel")}</Button>
+    <Button variant="primary" onclick={saveNotes}>{t("common.save")}</Button>
   {/snippet}
 </Dialog>
 

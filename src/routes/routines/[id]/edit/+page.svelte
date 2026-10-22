@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "#lib/i18n.svelte";
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
@@ -12,7 +13,7 @@
   let routine = $state<Routine>();
   let loaded = $state(false);
   let failed = $state(false);
-  const back = { href: resolve("/routines"), label: "Routines" };
+  const back = { href: resolve("/routines"), label: t("rt.title") };
 
   onMount(async () => {
     try {
@@ -26,14 +27,14 @@
 </script>
 
 {#if failed}
-  <PageHeader title="Edit routine" {back} />
-  <EmptyState icon="alert-triangle" title="Couldn’t load the routine" body="Reload the app and try again." />
+  <PageHeader title={t("rt.editTitle")} {back} />
+  <EmptyState icon="alert-triangle" title={t("rt.detail.loadFailed")} body={t("history.reloadHint")} />
 {:else if !loaded}
-  <PageHeader title="Edit routine" {back} />
+  <PageHeader title={t("rt.editTitle")} {back} />
 {:else if !routine}
-  <PageHeader title="Edit routine" {back} />
-  <EmptyState icon="list" title="Routine not found" body="It may have been deleted.">
-    {#snippet action()}<Button variant="primary" href={resolve("/routines")}>Back to Routines</Button>{/snippet}
+  <PageHeader title={t("rt.editTitle")} {back} />
+  <EmptyState icon="list" title={t("rt.detail.notFound")} body={t("rt.detail.notFoundBody")}>
+    {#snippet action()}<Button variant="primary" href={resolve("/routines")}>{t("rt.detail.backTo")}</Button>{/snippet}
   </EmptyState>
 {:else}
   <RoutineEditor initial={routine} />

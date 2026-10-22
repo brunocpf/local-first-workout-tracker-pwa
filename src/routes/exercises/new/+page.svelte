@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "#lib/i18n.svelte";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import ExerciseForm, { type ExerciseValues } from "#lib/components/exercises/ExerciseForm.svelte";
@@ -14,14 +15,14 @@
       const created = await createCustomExercise(values);
       await goto(resolve(`/exercises/${created.id}` as "/"));
     } catch {
-      error = "Couldn’t save the exercise. Try again.";
+      error = t("ex.saveFailed");
     }
   }
 </script>
 
-<PageHeader title="New exercise" back={{ href: resolve("/exercises"), label: "Back to exercises" }} />
+<PageHeader title={t("ex.createTitle")} back={{ href: resolve("/exercises"), label: t("ex.back") }} />
 {#if error}<Banner variant="danger" urgent>{error}</Banner>{/if}
-<div class="body"><ExerciseForm submitLabel="Create exercise" onsubmit={save} /></div>
+<div class="body"><ExerciseForm submitLabel={t("ex.create")} onsubmit={save} /></div>
 
 <style>
   .body {

@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { formatDuration, formatLocaleNumber, formatZoned } from "#lib/format";
+  import { setTypeLabel } from "#lib/catalog/labels";
+  import { t, tn } from "#lib/i18n.svelte";
+  import { exerciseLabel } from "#lib/catalog/localize";
   import { onMount } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
   import { goto } from "$app/navigation";
@@ -37,20 +41,9 @@
     }
   });
 
-  const zoned = (s: WorkoutSession, opts: Intl.DateTimeFormatOptions) => {
-    try {
-      return new Date(s.startedAt).toLocaleString(undefined, { ...opts, timeZone: s.timeZone });
-    } catch {
-      return new Date(s.startedAt).toLocaleString(undefined, { ...opts, timeZone: "UTC" });
-    }
-  };
-  const dayLabel = (s: WorkoutSession) => zoned(s, { weekday: "short", day: "numeric", month: "short" });
-  const when = (s: WorkoutSession) => `${zoned(s, { dateStyle: "medium" })}, ${zoned(s, { hour: "numeric", minute: "2-digit" })}`;
-
-  function duration(ms: number) {
-    const min = Math.round(ms / 60_000);
-    return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")} min`;
-  }
+  const dayLabel = (s: WorkoutSession) => formatZoned(s.startedAt, s.timeZone, { weekday: "short", day: "numeric", month: "short" });
+  const when = (s: WorkoutSession) =>
+    `${formatZoned(s.startedAt, s.timeZone, { dateStyle: "medium" })}, ${formatZoned(s.startedAt, s.timeZone, { hour: "numeric", minute: "2-digit" })}`;
 
   // Sets that were a new PR when logged: computed from sessions before this one, never stored.
   let prIds = $state<ReadonlySet<string>>(new Set());
@@ -77,14 +70,14 @@
   });
 
   const unit = $derived(settings.weightUnit);
-  const weight = (kg: number) => displayWeight(kg, unit).toLocaleString();
+  const weight = (kg: number) => formatLocaleNumber(displayWeight(kg, unit));
   const summary = $derived(session ? sessionSummary(session) : undefined);
 
   /** Same numbering as the logger: only normal sets are numbered (warm-up, drop and failure sets get badges). */
   function setLabel(sets: LoggedSet[], i: number) {
     return String(sets.slice(0, i + 1).filter((s) => s.type === "normal").length);
   }
-  const typeBadge = { warmup: { variant: "neutral", text: "Warm-up" }, drop: { variant: "info", text: "Drop" }, failure: { variant: "danger", text: "Failure" } } as const;
+  const typeBadge = { warmup: "neutral", drop: "info", failure: "danger" } as const;
 
   function setText(s: LoggedSet) {
     const parts: string[] = [];
@@ -102,83 +95,83 @@
     const { id } = session;
     const sets = sessionSummary(session).completedSets;
     const ok = await confirm({
-      title: `Delete session from ${dayLabel(session)}?`,
-      body: `${sets} ${sets === 1 ? "set" : "sets"} will be deleted. This can’t be undone.`,
-      confirmLabel: "Delete session",
+      title: t("history.deleteTitle", { day: dayLabel(session) }),
+      body: tn("history.deleteBody", sets),
+      confirmLabel: t("history.deleteConfirm"),
       danger: true,
     });
     if (!ok) return;
     deleting = true;
     try {
       await deleteCompletedSession(id);
-      toast("Session deleted");
+      toast(t("history.deleted"));
       await goto(resolve("/history"), { replaceState: true });
     } catch {
       deleting = false;
-      toast("Couldn’t delete the session");
+      toast(t("history.deleteFailed"));
     }
   }
 </script>
 
-<svelte:head><title>{session ? session.name : "Session"} · Workouts</title></svelte:head>
+<svelte:head><title>{session ? session.name : t("history.session")} · Workouts</title></svelte:head>
 
 {#if !loaded}
-  <PageHeader title="Session" back={{ href: resolve("/history"), label: "History" }} />
+  <PageHeader title={t("history.session")} back={{ href: resolve("/history"), label: t("history.title") }} />
 {:else if failed}
-  <PageHeader title="Session" back={{ href: resolve("/history"), label: "History" }} />
-  <EmptyState icon="alert-triangle" title="Couldn’t load this session" body="Reload the app and try again." />
+  <PageHeader title={t("history.session")} back={{ href: resolve("/history"), label: t("history.title") }} />
+  <EmptyState icon="alert-triangle" title={t("history.sessionLoadFailed")} body={t("history.reloadHint")} />
 {:else if !session || !summary}
-  <PageHeader title="Session" back={{ href: resolve("/history"), label: "History" }} />
-  <EmptyState icon="history" title="Session not found" body="It may have been deleted.">
-    {#snippet action()}<Button variant="primary" href={resolve("/history")}>Back to History</Button>{/snippet}
+  <PageHeader title={t("history.session")} back={{ href: resolve("/history"), label: t("history.title") }} />
+  <EmptyState icon="history" title={t("history.notFound")} body={t("history.notFoundBody")}>
+    {#snippet action()}<Button variant="primary" href={resolve("/history")}>{t("history.backTo")}</Button>{/snippet}
   </EmptyState>
 {:else}
-  <PageHeader title={session.name} subtitle={when(session)} back={{ href: resolve("/history"), label: "History" }}>
+  <PageHeader title={session.name} subtitle={when(session)} back={{ href: resolve("/history"), label: t("history.title") }}>
     {#snippet actions()}
-      <IconButton icon="edit" label="Edit session" href={resolve(`/history/${page.params.id}/edit` as "/")} />
-      <IconButton icon="trash" label="Delete session" variant="danger" disabled={deleting} onclick={remove} />
+      <IconButton icon="edit" label={t("history.editSession")} href={resolve(`/history/${page.params.id}/edit` as "/")} />
+      <IconButton icon="trash" label={t("history.deleteSession")} variant="danger" disabled={deleting} onclick={remove} />
     {/snippet}
   </PageHeader>
 
   <div class="stats">
     <Card>
-      <div class="stat"><strong>{duration(summary.durationMs)}</strong><span>Duration</span></div>
+      <div class="stat"><strong>{formatDuration(summary.durationMs)}</strong><span>{t("history.duration")}</span></div>
     </Card>
     <Card>
-      <div class="stat"><strong>{summary.completedSets}</strong><span>{summary.completedSets === 1 ? "Set" : "Sets"}</span></div>
+      <div class="stat"><strong>{summary.completedSets}</strong><span>{summary.completedSets === 1 ? t("history.setsLabel.one") : t("history.setsLabel.other")}</span></div>
     </Card>
     <Card>
-      <div class="stat"><strong>{weight(summary.volumeKg)} {unit}</strong><span>Volume</span></div>
+      <div class="stat"><strong>{weight(summary.volumeKg)} {unit}</strong><span>{t("history.volume")}</span></div>
     </Card>
   </div>
 
-  {#if session.routineNameSnapshot}<p class="meta">Routine: {session.routineNameSnapshot}</p>{/if}
-  {#if session.notes}<p class="meta">Notes: {session.notes}</p>{/if}
+  {#if session.routineNameSnapshot}<p class="meta">{t("history.routine", { name: session.routineNameSnapshot })}</p>{/if}
+  {#if session.notes}<p class="meta">{t("history.notes", { notes: session.notes })}</p>{/if}
 
   {#each session.exercises as ex (ex.id)}
     {@const vol = exerciseVolume(ex.sets, ex.exerciseTypeSnapshot)}
     <section>
-      <h2>{ex.exerciseNameSnapshot}</h2>
-      {#if vol > 0}<p class="vol">Volume: {weight(vol)} {unit}</p>{/if}
+      <h2>{exerciseLabel(ex.exerciseId, ex.exerciseNameSnapshot)}</h2>
+      {#if vol > 0}<p class="vol">{t("history.exerciseVolume", { value: weight(vol), unit })}</p>{/if}
       <table>
-        <caption class="sr-only">Sets for {ex.exerciseNameSnapshot}</caption>
-        <thead><tr><th scope="col">Set</th><th scope="col">Result</th></tr></thead>
+        <caption class="sr-only">{t("history.setsFor", { name: exerciseLabel(ex.exerciseId, ex.exerciseNameSnapshot) })}</caption>
+        <thead><tr><th scope="col">{t("history.colSet")}</th><th scope="col">{t("history.colResult")}</th></tr></thead>
         <tbody>
           {#each ex.sets as s, i (s.id)}
             <tr class:muted={s.completedAt === undefined}>
               <th scope="row">
-                {#if s.type !== "normal"}<Badge variant={typeBadge[s.type].variant}>{typeBadge[s.type].text}</Badge>{:else}{setLabel(ex.sets, i)}{/if}
+                {#if s.type !== "normal"}<Badge variant={typeBadge[s.type]}>{setTypeLabel(s.type)}</Badge>{:else}{setLabel(ex.sets, i)}{/if}
               </th>
               <td>
                 {setText(s)}
-                {#if prIds.has(s.id)}<Badge variant="success" icon="star">PR<span class="sr-only"> – new personal record</span></Badge>{/if}
-                {#if s.completedAt === undefined}<span class="note">not completed</span>{:else if !isCounted(s)}<span class="note">not counted</span>{/if}
+                {#if prIds.has(s.id)}<Badge variant="success" icon="star">{t("setrow.pr")}<span class="sr-only">{t("setrow.prFull")}</span></Badge>{/if}
+                {#if s.completedAt === undefined}<span class="note">{t("history.notCompleted")}</span>{:else if !isCounted(s)}<span class="note">{t("history.notCounted")}</span>{/if}
               </td>
             </tr>
           {/each}
         </tbody>
       </table>
-      {#if ex.notes}<p class="meta">Notes: {ex.notes}</p>{/if}
+      {#if ex.notes}<p class="meta">{t("history.notes", { notes: ex.notes })}</p>{/if}
     </section>
   {/each}
 {/if}

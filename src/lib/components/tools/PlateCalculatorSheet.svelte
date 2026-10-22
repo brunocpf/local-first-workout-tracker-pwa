@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "#lib/i18n.svelte";
   // Plate calculator (design.md §7). Shows what to load on each side of the bar for a target weight, in the display
   // unit's plate system. Pure maths lives in `#lib/tools/plates`; this only renders it.
   import { untrack } from "svelte";
@@ -38,39 +39,39 @@
   /** Plates drawn one by one, heaviest next to the bar. */
   const stack = $derived((result?.perSide ?? []).flatMap((p) => Array.from({ length: p.count }, () => p.weight)));
   const summary = $derived(
-    result?.perSide.length ? result.perSide.map((p) => `${p.count} × ${fmt(p.weight)}`).join(", ") : "No plates",
+    result?.perSide.length ? result.perSide.map((p) => `${p.count} × ${fmt(p.weight)}`).join(", ") : t("pc.noPlates"),
   );
 </script>
 
-<Sheet bind:open title="Plate calculator" description="Plates to load on each side of the bar.">
+<Sheet bind:open title={t("pc.title")} description={t("pc.desc")}>
   <div class="calc">
     <NumberField
-      label="Target weight, {unit}"
+      label={t("pc.target", { unit })}
       suffix={unit}
       value={value}
       onchange={(n) => (value = n)}
     />
-    <p class="bar">Bar: {fmt(barShown)} {unit}</p>
+    <p class="bar">{t("pc.barLine", { weight: fmt(barShown), unit })}</p>
 
     {#if result}
-      <div class="stack" role="img" aria-label="Each side: {summary}">
+      <div class="stack" role="img" aria-label={t("pc.each", { summary })}>
         <span class="bar-end" aria-hidden="true"></span>
         {#each stack as weight, i (i)}
           <span class="plate" aria-hidden="true" style:block-size="{2 + (weight / heaviest) * 4}rem"></span>
         {/each}
       </div>
-      <p class="line" data-testid="plate-summary">{summary} <span class="muted">per side</span></p>
+      <p class="line" data-testid="plate-summary">{summary} <span class="muted">{t("pc.perSideSuffix")}</span></p>
       <p class="muted">
         {#if result.remainder < 0}
-          Below the bar: {fmt(barShown)} {unit} is the lightest load.
+          {t("pc.below", { bar: fmt(barShown), unit })}
         {:else if result.remainder === 0}
-          Exactly {fmt(result.achieved)} {unit}.
+          {t("pc.exact", { value: fmt(result.achieved), unit })}
         {:else}
-          Closest load: {fmt(result.achieved)} {unit} ({fmt(result.remainder)} {unit} short with your plates).
+          {t("pc.closest", { value: fmt(result.achieved), short: fmt(result.remainder), unit })}
         {/if}
       </p>
     {:else}
-      <p class="muted">Enter a weight to see the plates.</p>
+      <p class="muted">{t("pc.enter")}</p>
     {/if}
   </div>
 </Sheet>

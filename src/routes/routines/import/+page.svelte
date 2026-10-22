@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { errorText } from "#lib/errorText";
+  import { t } from "#lib/i18n.svelte";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
@@ -32,24 +34,24 @@
 
 <svelte:window onhashchange={openSharedLink} />
 
-<PageHeader title="Import a plan" back={{ href: resolve("/routines"), label: "Back to routines" }} />
+<PageHeader title={t("imp.title")} back={{ href: resolve("/routines"), label: t("imp.backTo") }} />
 
 <div class="page">
   <p>
-    Paste a plan as JSON or open a <code>.json</code> file. Nothing is saved until you review it.
+    {t("imp.intro")} <code>.json</code>{t("imp.introFile")}
     <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external docs link -->
-    <a href={FORMAT_DOCS} target="_blank" rel="noopener noreferrer">Import format</a>
+    <a href={FORMAT_DOCS} target="_blank" rel="noopener noreferrer">{t("imp.format")}</a>
   </p>
   {#if linkErrors.length > 0}
     <div role="alert">
-      <Banner variant="danger" title="This shared link can't be imported">
+      <Banner variant="danger" title={t("imp.linkBad")}>
         <ul>
-          {#each linkErrors as message, i (i)}<li>{message}</li>{/each}
+          {#each linkErrors as message, i (i)}<li>{errorText(message)}</li>{/each}
         </ul>
       </Banner>
     </div>
   {:else if parsed && linkWarnings.length > 0}
-    <Banner variant="warning" title="Warnings (you can still import)">
+    <Banner variant="warning" title={t("imp.warnings")}>
       <ul>
         {#each linkWarnings as message, i (i)}<li>{message}</li>{/each}
       </ul>

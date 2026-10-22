@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { formatLocaleNumber } from "#lib/format";
+  import { t } from "#lib/i18n.svelte";
   import { onMount } from "svelte";
   import { resolve } from "$app/paths";
   import Banner from "#lib/components/ui/Banner.svelte";
@@ -74,60 +76,59 @@
   }
 </script>
 
-<PageHeader title="Generate a plan with AI" back={{ href: resolve("/routines"), label: "Back to routines" }} />
+<PageHeader title={t("gen.title")} back={{ href: resolve("/routines"), label: t("imp.backTo") }} />
 
 <div class="page">
   <p>
-    Tell us what you want, copy the prompt, and paste it into any AI assistant. Paste the JSON it returns into Import.
-    Nothing is sent from this app; the prompt is only text on your device until you paste it somewhere.
+    {t("gen.intro")}
   </p>
 
   <SegmentedControl
-    legend="Mode"
+    legend={t("gen.mode")}
     bind:value={mode}
     options={[
-      { value: "create", label: "Create a plan" },
-      { value: "convert", label: "Convert a plan" },
+      { value: "create", label: t("gen.create") },
+      { value: "convert", label: t("gen.convert") },
     ]}
   />
 
   {#if mode === "convert"}
     <form onsubmit={(e) => e.preventDefault()} novalidate>
       <TextField
-        label="Plan text"
+        label={t("gen.planText")}
         bind:value={planText}
         multiline
-        placeholder="Paste the article or plan here"
-        hint={`Stays on your device. Only the first ${MAX_CONVERT_TEXT_CHARS.toLocaleString()} characters are used.`}
+        placeholder={t("gen.planPlaceholder")}
+        hint={t("gen.planHint", { max: formatLocaleNumber(MAX_CONVERT_TEXT_CHARS) })}
       />
-      <TextField label="Source URL (optional)" bind:value={sourceUrl} placeholder="https://…" hint="Credited in the plan’s source. Nothing is fetched." />
+      <TextField label={t("gen.source")} bind:value={sourceUrl} placeholder="https://…" hint={t("gen.sourceHint")} />
     </form>
   {:else}
   <form onsubmit={(e) => e.preventDefault()} novalidate>
-    <TextField label="Goal" bind:value={goal} placeholder="e.g. build muscle, get stronger" />
-    <NumberField label="Training days per week" mode="integer" bind:value={daysPerWeek} min={1} max={7} />
-    <NumberField label="Minutes per session" mode="integer" bind:value={sessionMinutes} min={10} max={300} />
+    <TextField label={t("gen.goal")} bind:value={goal} placeholder={t("gen.goalPlaceholder")} />
+    <NumberField label={t("gen.days")} mode="integer" bind:value={daysPerWeek} min={1} max={7} />
+    <NumberField label={t("gen.minutes")} mode="integer" bind:value={sessionMinutes} min={10} max={300} />
     <Select
-      label="Experience"
+      label={t("gen.experience")}
       bind:value={experience}
       options={[
-        { value: "beginner", label: "Beginner" },
-        { value: "intermediate", label: "Intermediate" },
-        { value: "advanced", label: "Advanced" },
+        { value: "beginner", label: t("gen.beginner") },
+        { value: "intermediate", label: t("gen.intermediate") },
+        { value: "advanced", label: t("gen.advanced") },
       ]}
     />
-    <TextField label="Equipment available" bind:value={equipment} placeholder="e.g. dumbbells and a bench" />
-    <TextField label="Notes" bind:value={notes} multiline hint="Injuries, preferences, exercises to avoid" />
+    <TextField label={t("gen.equipment")} bind:value={equipment} placeholder={t("gen.equipmentPlaceholder")} />
+    <TextField label={t("gen.notes")} bind:value={notes} multiline hint={t("gen.notesHint")} />
 
     <Switch
-      label="Include my recent training"
+      label={t("gen.history")}
       bind:checked={includeHistory}
-      description={`Your last ${HISTORY_WEEKS} weeks: exercise names, session counts and top sets. Off by default.`}
+      description={t("gen.historyDesc", { weeks: HISTORY_WEEKS })}
       disabled={!loaded || history.length === 0}
     />
     {#if includeHistory}
       <div class="preview">
-        <strong>Exactly what will be added to the prompt:</strong>
+        <strong>{t("gen.exactly")}</strong>
         <pre>{formatHistory(history)}</pre>
       </div>
     {/if}
@@ -135,18 +136,18 @@
   {/if}
 
   {#if failed}
-    <Banner variant="warning" title="Couldn’t load your exercises">The prompt will not list catalog ids. Reload and try again.</Banner>
+    <Banner variant="warning" title={t("gen.loadFailed")}>{t("gen.loadFailedBody")}</Banner>
   {/if}
 
-  <label class="label" for="prompt-text">Prompt ({prompt.length.toLocaleString()} characters)</label>
+  <label class="label" for="prompt-text">{t("gen.prompt", { chars: formatLocaleNumber(prompt.length) })}</label>
   <textarea id="prompt-text" bind:this={promptEl} readonly rows="10" value={prompt} spellcheck="false"></textarea>
 
   <div class="actions" role="status">
-    <Button variant="primary" icon="copy" onclick={copy} disabled={!canCopy}>Copy prompt</Button>
-    <Button variant="secondary" icon="import" href={resolve("/routines/import")}>Next: Import the result</Button>
+    <Button variant="primary" icon="copy" onclick={copy} disabled={!canCopy}>{t("gen.copy")}</Button>
+    <Button variant="secondary" icon="import" href={resolve("/routines/import")}>{t("gen.next")}</Button>
   </div>
-  {#if copyResult === "copied"}<p>Prompt copied.</p>{/if}
-  {#if copyResult === "manual"}<p>Couldn’t copy automatically. The prompt is selected: copy it manually.</p>{/if}
+  {#if copyResult === "copied"}<p>{t("gen.copied")}</p>{/if}
+  {#if copyResult === "manual"}<p>{t("gen.manual")}</p>{/if}
 </div>
 
 <style>

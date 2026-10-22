@@ -91,6 +91,7 @@
 </script>
 
 <script lang="ts">
+  import { t } from "#lib/i18n.svelte";
   import type { Snippet } from "svelte";
   import { untrack } from "svelte";
   import IconButton from "./IconButton.svelte";
@@ -200,7 +201,7 @@
   <header class="head">
     <h2 id="{uid}-title">{title}</h2>
     {#if variant === "sheet"}
-      <IconButton icon="x" label="Close" onclick={() => (open = false)} />
+      <IconButton icon="x" label={t("common.close")} onclick={() => (open = false)} />
     {/if}
   </header>
   <div class="body">

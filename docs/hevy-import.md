@@ -1,6 +1,6 @@
 # Hevy history import: mapping spec
 
-Source of truth for the importer (T5.02 parser, T5.04 matching/preview, T5.05 save). Decisions are recorded in [ADR 0006](decisions/0006-hevy-import.md). Derived from a **real export**, `tests/fixtures/hevy/sample.csv` (29 workouts, 546 set rows, Jul–Oct 2026, three free-text notes replaced by dummy text). Anything the sample does not exercise is marked **unverified**: build it defensively and cover it with synthetic fixtures.
+Source of truth for the importer (T5.02 parser, T5.04 matching/preview, T5.05 save). Decisions are recorded in [ADR 0015](decisions/0006-hevy-import.md). Derived from a **real export**, `tests/fixtures/hevy/sample.csv` (29 workouts, 546 set rows, Jul–Oct 2026, three free-text notes replaced by dummy text). Anything the sample does not exercise is marked **unverified**: build it defensively and cover it with synthetic fixtures.
 
 Pipeline (PRD §12.1): `CSV text → rows (Zod) → workouts → exercise resolution → preview → local database`. Pure functions in `src/lib/imports/`; the save step is the only one that touches Dexie.
 

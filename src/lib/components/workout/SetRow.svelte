@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "#lib/i18n.svelte";
   // One set of an exercise card (design.md §7.2). Presentational: values come in as kg, edits go out as kg
   // through callbacks, and the parent decides how to persist. The grid columns come from the card
   // (`--set-cols` / `--set-areas`) so the column header and every row share one layout.
@@ -61,7 +62,7 @@
     const r = previous?.reps;
     if (w !== undefined && r !== undefined) return `${fmtWeight(w)}\u202f×\u202f${r}`;
     if (w !== undefined) return `${fmtWeight(w)}\u00a0${unit}`;
-    if (r !== undefined) return `${r} reps`;
+    if (r !== undefined) return t("setrow.reps", { n: r });
     return "–";
   });
 
@@ -72,7 +73,7 @@
     const reps = range ? (range[0] === range[1] ? `${range[0]}` : `${range[0]}–${range[1]}`) : undefined;
     const weight = w === undefined ? undefined : `${fmtWeight(w)}\u00a0${unit}`;
     if (reps && weight) return `${reps} @ ${weight}`;
-    return reps ? `${reps} reps` : weight ? `@ ${weight}` : undefined;
+    return reps ? t("setrow.reps", { n: reps }) : weight ? `@ ${weight}` : undefined;
   });
 
   const effortValue = $derived(effortOf(set, effort));
@@ -108,42 +109,42 @@
 </script>
 
 <li class="row" class:completed {@attach keepAboveKeyboard} {@attach enterKeys}>
-  <button class="label tabular" type="button" aria-label="{name} options" onclick={onmenu}>
+  <button class="label tabular" type="button" aria-label={t("setrow.options", { name })} onclick={onmenu}>
     {#if set.type !== "normal"}<Badge variant={typeVariant[set.type]}>{label}</Badge>{:else}{label}{/if}
   </button>
   <span class="info">
-    <span class="previous tabular"><span class="vh">Previous:</span> {previousText}</span>
-    {#if targetText}<span class="target tabular"><span class="vh">Target:</span> {targetText}</span>{/if}
-    {#if pr && completed}<span class="pr"><Badge variant="success" icon="star">PR<span class="vh"> – new personal record</span></Badge></span>{/if}
+    <span class="previous tabular"><span class="vh">{t("setrow.previous")}</span> {previousText}</span>
+    {#if targetText}<span class="target tabular"><span class="vh">{t("setrow.target")}</span> {targetText}</span>{/if}
+    {#if pr && completed}<span class="pr"><Badge variant="success" icon="star">{t("setrow.pr")}<span class="vh">{t("setrow.prFull")}</span></Badge></span>{/if}
   </span>
   <div class="weight">
     <NumberField
-      label="{name} weight, {unit}"
+      label={t("setrow.weight", { name, unit })}
       labelVisible={false}
       value={set.weight === undefined ? null : displayWeight(set.weight, unit)}
       placeholder={prefill.weight === undefined ? undefined : fmtWeight(prefill.weight)}
       enterkeyhint="next"
       onchange={(n) => onweight(n === null ? undefined : toKg(n, unit))}
-      oninvalid={(reason) => announce(`${name} weight not changed – ${reason.toLowerCase()}`)}
+      oninvalid={(reason) => announce(t("setrow.weightRejected", { name, reason: reason.toLowerCase() }))}
     />
   </div>
   <div class="reps">
     <NumberField
-      label="{name} reps"
+      label={t("setrow.repsLabel", { name })}
       labelVisible={false}
       mode="integer"
       value={set.reps ?? null}
       placeholder={prefill.reps === undefined ? undefined : String(prefill.reps)}
       enterkeyhint="done"
       onchange={(n) => onreps(n ?? undefined)}
-      oninvalid={(reason) => announce(`${name} reps not changed – ${reason.toLowerCase()}`)}
+      oninvalid={(reason) => announce(t("setrow.repsRejected", { name, reason: reason.toLowerCase() }))}
     />
   </div>
   <button
     class="done"
     type="button"
     aria-pressed={completed}
-    aria-label={completed ? `${name} completed, undo` : `Complete ${name.toLowerCase()}`}
+    aria-label={completed ? t("setrow.completedUndo", { name }) : t("setrow.complete", { name: name.toLowerCase() })}
     onclick={ontoggle}
   >
     <span class="mark">{#if completed}<Icon name="check" size="1.25rem" />{/if}</span>
@@ -158,7 +159,7 @@
           <option value={String(v)}>{v}</option>
         {/each}
       </select>
-      {#if effortTargetValue !== undefined}<span class="target tabular"><span class="vh">Target:</span> {effortLabel(mode)} {effortTargetValue}</span>{/if}
+      {#if effortTargetValue !== undefined}<span class="target tabular"><span class="vh">{t("setrow.target")}</span> {effortLabel(mode)} {effortTargetValue}</span>{/if}
     </div>
   {/if}
   <span class="vh" role="status">{status}</span>

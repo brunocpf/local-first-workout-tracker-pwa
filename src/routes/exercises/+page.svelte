@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { equipmentLabel, muscleLabel } from "#lib/catalog/labels";
+  import { t } from "#lib/i18n.svelte";
   import { resolve } from "$app/paths";
   import { searchExercises, type ExerciseFilters } from "#lib/catalog/search";
   import ExerciseFiltersBar from "#lib/components/exercises/ExerciseFilters.svelte";
@@ -10,6 +12,7 @@
   import Switch from "#lib/components/ui/Switch.svelte";
   import TextField from "#lib/components/ui/TextField.svelte";
   import { listExercises } from "#lib/storage/exercises";
+  import { localizeExercises } from "#lib/catalog/localize";
   import type { Exercise } from "#lib/types";
 
   let exercises = $state<Exercise[]>([]);
@@ -26,7 +29,7 @@
     const token = ++loadToken;
     try {
       const all = await listExercises({ includeArchived: showArchived });
-      if (token === loadToken) exercises = all;
+      if (token === loadToken) exercises = localizeExercises(all);
     } catch {
       if (token === loadToken) failed = true;
     } finally {
@@ -39,44 +42,40 @@
     void load();
   });
 
-  // "lower_back" → "lower back"; the first word of the line is capitalized below.
-  const words = (ids: string[]) => ids.map((id) => id.replaceAll("_", " "));
-  const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-  const secondary = (e: Exercise) =>
-    capitalize([...words(e.equipment), ...words(e.primaryMuscles)].join(" · "));
+  const secondary = (e: Exercise) => [...e.equipment.map(equipmentLabel), ...e.primaryMuscles.map(muscleLabel)].join(" · ");
 
   const results = $derived(searchExercises(query, exercises, { includeArchived: showArchived, filters }));
 </script>
 
-<PageHeader title="Exercises">
+<PageHeader title={t("ex.title")}>
   {#snippet actions()}
-    <Button variant="primary" size="sm" icon="plus" href={resolve("/exercises/new")}>New exercise</Button>
+    <Button variant="primary" size="sm" icon="plus" href={resolve("/exercises/new")}>{t("ex.new")}</Button>
   {/snippet}
 </PageHeader>
 
 <div class="search">
   <TextField
-    label="Search exercises"
+    label={t("ex.search")}
     type="search"
     bind:value={query}
-    placeholder="Search exercises"
+    placeholder={t("ex.search")}
     autocomplete="off"
     enterkeyhint="search"
   />
   <ExerciseFiltersBar bind:filters />
-  <Switch label="Show archived" bind:checked={showArchived} />
+  <Switch label={t("ex.showArchived")} bind:checked={showArchived} />
 </div>
 
 {#if failed}
-  <EmptyState icon="alert-triangle" title="Couldn’t load exercises" body="Reload the app and try again." />
+  <EmptyState icon="alert-triangle" title={t("ex.loadFailed")} body={t("history.reloadHint")} />
 {:else if loaded}
   {#if results.length === 0}
-    <EmptyState icon="search" title={query.trim() ? `No exercise matches “${query.trim()}”` : "No exercises match"} />
+    <EmptyState icon="search" title={query.trim() ? t("ex.noMatchFor", { query: query.trim() }) : t("ex.noMatch")} />
   {:else}
-    <ul class="group" aria-label="Exercises">
+    <ul class="group" aria-label={t("ex.title")}>
       {#each results as e (e.id)}
         <li><ListRow title={e.name} subtitle={secondary(e)} href={resolve(`/exercises/${e.id}` as "/")}>
-            {#snippet trailing()}{#if e.archivedAt}<Badge>Archived</Badge>{/if}{/snippet}
+            {#snippet trailing()}{#if e.archivedAt}<Badge>{t("ex.archived")}</Badge>{/if}{/snippet}
           </ListRow></li>
       {/each}
     </ul>

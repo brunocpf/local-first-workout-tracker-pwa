@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { formatLocaleNumber } from "#lib/format";
+  import { intlLocale } from "#lib/i18n.svelte";
+  import { t, tn } from "#lib/i18n.svelte";
     import { MAX_BACKUP_BYTES, parseBackup, restoreBackup, summarizeBackup, summarizeCurrentData, type DataSummary } from "#lib/backup/restore";
   import { exportAndRecord } from "#lib/backup/run";
   import Banner from "#lib/components/ui/Banner.svelte";
@@ -11,13 +14,12 @@
   import { confirm } from "#lib/ui/confirm.svelte";
   import { toast } from "#lib/ui/toast.svelte";
 
-  const number = new Intl.NumberFormat();
   const size = (bytes: number) =>
     bytes < 1_000_000
-      ? `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(Math.max(1, Math.round(bytes / 1000)))} KB`
-      : `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(bytes / 1_000_000)} MB`;
-  const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
-  const message = (e: unknown) => (e instanceof Error && e.message ? e.message : "Unknown error");
+      ? `${formatLocaleNumber(Math.max(1, Math.round(bytes / 1000)), { maximumFractionDigits: 0 })} KB`
+      : `${formatLocaleNumber(bytes / 1_000_000, { maximumFractionDigits: 1 })} MB`;
+  const day = (iso: string) => new Date(iso).toLocaleDateString(intlLocale(), { day: "numeric", month: "short", year: "numeric" });
+  const message = (e: unknown) => (e instanceof Error && e.message ? e.message : t("bk.unknownError"));
 
   let exporting = $state(false);
   let restoring = $state(false);
@@ -35,11 +37,11 @@
     try {
       const r = await exportAndRecord();
       if (r.status === "cancelled") return false;
-      exportNote = `${r.status === "shared" ? "Shared" : "Saved"} ${r.name} · ${size(r.bytes)} · ${day(r.at)}`;
-      toast(`Backup saved · ${size(r.bytes)}`);
+      exportNote = t(r.status === "shared" ? "bk.shared" : "bk.saved", { name: r.name, size: size(r.bytes), date: day(r.at) });
+      toast(t("bk.savedToast", { size: size(r.bytes) }));
       return true;
     } catch (e) {
-      exportError = `Backup failed: ${message(e)}`;
+      exportError = t("bk.failed", { error: message(e) });
       return false;
     } finally {
       exporting = false;
@@ -55,17 +57,24 @@
     try {
       const blob = csvBlob(await buildHistoryCsv());
       const result = await saveFile(blob, csvFileName());
-      if (result !== "cancelled") toast(`History saved · ${size(blob.size)}`);
+      if (result !== "cancelled") toast(t("bk.csvSaved", { size: size(blob.size) }));
     } catch (e) {
-      csvError = `CSV export failed: ${message(e)}`;
+      csvError = t("bk.csvFailed", { error: message(e) });
     } finally {
       exportingCsv = false;
     }
   }
 
   function describe(s: DataSummary) {
-    const latest = s.latestSessionAt ? `latest workout ${day(s.latestSessionAt)}` : "no workouts";
-    return `${number.format(s.sessions)} workouts, ${number.format(s.routines)} routines, ${number.format(s.programs)} programs, ${number.format(s.customExercises)} custom exercises, ${number.format(s.measurements)} body measurements; ${latest}`;
+    const latest = s.latestSessionAt ? t("bk.latestWorkout", { date: day(s.latestSessionAt) }) : t("bk.noWorkouts");
+    return t("bk.summary", {
+      workouts: tn("count.workouts", s.sessions),
+      routines: tn("count.routines", s.routines),
+      programs: tn("bk.programs", s.programs),
+      custom: tn("bk.custom", s.customExercises),
+      measurements: tn("bk.measurements", s.measurements),
+      latest,
+    });
   }
 
   async function onfile(e: Event) {
@@ -80,12 +89,12 @@
       // A saved-but-not-yet-loaded active session must count, so load it before checking.
       await active.load();
       if (active.isActive) {
-        restoreFailure = "A workout is in progress. Finish or discard it before restoring a backup.";
+        restoreFailure = t("bk.inProgress");
         return;
       }
       const read = await readTextFile(file, MAX_BACKUP_BYTES);
       if (!read.ok) {
-        restoreErrors = [`File too large (max ${MAX_BACKUP_BYTES / 1_000_000} MB)`];
+        restoreErrors = [t("bk.tooLarge", { mb: MAX_BACKUP_BYTES / 1_000_000 })];
         return;
       }
       const parsed = parseBackup(read.text);
@@ -96,24 +105,24 @@
       const incoming = summarizeBackup(parsed.backup);
       const current = await summarizeCurrentData();
       const ok = await confirm({
-        title: "Replace all data?",
-        body: `This replaces everything on this device with the backup. It can't be undone.\n\nOn this device now: ${describe(current)}.\n\nIn ${file.name}: ${describe(incoming)}.`,
-        confirmLabel: "Replace all data",
+        title: t("bk.replaceTitle"),
+        body: t("bk.replaceBody", { current: describe(current), file: file.name, incoming: describe(incoming) }),
+        confirmLabel: t("bk.replaceConfirm"),
         danger: true,
-        secondaryAction: { label: "Export a backup first", run: () => void exportBackup() },
+        secondaryAction: { label: t("bk.exportFirst"), run: () => void exportBackup() },
       });
       if (!ok) return;
       // A workout could have been started while the dialog was open.
       if (active.isActive) {
-        restoreFailure = "A workout is in progress. Finish or discard it before restoring a backup.";
+        restoreFailure = t("bk.inProgress");
         return;
       }
       await restoreBackup(parsed.backup);
       await initSettings();
       await active.load();
-      toast("Backup restored");
+      toast(t("bk.restored"));
     } catch (err) {
-      restoreFailure = `Restore failed: ${message(err)}. Your existing data was not changed.`;
+      restoreFailure = t("bk.restoreFailed", { error: message(err) });
     } finally {
       restoring = false;
     }
@@ -122,45 +131,45 @@
 
 <div class="stack">
   <p class="muted">
-    Browsers can delete app data. Keep a backup file somewhere safe.
-    {#if settings.lastBackupAt}Last backup: {day(settings.lastBackupAt)}.{:else}You haven't backed up yet.{/if}
+    {t("bk.intro")}
+    {#if settings.lastBackupAt}{t("bk.last", { date: day(settings.lastBackupAt) })}{:else}{t("bk.never")}{/if}
   </p>
-  <Button onclick={exportBackup} loading={exporting} icon="export">Export backup</Button>
+  <Button onclick={exportBackup} loading={exporting} icon="export">{t("bk.export")}</Button>
   {#if exportNote}<p class="note" role="status" data-testid="export-note">{exportNote}</p>{/if}
   {#if exportError}<Banner variant="danger" urgent>{exportError}</Banner>{/if}
-  <Button onclick={exportCsv} loading={exportingCsv} icon="export">Export history (CSV)</Button>
-  <p class="muted">A spreadsheet of every logged set. It is not a backup and can't be restored.</p>
+  <Button onclick={exportCsv} loading={exportingCsv} icon="export">{t("bk.csv")}</Button>
+  <p class="muted">{t("bk.csvNote")}</p>
   {#if csvError}<Banner variant="danger" urgent>{csvError}</Banner>{/if}
 
   <NumberField
-    label="Remind after (days)"
+    label={t("bk.remindDays")}
     mode="integer"
-    suffix="days"
+    suffix={t("bk.days")}
     min={0}
     max={365}
-    hint="0 turns this reminder off."
+    hint={t("bk.remindOff")}
     value={settings.backupReminderDays ?? 14}
     onchange={(n) => n !== null && updateSettings({ backupReminderDays: n })}
   />
   <NumberField
-    label="Remind after (workouts)"
+    label={t("bk.remindSessions")}
     mode="integer"
-    suffix="workouts"
+    suffix={t("bk.workouts")}
     min={0}
     max={1000}
-    hint="0 turns this reminder off."
+    hint={t("bk.remindOff")}
     value={settings.backupReminderSessions ?? 10}
     onchange={(n) => n !== null && updateSettings({ backupReminderSessions: n })}
   />
 
   <input bind:this={fileInput} type="file" accept="application/json,.json" hidden onchange={onfile} data-testid="restore-input" />
-  <Button onclick={() => fileInput?.click()} loading={restoring} disabled={active.isActive}>Restore from backup…</Button>
+  <Button onclick={() => fileInput?.click()} loading={restoring} disabled={active.isActive}>{t("bk.restore")}</Button>
   {#if active.isActive}
-    <p class="muted">Finish or discard your current workout before restoring.</p>
+    <p class="muted">{t("bk.restoreBlocked")}</p>
   {/if}
   {#if restoreFailure}<Banner variant="danger" urgent>{restoreFailure}</Banner>{/if}
   {#if restoreErrors.length}
-    <Banner variant="danger" urgent title="This file can't be restored. Nothing was changed.">
+    <Banner variant="danger" urgent title={t("bk.badFile")}>
       <ul>
         {#each restoreErrors as err (err)}<li>{err}</li>{/each}
       </ul>

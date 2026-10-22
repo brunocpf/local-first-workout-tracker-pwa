@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { errorText } from "#lib/errorText";
+  import { formatLocaleNumber } from "#lib/format";
+  import { t } from "#lib/i18n.svelte";
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
@@ -12,6 +15,7 @@
   import { buildShareData, buildShareUrl, ShareLinkError } from "#lib/imports/shareLink";
   import { settings } from "#lib/settings.svelte";
   import { getExercisesByIds } from "#lib/storage/exercises";
+  import { localizeExercises } from "#lib/catalog/localize";
   import { getProgram, getRoutine, listRoutinesGrouped } from "#lib/storage/routines";
   import { toast } from "#lib/ui/toast.svelte";
   import { displayWeight } from "#lib/units";
@@ -32,7 +36,7 @@
           getExercisesByIds(r.exercises.map((e) => e.exerciseId)),
         ]);
         program = p;
-        names = Object.fromEntries(exercises.map((e) => [e.id, e.name]));
+        names = Object.fromEntries(localizeExercises(exercises).map((e) => [e.id, e.name]));
         routine = r;
       }
     } catch {
@@ -43,13 +47,13 @@
   });
 
   const unit = $derived(settings.weightUnit);
-  const back = { href: resolve("/routines"), label: "Routines" };
-  const typeLabel: Record<PrescribedSet["type"], string> = { normal: "Working", warmup: "Warm-up", drop: "Drop", failure: "Failure" };
+  const back = { href: resolve("/routines"), label: t("rt.title") };
+  const typeLabel = (type: PrescribedSet["type"]) => t(`rt.kind.${type}`);
 
   function setText(s: PrescribedSet) {
     const parts: string[] = [];
-    if (s.repRange) parts.push(s.repRange[0] === s.repRange[1] ? `${s.repRange[0]} reps` : `${s.repRange[0]}–${s.repRange[1]} reps`);
-    if (s.targetWeight !== undefined) parts.push(`${displayWeight(s.targetWeight, unit).toLocaleString()} ${unit}`);
+    if (s.repRange) parts.push(s.repRange[0] === s.repRange[1] ? t("rt.repsExact", { n: s.repRange[0] }) : t("rt.repsRange", { from: s.repRange[0], to: s.repRange[1] }));
+    if (s.targetWeight !== undefined) parts.push(`${formatLocaleNumber(displayWeight(s.targetWeight, unit))} ${unit}`);
     if (s.targetDurationSeconds !== undefined) parts.push(`${s.targetDurationSeconds} s`);
     if (s.targetDistance !== undefined) parts.push(`${s.targetDistance} m`);
     if (s.targetRpe !== undefined) parts.push(`RPE ${s.targetRpe}`);
@@ -86,9 +90,9 @@
         }
       }
       await navigator.clipboard.writeText(url);
-      toast("Link copied");
+      toast(t("rt.linkCopied"));
     } catch (err) {
-      shareError = err instanceof ShareLinkError ? err.message : "Couldn’t create a share link. Try again.";
+      shareError = err instanceof ShareLinkError ? errorText(err.message) : t("rt.shareFailed");
     } finally {
       sharing = false;
     }
@@ -101,50 +105,50 @@
 </script>
 
 {#if failed}
-  <PageHeader title="Routine" {back} />
-  <EmptyState icon="alert-triangle" title="Couldn’t load the routine" body="Reload the app and try again." />
+  <PageHeader title={t("rt.detail.title")} {back} />
+  <EmptyState icon="alert-triangle" title={t("rt.detail.loadFailed")} body={t("history.reloadHint")} />
 {:else if !loaded}
-  <PageHeader title="Routine" {back} />
+  <PageHeader title={t("rt.detail.title")} {back} />
 {:else if !routine}
-  <PageHeader title="Routine" {back} />
-  <EmptyState icon="list" title="Routine not found" body="It may have been deleted.">
-    {#snippet action()}<Button variant="primary" href={resolve("/routines")}>Back to Routines</Button>{/snippet}
+  <PageHeader title={t("rt.detail.title")} {back} />
+  <EmptyState icon="list" title={t("rt.detail.notFound")} body={t("rt.detail.notFoundBody")}>
+    {#snippet action()}<Button variant="primary" href={resolve("/routines")}>{t("rt.detail.backTo")}</Button>{/snippet}
   </EmptyState>
 {:else}
   <PageHeader title={routine.name} subtitle={program?.name} {back}>
     {#snippet actions()}
-      <Button variant="secondary" size="md" icon="edit" href={resolve(`/routines/${routine!.id}/edit` as "/")}>Edit</Button>
-      <StartRoutineButton routine={routine!} variant="primary" size="md">Start workout</StartRoutineButton>
+      <Button variant="secondary" size="md" icon="edit" href={resolve(`/routines/${routine!.id}/edit` as "/")}>{t("rt.edit")}</Button>
+      <StartRoutineButton routine={routine!} variant="primary" size="md">{t("rt.start")}</StartRoutineButton>
     {/snippet}
   </PageHeader>
   <div class="share">
     <Button variant="secondary" size="md" icon="share" loading={sharing} onclick={share}>
-      {program ? "Share program link" : "Share link"}
+      {program ? t("rt.shareProgram") : t("rt.share")}
     </Button>
   </div>
   {#if shareError}
-    <Banner variant="danger" title="Couldn’t share">{shareError}</Banner>
+    <Banner variant="danger" title={t("rt.shareFailedTitle")}>{shareError}</Banner>
   {:else if longLink}
-    <Banner variant="warning" title="Long link">
-      Messaging apps may cut this link short. Check that it opens before you rely on it.
+    <Banner variant="warning" title={t("rt.longLinkTitle")}>
+      {t("rt.longLink")}
     </Banner>
   {/if}
   {#if routine.description}<p class="desc">{routine.description}</p>{/if}
   {#if routine.exercises.length === 0}
-    <EmptyState icon="list" title="No exercises" body="This routine has no exercises." />
+    <EmptyState icon="list" title={t("rt.noExercises")} body={t("rt.noExercisesBody")} />
   {:else}
     <ol class="list">
       {#each routine.exercises as ex, i (ex.id)}
         <li>
           <Card>
             <div class="head">
-              <h2>{names[ex.exerciseId] ?? "Unknown exercise"}</h2>
-              {#if isSuperset(i)}<Badge variant="info">Superset</Badge>{/if}
+              <h2>{names[ex.exerciseId] ?? t("summary.unknown")}</h2>
+              {#if isSuperset(i)}<Badge variant="info">{t("rt.superset")}</Badge>{/if}
             </div>
-            {#if ex.restSeconds !== undefined}<p class="meta">Rest {ex.restSeconds} s</p>{/if}
-            <ul class="sets" aria-label="Prescribed sets">
+            {#if ex.restSeconds !== undefined}<p class="meta">{t("rt.rest", { n: ex.restSeconds })}</p>{/if}
+            <ul class="sets" aria-label={t("rt.prescribed")}>
               {#each ex.prescribedSets as s, si (s.id)}
-                <li><span class="kind">{si + 1}. {typeLabel[s.type]}</span><span>{setText(s)}</span></li>
+                <li><span class="kind">{si + 1}. {typeLabel(s.type)}</span><span>{setText(s)}</span></li>
               {/each}
             </ul>
             {#if ex.notes}<p class="meta">{ex.notes}</p>{/if}

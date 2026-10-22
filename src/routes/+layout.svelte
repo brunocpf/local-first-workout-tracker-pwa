@@ -8,29 +8,31 @@
   import Icon from "#lib/components/ui/Icon.svelte";
   import ConfirmDialog from "#lib/components/ui/ConfirmDialog.svelte";
   import Toaster from "#lib/components/ui/Toaster.svelte";
+  import { t, i18n } from "#lib/i18n.svelte";
+  import type { MessageKey } from "#lib/messages";
   import "../app.css";
   let { children } = $props();
 
   const tabs = [
-    { href: "/", label: "Home", icon: "home" },
-    { href: "/routines", label: "Routines", icon: "list" },
-    { href: "/history", label: "History", icon: "history" },
-    { href: "/exercises", label: "Exercises", icon: "dumbbell" },
-    { href: "/progress", label: "Progress", icon: "chart" },
+    { href: "/", label: "nav.home", icon: "home" },
+    { href: "/routines", label: "nav.routines", icon: "list" },
+    { href: "/history", label: "nav.history", icon: "history" },
+    { href: "/exercises", label: "nav.exercises", icon: "dumbbell" },
+    { href: "/progress", label: "nav.progress", icon: "chart" },
   ] as const;
 
   // `/settings` is created in T1.09; cast until the route exists so the typed resolve() accepts it.
   const settingsHref = resolve("/settings" as "/");
 
-  const titles: Record<string, string> = {
-    "/": "Home",
-    "/routines": "Routines",
-    "/history": "History",
-    "/exercises": "Exercises",
-    "/progress": "Progress",
-    "/settings": "Settings",
-    "/workout": "Workout",
-    "/diagnostics": "Diagnostics",
+  const titles: Record<string, MessageKey> = {
+    "/": "nav.home",
+    "/routines": "nav.routines",
+    "/history": "nav.history",
+    "/exercises": "nav.exercises",
+    "/progress": "nav.progress",
+    "/settings": "nav.settings",
+    "/workout": "nav.workout",
+    "/diagnostics": "nav.diagnostics",
   };
 
   // Path relative to the base path, without a trailing slash ("/" for home).
@@ -42,7 +44,10 @@
   onNavigate((navigation) => startNavTransition(navigation, relative));
   const isCurrent = (href: string) => (href === "/" ? path === "/" : path === href || path.startsWith(href + "/"));
   const hideNav = $derived(path === "/workout" || path.startsWith("/workout/"));
-  const title = $derived(titles[path]);
+  const title = $derived(titles[path] && t(titles[path]));
+  $effect(() => {
+    document.documentElement.lang = i18n.locale;
+  });
 </script>
 
 <svelte:head>
@@ -55,14 +60,14 @@
 {:else}
 <div class="app" class:nav-hidden={hideNav}>
   {#if !hideNav}
-    <nav class="tabbar" aria-label="Primary">
+    <nav class="tabbar" aria-label={t("nav.primary")}>
       <ul>
-        {#each tabs as t (t.href)}
+        {#each tabs as tab (tab.href)}
           <li>
-            <a href={resolve(t.href)} aria-current={isCurrent(t.href) ? "page" : undefined}>
-              {#if isCurrent(t.href)}<span class="indicator"></span>{/if}
-              <Icon name={t.icon} size={24} />
-              <span>{t.label}</span>
+            <a href={resolve(tab.href)} aria-current={isCurrent(tab.href) ? "page" : undefined}>
+              {#if isCurrent(tab.href)}<span class="indicator"></span>{/if}
+              <Icon name={tab.icon} size={24} />
+              <span>{t(tab.label)}</span>
             </a>
           </li>
         {/each}
@@ -70,7 +75,7 @@
       <a class="settings" href={settingsHref} aria-current={isCurrent("/settings") ? "page" : undefined}>
         {#if isCurrent("/settings")}<span class="indicator"></span>{/if}
         <Icon name="settings" size={24} />
-        <span>Settings</span>
+        <span>{t("nav.settings")}</span>
       </a>
     </nav>
   {/if}

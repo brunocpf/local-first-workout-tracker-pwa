@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "#lib/i18n.svelte";
   // Opt-in rest-timer notifications through the optional push relay (ADR 0014). The subscription is stored
   // locally only; the `restNotifications` flag is the one thing that reaches a backup.
   import { onMount } from "svelte";
@@ -10,7 +11,6 @@
     enablePush,
     hasSubscription,
     notificationPermission,
-    PUSH_PLATFORM_NOTE,
     pushSupport,
     sendTestPush,
     type PushSupport,
@@ -54,8 +54,8 @@
           await updateSettings({ restNotifications: false });
           message =
             result === "denied"
-              ? { variant: "warning", text: "Notifications are blocked. Allow them for this app in your device or browser settings, then try again." }
-              : { variant: "danger", text: "Couldn't turn notifications on. Check your connection and try again." };
+              ? { variant: "warning", text: t("nt.denied") }
+              : { variant: "danger", text: t("nt.enableFailed") };
         }
       }
     } finally {
@@ -71,42 +71,42 @@
     const ok = await sendTestPush();
     busy = false;
     message = ok
-      ? { variant: "success", text: "Test sent. A notification should arrive in a few seconds; lock the screen to check." }
-      : { variant: "danger", text: "The notification service couldn't be reached. Rest alerts still work while the app is open." };
+      ? { variant: "success", text: t("nt.testSent") }
+      : { variant: "danger", text: t("nt.testFailed") };
   }
 
   const status = $derived(
     support === "needs-install"
-      ? "Needs the installed app"
+      ? t("nt.needsInstall")
       : on
-        ? "On"
+        ? t("nt.on")
         : permission === "denied"
-          ? "Blocked"
-          : "Off",
+          ? t("nt.blocked")
+          : t("nt.off"),
   );
 </script>
 
 <div class="stack">
   <p class="note">
-    Get a notification when a rest ends, even with the screen locked or the app in the background. {PUSH_PLATFORM_NOTE[platform]}
-    It uses a small relay that is told only when to ping this device, never your workouts.
+    {t("nt.intro")} {t(`nt.${platform}`)}
+    {t("nt.relay")}
   </p>
 
   {#if support === "unsupported" || support === "unconfigured"}
-    <Banner variant="info">This browser doesn't support push notifications. Rest alerts work while the app is open.</Banner>
+    <Banner variant="info">{t("nt.unsupported")}</Banner>
   {:else if support === "needs-install"}
-    <Banner variant="warning" title="Install the app first">
-      On iPhone and iPad, notifications only work after you add this app to the Home Screen and open it from there.
+    <Banner variant="warning" title={t("nt.installFirst")}>
+      {t("nt.installBody")}
     </Banner>
   {:else}
     <Switch
-      label="Rest timer notifications"
-      description="Status: {status}"
+      label={t("nt.switch")}
+      description={t("nt.status", { status })}
       disabled={busy}
       bind:checked={() => checked, toggle}
     />
     {#if on}
-      <Button onclick={test} loading={busy}>Send test notification</Button>
+      <Button onclick={test} loading={busy}>{t("nt.sendTest")}</Button>
     {/if}
   {/if}
 

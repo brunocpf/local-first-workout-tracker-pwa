@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { errorText } from "#lib/errorText";
+  import { localizedWorkoutName } from "#lib/workoutName";
+  import { t, tn } from "#lib/i18n.svelte";
   // "Log past workout" (PRD §5.3): creates a completed session at the chosen time, then opens the edit screen to log sets.
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
@@ -11,7 +14,7 @@
   import { listRoutinesGrouped } from "#lib/storage/routines";
   import { getExercisesByIds } from "#lib/storage/exercises";
   import { createCompletedSession, InvalidSessionEditError, type NewCompletedSession } from "#lib/storage/sessions";
-  import { currentTimeZone, defaultWorkoutName, isValidTimeZone, utcToZonedLocal, zonedLocalToUtc } from "#lib/time";
+  import { currentTimeZone, isValidTimeZone, utcToZonedLocal, zonedLocalToUtc } from "#lib/time";
   import { toast } from "#lib/ui/toast.svelte";
   import type { Routine } from "#lib/types";
 
@@ -31,7 +34,7 @@
     const names = [...(globalThis.Intl?.supportedValuesOf?.("timeZone") ?? []), currentTimeZone(), timeZone];
     return names.filter((z, i) => names.indexOf(z) === i).sort().map((z) => ({ value: z, label: z }));
   });
-  const routineOptions = $derived([{ value: "", label: "Blank workout" }, ...routines.map((r) => ({ value: r.id, label: r.name }))]);
+  const routineOptions = $derived([{ value: "", label: t("past.blank") }, ...routines.map((r) => ({ value: r.id, label: r.name }))]);
 
   // Fresh defaults each time the dialog opens: an hour ago, in the current zone.
   $effect(() => {
@@ -49,15 +52,15 @@
 
   async function create() {
     if (saving) return;
-    if (!isValidTimeZone(timeZone)) return void (error = "Pick a valid time zone.");
+    if (!isValidTimeZone(timeZone)) return void (error = t("past.badZone"));
     const startedAt = zonedLocalToUtc(startLocal, timeZone);
-    if (!startedAt || minutes === null) return void (error = "Enter a start date and time and a duration.");
-    if (Date.parse(startedAt) > Date.now()) return void (error = "A past workout can’t start in the future.");
+    if (!startedAt || minutes === null) return void (error = t("past.missing"));
+    if (Date.parse(startedAt) > Date.now()) return void (error = t("past.future"));
     error = "";
     saving = true;
     try {
       let input: NewCompletedSession = {
-        name: defaultWorkoutName(new Date(startedAt)),
+        name: localizedWorkoutName(new Date(startedAt)),
         startedAt,
         endedAt: new Date(Date.parse(startedAt) + minutes * 60_000).toISOString(),
         timeZone,
@@ -71,32 +74,32 @@
         skipped = built.skippedExerciseIds.length;
       }
       const session = await createCompletedSession(input);
-      if (skipped > 0) toast(`${skipped} exercise${skipped === 1 ? "" : "s"} no longer in the catalog left out`);
+      if (skipped > 0) toast(tn("past.skipped", skipped));
       open = false;
       await goto(resolve(`/history/${session.id}/edit?new=1` as "/"));
     } catch (e) {
-      error = e instanceof InvalidSessionEditError ? e.message : "Couldn’t create the workout.";
+      error = e instanceof InvalidSessionEditError ? errorText(e.message) : t("past.failed");
     } finally {
       saving = false;
     }
   }
 </script>
 
-<Dialog bind:open title="Log past workout" description="Record a workout that already happened, then add its sets.">
+<Dialog bind:open title={t("past.title")} description={t("past.description")}>
   <form
     onsubmit={(e) => {
       e.preventDefault();
       void create();
     }}
   >
-    <Select label="Routine (optional)" bind:value={routineId} options={routineOptions} hint="Prefills its exercises." />
-    <TextField label="Start" type="datetime-local" bind:value={startLocal} required {error} />
-    <NumberField label="Duration" bind:value={minutes} mode="integer" suffix="min" min={0} />
-    <Select label="Time zone" bind:value={timeZone} options={zones} />
+    <Select label={t("past.routine")} bind:value={routineId} options={routineOptions} hint={t("past.routineHint")} />
+    <TextField label={t("past.start")} type="datetime-local" bind:value={startLocal} required {error} />
+    <NumberField label={t("past.duration")} bind:value={minutes} mode="integer" suffix="min" min={0} />
+    <Select label={t("past.timeZone")} bind:value={timeZone} options={zones} />
   </form>
   {#snippet actions()}
-    <Button variant="ghost" disabled={saving} onclick={() => (open = false)}>Cancel</Button>
-    <Button variant="primary" loading={saving} onclick={create}>Create workout</Button>
+    <Button variant="ghost" disabled={saving} onclick={() => (open = false)}>{t("common.cancel")}</Button>
+    <Button variant="primary" loading={saving} onclick={create}>{t("past.create")}</Button>
   {/snippet}
 </Dialog>
 

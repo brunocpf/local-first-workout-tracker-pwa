@@ -1,7 +1,8 @@
 <script lang="ts">
+  import { t } from "#lib/i18n.svelte";
   import Icon from "./Icon.svelte";
 
-  let { label = "Loading", size = "1em" }: { label?: string; size?: string } = $props();
+  let { label = t("common.loading"), size = "1em" }: { label?: string; size?: string } = $props();
 </script>
 
 <span class="spinner">

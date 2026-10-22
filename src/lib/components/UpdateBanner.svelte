@@ -1,11 +1,12 @@
 <script lang="ts">
   import { update, applyUpdate } from "#lib/pwa/update.svelte";
+  import { t } from "#lib/i18n.svelte";
 </script>
 
 {#if update.available}
   <div class="update" role="status">
-    <span>Update available</span>
-    <button type="button" onclick={applyUpdate}>Reload</button>
+    <span>{t("update.available")}</span>
+    <button type="button" onclick={applyUpdate}>{t("update.reload")}</button>
   </div>
 {/if}
 

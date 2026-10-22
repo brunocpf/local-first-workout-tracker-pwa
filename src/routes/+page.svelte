@@ -1,10 +1,13 @@
 <script lang="ts">
+  import { localizedWorkoutName } from "#lib/workoutName";
+  import { intlLocale } from "#lib/i18n.svelte";
+  import { t, tn } from "#lib/i18n.svelte";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { active } from "#lib/logger/activeSession.svelte";
   import { ActiveSessionExistsError } from "#lib/storage/sessions";
-  import { defaultWorkoutName, formatElapsed } from "#lib/time";
+  import { formatElapsed } from "#lib/time";
   import { backupReminderLater } from "#lib/backup/reminderState.svelte";
   import { toast } from "#lib/ui/toast.svelte";
   import Banner from "#lib/components/ui/Banner.svelte";
@@ -46,10 +49,10 @@
       const r = await exportAndRecord();
       if (r.status !== "cancelled") {
         remindDue = false;
-        toast("Backup saved");
+        toast(t("home.backupSaved"));
       }
     } catch {
-      toast("Backup failed");
+      toast(t("home.backupFailed"));
     } finally {
       backingUp = false;
     }
@@ -84,9 +87,9 @@
 
   const when = (s: WorkoutSession) => {
     try {
-      return new Date(s.startedAt).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", timeZone: s.timeZone });
+      return new Date(s.startedAt).toLocaleDateString(intlLocale(), { weekday: "short", month: "short", day: "numeric", timeZone: s.timeZone });
     } catch {
-      return new Date(s.startedAt).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+      return new Date(s.startedAt).toLocaleDateString(intlLocale(), { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
     }
   };
 
@@ -96,12 +99,12 @@
     if (active.session) return goto(resolve("/workout"));
     starting = true;
     try {
-      await active.start({ name: defaultWorkoutName() });
+      await active.start({ name: localizedWorkoutName() });
     } catch (e) {
       // Another tab started one first: adopt it instead of creating a second.
       if (e instanceof ActiveSessionExistsError) await active.load();
       if (!active.session) {
-        toast("Couldn't start the workout");
+        toast(t("home.startFailed"));
         starting = false;
         return;
       }
@@ -111,40 +114,40 @@
   }
 </script>
 
-<PageHeader title="Home" />
+<PageHeader title={t("home.title")} />
 
 {#if active.session}
-  <Banner variant="info" title="Workout in progress" action={{ label: "Resume", onclick: () => goto(resolve("/workout")) }}>
+  <Banner variant="info" title={t("home.inProgress")} action={{ label: t("home.resume"), onclick: () => goto(resolve("/workout")) }}>
     {active.session.name} · {formatElapsed(active.session.startedAt, now)}
   </Banner>
 {/if}
 
 {#if showReminder}
   <div class="reminder" data-testid="backup-reminder">
-    <Banner variant="info" title="Time for a backup" action={{ label: backingUp ? "Backing up…" : "Back up now", onclick: backUpNow }}>
-      Your data lives only on this device.
-      <Button variant="ghost" size="sm" onclick={() => (backupReminderLater.hidden = true)}>Later</Button>
+    <Banner variant="info" title={t("home.backupDue")} action={{ label: backingUp ? t("home.backingUp") : t("home.backUpNow"), onclick: backUpNow }}>
+      {t("home.dataOnDevice")}
+      <Button variant="ghost" size="sm" onclick={() => (backupReminderLater.hidden = true)}>{t("home.later")}</Button>
     </Banner>
   </div>
 {/if}
 
 <div class="start">
   <Button variant="primary" size="lg" block icon={active.session ? "play" : "plus"} loading={starting} onclick={start}>
-    {active.session ? "Resume workout" : "Start workout"}
+    {active.session ? t("home.resumeWorkout") : t("home.startWorkout")}
   </Button>
 </div>
 
 {#if weekCount !== null}
-  <p class="week">{weekCount} {weekCount === 1 ? "workout" : "workouts"} this week</p>
+  <p class="week">{tn("home.week", weekCount)}</p>
 {/if}
 
 {#if today.length > 0}
-  <section aria-label="Scheduled for today">
+  <section aria-label={t("home.scheduledToday")}>
     <ul class="group">
-      {#each today as t (t.routine.id)}
+      {#each today as item (item.routine.id)}
         <li>
-          <ListRow title={`Today: ${t.routine.name}`} subtitle={t.program.name}>
-            {#snippet trailing()}<StartRoutineButton routine={t.routine} />{/snippet}
+          <ListRow title={t("home.today", { name: item.routine.name })} subtitle={item.program.name}>
+            {#snippet trailing()}<StartRoutineButton routine={item.routine} />{/snippet}
           </ListRow>
         </li>
       {/each}
@@ -154,11 +157,11 @@
 
 {#if routines.length > 0}
   <section aria-labelledby="quick">
-    <h2 id="quick">Quick start</h2>
+    <h2 id="quick">{t("home.quickStart")}</h2>
     <ul class="group">
       {#each routines as r (r.id)}
         <li>
-          <ListRow title={r.name} subtitle={`${r.exercises.length} ${r.exercises.length === 1 ? "exercise" : "exercises"}`}>
+          <ListRow title={r.name} subtitle={tn("home.exercises", r.exercises.length)}>
             {#snippet trailing()}<StartRoutineButton routine={r} />{/snippet}
           </ListRow>
         </li>
@@ -169,7 +172,7 @@
 
 {#if recent.length > 0}
   <section aria-labelledby="recent">
-    <h2 id="recent">Recent workouts</h2>
+    <h2 id="recent">{t("home.recent")}</h2>
     <ul class="group">
       {#each recent as s (s.id)}
         <li><ListRow title={s.name} subtitle={when(s)} href={resolve(`/history/${s.id}` as "/")} /></li>

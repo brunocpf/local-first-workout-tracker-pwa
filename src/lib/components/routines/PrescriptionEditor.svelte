@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "#lib/i18n.svelte";
   // Prescription sheet (PRD §7.2): edits one RoutineExercise in place. Knows nothing about routine persistence,
   // so the import preview can reuse it. Weights are stored in kg and shown/typed in the user's unit.
   import NumberField from "#lib/components/ui/NumberField.svelte";
@@ -23,19 +24,14 @@
     unit: WeightUnit;
   } = $props();
 
-  const setTypes: { value: SetType; label: string }[] = [
-    { value: "normal", label: "Normal" },
-    { value: "warmup", label: "Warm-up" },
-    { value: "drop", label: "Drop set" },
-    { value: "failure", label: "To failure" },
-  ];
+  const setTypes = $derived((["normal", "warmup", "drop", "failure"] as const).map((value) => ({ value, label: t(`rx.type.${value}`) })));
 
   const usesReps = $derived(exerciseType !== "duration" && exerciseType !== "distance");
   const usesWeight = $derived(exerciseType !== "bodyweight_reps" && exerciseType !== "duration" && exerciseType !== "distance");
   const usesDuration = $derived(exerciseType === "duration" || exerciseType === "distance");
   const usesDistance = $derived(exerciseType === "distance");
   const weightLabel = $derived(
-    exerciseType === "assisted_bodyweight" ? "Assistance" : exerciseType === "weighted_bodyweight" ? "Added weight" : "Weight",
+    exerciseType === "assisted_bodyweight" ? t("rx.assistance") : exerciseType === "weighted_bodyweight" ? t("rx.added") : t("rx.weightLabel"),
   );
 
   function setReps(s: PrescribedSet, min: number | null, max: number | null) {
@@ -45,10 +41,10 @@
   }
 </script>
 
-<Sheet bind:open title={`${name} sets`} size="full">
+<Sheet bind:open title={t("rx.setsTitle", { name })} size="full">
   <div class="body">
     <NumberField
-      label="Number of sets"
+      label={t("rx.count")}
       mode="integer"
       max={20}
       bind:value={() => exercise.prescribedSets.length, (n) => setSetCount(exercise, n ?? 0)}
@@ -56,23 +52,23 @@
 
     {#each exercise.prescribedSets as s, i (s.id)}
       <fieldset class="set">
-        <legend>Set {i + 1}</legend>
+        <legend>{t("rx.set", { n: i + 1 })}</legend>
         <Select
-          label={`Set ${i + 1} type`}
+          label={t("rx.setType", { n: i + 1 })}
           bind:value={() => s.type, (v) => updatePrescribedSet(exercise, s.id, { type: v as SetType })}
           options={setTypes}
         />
         <div class="grid">
           {#if usesReps}
             <NumberField
-              label={`Set ${i + 1} min reps`}
+              label={t("rx.minReps", { n: i + 1 })}
               mode="integer"
               min={1}
               value={s.repRange?.[0] ?? null}
               onchange={(n) => setReps(s, n, s.repRange?.[1] ?? null)}
             />
             <NumberField
-              label={`Set ${i + 1} max reps`}
+              label={t("rx.maxReps", { n: i + 1 })}
               mode="integer"
               min={1}
               value={s.repRange?.[1] ?? null}
@@ -81,7 +77,7 @@
           {/if}
           {#if usesWeight}
             <NumberField
-              label={`Set ${i + 1} ${weightLabel.toLowerCase()}`}
+              label={t("rx.weight", { n: i + 1, label: weightLabel.toLowerCase() })}
               suffix={unit}
               value={s.targetWeight === undefined ? null : displayWeight(s.targetWeight, unit)}
               onchange={(n) => updatePrescribedSet(exercise, s.id, { targetWeight: n === null || n === 0 ? undefined : toKg(n, unit) })}
@@ -89,7 +85,7 @@
           {/if}
           {#if usesDuration}
             <NumberField
-              label={`Set ${i + 1} duration`}
+              label={t("rx.duration", { n: i + 1 })}
               mode="integer"
               suffix="s"
               value={s.targetDurationSeconds ?? null}
@@ -98,7 +94,7 @@
           {/if}
           {#if usesDistance}
             <NumberField
-              label={`Set ${i + 1} distance`}
+              label={t("rx.distance", { n: i + 1 })}
               suffix="m"
               value={s.targetDistance ?? null}
               onchange={(n) => updatePrescribedSet(exercise, s.id, { targetDistance: n || undefined })}
@@ -109,14 +105,14 @@
     {/each}
 
     <NumberField
-      label="Rest"
+      label={t("rx.rest")}
       mode="integer"
       suffix="s"
       value={exercise.restSeconds ?? null}
       onchange={(n) => setRest(exercise, n || undefined)}
     />
     <TextField
-      label="Notes"
+      label={t("rx.notes")}
       multiline
       bind:value={() => exercise.notes ?? "", (v) => setNotes(exercise, v)}
     />

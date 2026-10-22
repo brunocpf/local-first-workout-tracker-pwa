@@ -1,4 +1,6 @@
 <script module lang="ts">
+  import { intlLocale } from "#lib/i18n.svelte";
+  import { t, tn } from "#lib/i18n.svelte";
   export type ChartPoint = { date: string; value: number };
 </script>
 
@@ -11,8 +13,8 @@
     label,
     unit = "",
     summary,
-    emptyTitle = "No data yet",
-    emptyBody = "Complete sets of this exercise to see progress.",
+    emptyTitle,
+    emptyBody,
   }: {
     /** Oldest first; `date` is a local "YYYY-MM-DD". */
     points: readonly ChartPoint[];
@@ -34,9 +36,9 @@
   let active = $state(0);
   let selected = $state<number | null>(null);
 
-  const dateFmt = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" });
-  const shortFmt = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric" });
-  const monthFmt = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "long", year: "numeric" });
+  const dateFmt = $derived(new Intl.DateTimeFormat(intlLocale(), { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" }));
+  const shortFmt = $derived(new Intl.DateTimeFormat(intlLocale(), { timeZone: "UTC", month: "short", day: "numeric" }));
+  const monthFmt = $derived(new Intl.DateTimeFormat(intlLocale(), { timeZone: "UTC", month: "long", year: "numeric" }));
   const asDate = (d: string) => new Date(`${d}T00:00:00Z`);
   const num = (v: number) => `${Number(v.toFixed(2))}`;
   const withUnit = (v: number) => (unit ? `${num(v)} ${unit}` : num(v));
@@ -63,17 +65,17 @@
 
   const ariaLabel = $derived.by(() => {
     if (summary) return summary;
-    if (!first || !last) return `${label}: no data`;
-    if (points.length === 1) return `${label}: ${withUnit(first.value)} on ${dateFmt.format(asDate(first.date))}`;
-    const trend = last.value > first.value ? "rose" : last.value < first.value ? "fell" : "stayed at";
-    const change = trend === "stayed at" ? withUnit(first.value) : `from ${num(first.value)} to ${withUnit(last.value)}`;
+    if (!first || !last) return t("chart.noData", { label });
+    if (points.length === 1) return t("chart.single", { label, value: withUnit(first.value), date: dateFmt.format(asDate(first.date)) });
     const a = first.date.slice(0, 7);
     const b = last.date.slice(0, 7);
     const span =
       a === b
-        ? `in ${monthFmt.format(asDate(first.date))}`
-        : `between ${dateFmt.format(asDate(first.date))} and ${dateFmt.format(asDate(last.date))}`;
-    return `${label} ${trend} ${change} ${span} (${points.length} data points)`;
+        ? t("chart.inMonth", { month: monthFmt.format(asDate(first.date)) })
+        : t("chart.between", { a: dateFmt.format(asDate(first.date)), b: dateFmt.format(asDate(last.date)) });
+    const common = { label, span, points: tn("chart.points", points.length) };
+    if (last.value === first.value) return t("chart.same", { ...common, value: withUnit(first.value) });
+    return t(last.value > first.value ? "chart.rose" : "chart.fell", { ...common, from: num(first.value), to: withUnit(last.value) });
   });
 
   const pointName = (p: ChartPoint) => `${dateFmt.format(asDate(p.date))}: ${withUnit(p.value)}`;
@@ -104,7 +106,7 @@
 </script>
 
 {#if points.length === 0}
-  <EmptyState icon="chart" title={emptyTitle} body={emptyBody} />
+  <EmptyState icon="chart" title={emptyTitle ?? t("chart.noDataTitle")} body={emptyBody ?? t("chart.noDataBody")} />
 {:else}
   <figure class="chart">
     <div class="readout tabular" aria-live="polite">
@@ -134,7 +136,7 @@
         {/each}
       </svg>
       <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-      <div class="targets" role="group" aria-label="Data points" {onkeydown}>
+      <div class="targets" role="group" aria-label={t("chart.group")} {onkeydown}>
         {#each points as p, i (i)}
           <button
             type="button"
@@ -155,7 +157,7 @@
     </div>
     <table class="vh">
       <caption>{label}</caption>
-      <thead><tr><th scope="col">Date</th><th scope="col">Value{unit ? ` (${unit})` : ""}</th></tr></thead>
+      <thead><tr><th scope="col">{t("chart.date")}</th><th scope="col">{t("chart.value")}{unit ? ` (${unit})` : ""}</th></tr></thead>
       <tbody>
         {#each points as p, i (i)}
           <tr><td>{dateFmt.format(asDate(p.date))}</td><td>{num(p.value)}</td></tr>

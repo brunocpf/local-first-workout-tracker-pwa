@@ -1,5 +1,7 @@
 // Parsing and display of typed numbers for NumberField (docs/design.md §6.5). Pure; no DOM.
 
+import { intlLocale } from "#lib/i18n.svelte";
+
 export type NumberMode = "decimal" | "integer";
 export type ParseResult = { ok: true; value: number | null } | { ok: false };
 
@@ -18,5 +20,5 @@ export function parseNumberInput(raw: string, mode: NumberMode = "decimal"): Par
 /** Display string for a stored value, using the user's decimal separator and no grouping. */
 export function formatNumber(value: number | null, locale?: string): string {
   if (value === null || !Number.isFinite(value)) return "";
-  return new Intl.NumberFormat(locale, { maximumFractionDigits: 2, useGrouping: false }).format(value);
+  return new Intl.NumberFormat(locale ?? intlLocale(), { maximumFractionDigits: 2, useGrouping: false }).format(value);
 }

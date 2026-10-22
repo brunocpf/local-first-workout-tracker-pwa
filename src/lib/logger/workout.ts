@@ -1,5 +1,6 @@
 // Pure mutation helpers for sessions (PRD §8.3, §8.5). They mutate the passed object in place so they
 // work on Svelte `$state` proxies, return what they created/removed (for undo), and never touch Dexie.
+import { snapshotName } from "#lib/catalog/seed";
 import { newId } from "#lib/ids";
 import type { Exercise, LoggedSet, PrescribedSet, SessionExercise, WorkoutSession } from "#lib/types";
 
@@ -22,7 +23,7 @@ export function createSessionExercise(
   const se: SessionExercise = {
     id: newId(),
     exerciseId: exercise.id,
-    exerciseNameSnapshot: exercise.name,
+    exerciseNameSnapshot: snapshotName(exercise.id, exercise.name),
     exerciseTypeSnapshot: exercise.exerciseType,
     sets: setsFromPrescription(opts.prescribedSets ?? []),
   };
@@ -146,7 +147,7 @@ export function replaceExercise(
   const se = session.exercises[index];
   if (!se.sets.some((s) => s.completedAt)) {
     se.exerciseId = to.id;
-    se.exerciseNameSnapshot = to.name;
+    se.exerciseNameSnapshot = snapshotName(to.id, to.name);
     se.exerciseTypeSnapshot = to.exerciseType;
     return { replacement: se, split: false };
   }

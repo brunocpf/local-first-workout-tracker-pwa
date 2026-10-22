@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   effortInput: "off",
   weekStartsOn: 1,
   theme: "system",
+  locale: "system",
   backupReminderDays: 14,
   backupReminderSessions: 10,
   barWeightKg: DEFAULT_BAR_KG,

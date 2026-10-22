@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, tn } from "#lib/i18n.svelte";
   import type { Snippet } from "svelte";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
@@ -37,10 +38,10 @@
     try {
       if (active.session) {
         const discard = await confirm({
-          title: "Workout in progress",
-          body: `Finish or discard "${active.session.name}" before starting "${routine.name}". Discarding deletes its logged sets.`,
-          confirmLabel: "Discard and start",
-          cancelLabel: "Resume current",
+          title: t("rt.progress"),
+          body: t("rt.progressBody", { current: active.session.name, next: routine.name }),
+          confirmLabel: t("rt.discardStart"),
+          cancelLabel: t("rt.resumeCurrent"),
           danger: true,
         });
         if (!discard) return void (await goto(resolve("/workout")));
@@ -56,11 +57,11 @@
         if (!active.session) throw e;
       }
       if (skippedExerciseIds.length > 0) {
-        toast(`${skippedExerciseIds.length} exercise${skippedExerciseIds.length === 1 ? "" : "s"} no longer in the catalog left out`);
+        toast(tn("past.skipped", skippedExerciseIds.length));
       }
       await goto(resolve("/workout"));
     } catch {
-      toast("Couldn't start the workout");
+      toast(t("rt.startFailed"));
     } finally {
       busy = false;
     }
@@ -68,5 +69,5 @@
 </script>
 
 <Button {variant} {size} {block} loading={busy} onclick={start}>
-  {#if children}{@render children()}{:else}Start{/if}
+  {#if children}{@render children()}{:else}{t("rt.startShort")}{/if}
 </Button>

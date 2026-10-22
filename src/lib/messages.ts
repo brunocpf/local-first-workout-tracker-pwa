@@ -1,0 +1,20 @@
+import { common } from "#lib/messages.common";
+import { exercises } from "#lib/messages.exercises";
+import { importing } from "#lib/messages.import";
+import { history } from "#lib/messages.history";
+import { home } from "#lib/messages.home";
+import { vocab } from "#lib/messages.vocab";
+import { workout } from "#lib/messages.workout";
+import { progress } from "#lib/messages.progress";
+import { routines } from "#lib/messages.routines";
+import { settingsMessages } from "#lib/messages.settings";
+import { shell } from "#lib/messages.shell";
+
+
+export const en = { ...shell.en, ...common.en, ...home.en, ...workout.en, ...vocab.en, ...history.en, ...exercises.en, ...routines.en, ...importing.en, ...progress.en, ...settingsMessages.en } as const;
+export type MessageKey = keyof typeof en;
+/** Base of every `<base>.one` / `<base>.other` pair, for `tn()`. */
+export type PluralKey = { [K in MessageKey]: K extends `${infer P}.one` ? P : never }[MessageKey];
+
+export const ptBR: Record<MessageKey, string> = { ...shell.ptBR, ...common.ptBR, ...home.ptBR, ...workout.ptBR, ...vocab.ptBR, ...history.ptBR, ...exercises.ptBR, ...routines.ptBR, ...importing.ptBR, ...progress.ptBR, ...settingsMessages.ptBR };
+

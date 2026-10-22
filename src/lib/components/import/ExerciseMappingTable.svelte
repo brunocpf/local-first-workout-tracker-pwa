@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, tn } from "#lib/i18n.svelte";
   // Maps each distinct Hevy exercise title to a catalog exercise, a new custom exercise, or "skip" (docs/hevy-import.md §5).
   // Pure review state: nothing is written here; the parent builds the import plan from `choices`.
   import ExercisePicker from "#lib/components/ExercisePicker.svelte";
@@ -45,17 +46,17 @@
       if (!out.some((o) => o.value === value)) out.push({ value, label });
     };
     const c = choices[title];
-    if (c === undefined) add("", "Choose…");
-    if (c?.kind === "exercise") add(`ex:${c.exerciseId}`, byId.get(c.exerciseId)?.name ?? "Unknown exercise");
+    if (c === undefined) add("", t("map.choose"));
+    if (c?.kind === "exercise") add(`ex:${c.exerciseId}`, byId.get(c.exerciseId)?.name ?? t("summary.unknown"));
     const r = resolutions[title];
     if (r?.status === "suggested")
       for (const cand of r.candidates) {
         const x = byId.get(cand.exerciseId);
-        if (x) add(`ex:${x.id}`, `Suggested: ${x.name}`);
+        if (x) add(`ex:${x.id}`, t("map.suggested", { name: x.name }));
       }
-    add(PICK, "Choose from catalog…");
-    add(CREATE, `Create “${clip(title)}”`);
-    add(SKIP, "Skip this exercise");
+    add(PICK, t("map.pick"));
+    add(CREATE, t("map.create", { title: clip(title) }));
+    add(SKIP, t("map.skip"));
     return out;
   }
 
@@ -77,21 +78,21 @@
 
   function status(title: string): { variant: "success" | "info" | "warning" | "neutral"; label: string } {
     const c = choices[title];
-    if (c === undefined) return { variant: "warning", label: "Needs a decision" };
-    if (c.kind === "skip") return { variant: "neutral", label: "Skipped" };
-    if (c.kind === "create") return { variant: "info", label: "New custom exercise" };
+    if (c === undefined) return { variant: "warning", label: t("map.needs") };
+    if (c.kind === "skip") return { variant: "neutral", label: t("map.skipped") };
+    if (c.kind === "create") return { variant: "info", label: t("map.newCustom") };
     const s = sources[title];
-    return s === "remembered" ? { variant: "success", label: "Remembered" } : s === "matched" ? { variant: "success", label: "Matched" } : { variant: "info", label: "Chosen" };
+    return s === "remembered" ? { variant: "success", label: t("map.remembered") } : s === "matched" ? { variant: "success", label: t("map.matched") } : { variant: "info", label: t("map.chosen") };
   }
 </script>
 
 <div class="table">
   {#if undecided.length > 0}
     <div class="bulk">
-      <p>{undecided.length} exercise{undecided.length === 1 ? "" : "s"} need{undecided.length === 1 ? "s" : ""} a decision.</p>
+      <p>{tn("map.undecided", undecided.length)}</p>
       <div class="buttons">
-        <Button size="sm" onclick={() => fillUndecided("create")}>Create all as custom</Button>
-        <Button size="sm" onclick={() => fillUndecided("skip")}>Skip all</Button>
+        <Button size="sm" onclick={() => fillUndecided("create")}>{t("map.createAll")}</Button>
+        <Button size="sm" onclick={() => fillUndecided("skip")}>{t("map.skipAll")}</Button>
       </div>
     </div>
   {/if}
@@ -101,7 +102,7 @@
       <li>
         <Select
           label={e.title}
-          hint="{e.sets} set{e.sets === 1 ? '' : 's'} in {e.workouts} workout{e.workouts === 1 ? '' : 's'}"
+          hint={t("map.hint", { sets: tn("count.sets", e.sets), workouts: tn("count.workouts", e.workouts) })}
           options={optionsFor(e.title)}
           bind:value={() => valueOf(e.title), (v) => choose(e.title, v)}
         />
@@ -111,7 +112,7 @@
   </ul>
 </div>
 
-<ExercisePicker bind:open={pickerOpen} title="Map to exercise" allowCreate={false} onpick={picked} />
+<ExercisePicker bind:open={pickerOpen} title={t("map.mapTo")} allowCreate={false} onpick={picked} />
 
 <style>
   .table,

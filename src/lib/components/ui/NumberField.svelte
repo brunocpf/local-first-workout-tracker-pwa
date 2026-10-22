@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "#lib/i18n.svelte";
   import { formatNumber, parseNumberInput } from "#lib/numberInput";
   import Icon from "./Icon.svelte";
 
@@ -61,10 +62,10 @@
   function commit() {
     if (raw === null) return;
     const result = parseNumberInput(raw, mode);
-    if (!result.ok) return reject(mode === "integer" ? "Enter a whole number" : "Enter a number");
+    if (!result.ok) return reject(mode === "integer" ? t("number.integer") : t("number.number"));
     const n = result.value;
-    if (n !== null && n < min) return reject(`Enter ${min} or more`);
-    if (n !== null && max !== undefined && n > max) return reject(`Enter ${max} or less`);
+    if (n !== null && n < min) return reject(t("number.min", { min }));
+    if (n !== null && max !== undefined && n > max) return reject(t("number.max", { max }));
     localError = undefined;
     raw = null;
     if (n !== value) {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "#lib/i18n.svelte";
   // Rest-timer bar (design.md §7.3). State is `session.restTimer` (a stored end instant, ADR 0004); this
   // component only re-reads it on a render tick and on `visibilitychange`, and writes changes through `active`.
   import { onDestroy, onMount } from "svelte";
@@ -187,20 +188,17 @@
 {#if timer && (!noteSeen || showInstallHint)}
   <div class="note">
     {#if !noteSeen}
-      <Banner variant="info" action={{ label: "Got it", onclick: dismissNote }}>
+      <Banner variant="info" action={{ label: t("rest.gotIt"), onclick: dismissNote }}>
         {#if pushOn}
-          With rest notifications on, you'll also get a notification when the rest ends with the screen locked or the app in
-          the background.
+          {t("rest.noteOn")}
         {:else}
-          Rest alerts only work while the app is open. With the screen locked or the app in the background, you'll see the
-          result when you come back.
+          {t("rest.noteOff")}
         {/if}
       </Banner>
     {/if}
     {#if showInstallHint}
       <p class="install-hint" data-testid="rest-install-hint">
-        For a notification with the screen locked, add this app to the Home Screen (Share, then Add to Home Screen) and turn
-        on rest notifications in Settings.
+        {t("rest.installHint")}
       </p>
     {/if}
   </div>
@@ -209,21 +207,21 @@
 <div class="bar" class:done bind:this={bar} data-testid="rest-timer">
   {#if !timer}
     <div class="row idle">
-      <Button variant="ghost" size="sm" icon="timer" onclick={start}>Start rest</Button>
+      <Button variant="ghost" size="sm" icon="timer" onclick={start}>{t("rest.start")}</Button>
     </div>
   {:else if done}
     <div class="row">
-      <span class="status" role="status"><Icon name="check" size={20} /> Rest done</span>
+      <span class="status" role="status"><Icon name="check" size={20} /> {t("rest.done")}</span>
       <span class="controls">
-        <Button size="sm" onclick={() => adjust(15)}><span class="sr-only">Add 15 seconds</span><span aria-hidden="true">+15</span></Button>
-        <IconButton icon="x" label="Dismiss" onclick={clear} />
+        <Button size="sm" onclick={() => adjust(15)}><span class="sr-only">{t("rest.add15")}</span><span aria-hidden="true">+15</span></Button>
+        <IconButton icon="x" label={t("common.dismiss")} onclick={clear} />
       </span>
     </div>
   {:else}
     <div
       class="progress"
       role="progressbar"
-      aria-label="Rest"
+      aria-label={t("rest.progress")}
       aria-valuemin="0"
       aria-valuemax={total}
       aria-valuenow={remaining}
@@ -231,14 +229,14 @@
       <div class="fill" style:transform="scaleX({percent / 100})"></div>
     </div>
     <div class="row">
-      <span class="time tabular" role="timer" aria-label="Rest remaining">
+      <span class="time tabular" role="timer" aria-label={t("rest.remaining")}>
         <span class="timer-icon"><Icon name="timer" size={20} /></span>{text}
       </span>
       <span class="controls">
-        <Button size="sm" onclick={() => adjust(-15)}><span class="sr-only">Subtract 15 seconds</span><span aria-hidden="true">−15</span></Button>
-        <Button size="sm" onclick={() => adjust(15)}><span class="sr-only">Add 15 seconds</span><span aria-hidden="true">+15</span></Button>
-        <IconButton icon={paused ? "play" : "pause"} label={paused ? "Resume rest" : "Pause rest"} pressed={paused} onclick={togglePause} />
-        <IconButton icon="skip-forward" label="Skip rest" onclick={clear} />
+        <Button size="sm" onclick={() => adjust(-15)}><span class="sr-only">{t("rest.sub15")}</span><span aria-hidden="true">−15</span></Button>
+        <Button size="sm" onclick={() => adjust(15)}><span class="sr-only">{t("rest.add15")}</span><span aria-hidden="true">+15</span></Button>
+        <IconButton icon={paused ? "play" : "pause"} label={paused ? t("rest.resume") : t("rest.pause")} pressed={paused} onclick={togglePause} />
+        <IconButton icon="skip-forward" label={t("rest.skip")} onclick={clear} />
       </span>
     </div>
   {/if}

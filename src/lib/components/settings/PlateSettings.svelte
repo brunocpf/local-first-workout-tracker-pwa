@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "#lib/i18n.svelte";
   // Bar weight and plate inventory for the plate calculator. The inventory is kept per plate system (kg / lb) and
   // edited for the current display unit; a count of 0 means the plate isn't owned.
   import Button from "#lib/components/ui/Button.svelte";
@@ -38,7 +39,7 @@
 
 <div class="stack">
   <NumberField
-    label="Bar weight"
+    label={t("pl.bar")}
     suffix={unit}
     min={0}
     max={100}
@@ -46,12 +47,12 @@
     onchange={(n) => n !== null && save({ barWeightKg: toKg(n, unit) })}
   />
   <fieldset>
-    <legend>Plates per side ({unit})</legend>
+    <legend>{t("pl.perSide", { unit })}</legend>
     <ul>
       {#each stock as p (p.weight)}
         <li>
           <NumberField
-            label="{p.weight} {unit} plates per side"
+            label={t("pl.plates", { weight: p.weight, unit })}
             mode="integer"
             min={0}
             max={100}
@@ -63,13 +64,13 @@
     </ul>
   </fieldset>
   <div class="add">
-    <NumberField label="Add a plate size, {unit}" suffix={unit} min={0} max={1000} bind:value={newPlate} />
-    <Button onclick={addPlate} disabled={newPlate === null || newPlate <= 0}>Add plate</Button>
+    <NumberField label={t("pl.add", { unit })} suffix={unit} min={0} max={1000} bind:value={newPlate} />
+    <Button onclick={addPlate} disabled={newPlate === null || newPlate <= 0}>{t("pl.addBtn")}</Button>
   </div>
   <Button
     variant="ghost"
     onclick={() => save({ barWeightKg: DEFAULT_BAR_KG, plateInventory: DEFAULT_PLATE_INVENTORY })}
-  >Reset to defaults</Button>
+  >{t("pl.reset")}</Button>
 </div>
 
 <style>

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { formatPlainDate, formatZoned } from "#lib/format";
+  import { t, tn } from "#lib/i18n.svelte";
   import { onMount } from "svelte";
   import { resolve } from "$app/paths";
   import HistoryViewSwitch from "#lib/components/history/HistoryViewSwitch.svelte";
@@ -58,14 +60,10 @@
   const isCurrentMonth = $derived(year === +today.slice(0, 4) && month === +today.slice(5, 7));
   const inMonthCount = $derived(grid.flat().reduce((n, d) => n + (d.inMonth ? (byDate.get(d.date)?.length ?? 0) : 0), 0));
 
-  // Plain dates ("YYYY-MM-DD") are formatted as UTC so the device zone can never move them.
-  const fmt = (date: string, opts: Intl.DateTimeFormatOptions) => {
-    const [y, m, d] = date.split("-").map(Number);
-    return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, { ...opts, timeZone: "UTC" });
-  };
+  const fmt = formatPlainDate;
   const monthLabel = $derived(fmt(`${year}-${String(month).padStart(2, "0")}-01`, { month: "long", year: "numeric" }));
   const weekdays = $derived(grid[0].map((d) => ({ narrow: fmt(d.date, { weekday: "narrow" }), full: fmt(d.date, { weekday: "long" }) })));
-  const countLabel = (n: number) => `${n} ${n === 1 ? "workout" : "workouts"}`;
+  const countLabel = (n: number) => tn("history.count", n);
 
   const dayLabel = (date: string) => {
     const n = byDate.get(date)?.length ?? 0;
@@ -76,31 +74,26 @@
 
   const subtitle = (s: WorkoutSession) => {
     const x = sessionSummary(s);
-    let time: string;
-    try {
-      time = new Date(s.startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: s.timeZone });
-    } catch {
-      time = new Date(s.startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
-    }
-    return [time, `${x.exerciseCount} ${x.exerciseCount === 1 ? "exercise" : "exercises"}`, `${x.completedSets} ${x.completedSets === 1 ? "set" : "sets"}`].join(" · ");
+    const time = formatZoned(s.startedAt, s.timeZone, { hour: "numeric", minute: "2-digit" });
+    return [time, tn("count.exercises", x.exerciseCount), tn("count.sets", x.completedSets)].join(" · ");
   };
 </script>
 
-<svelte:head><title>Calendar · Workouts</title></svelte:head>
+<svelte:head><title>{t("history.calendar.title")} · Workouts</title></svelte:head>
 
-<PageHeader title="History" />
+<PageHeader title={t("history.title")} />
 <HistoryViewSwitch current="calendar" />
 
 {#if failed}
-  <EmptyState icon="alert-triangle" title="Couldn’t load history" body="Reload the app and try again." />
+  <EmptyState icon="alert-triangle" title={t("history.loadFailed")} body={t("history.reloadHint")} />
 {:else}
   <div class="nav">
-    <IconButton icon="chevron-left" label="Previous month" onclick={() => go(-1)} />
+    <IconButton icon="chevron-left" label={t("history.prev")} onclick={() => go(-1)} />
     <h2 aria-live="polite">{monthLabel}</h2>
-    <IconButton icon="chevron-right" label="Next month" onclick={() => go(1)} />
+    <IconButton icon="chevron-right" label={t("history.next")} onclick={() => go(1)} />
   </div>
   {#if !isCurrentMonth}
-    <div class="today"><Button variant="secondary" size="sm" onclick={goToday}>Today</Button></div>
+    <div class="today"><Button variant="secondary" size="sm" onclick={goToday}>{t("history.today")}</Button></div>
   {/if}
 
   <table aria-label={monthLabel}>
@@ -155,7 +148,7 @@
       </section>
     {:else}
       <p class="hint">
-        {inMonthCount > 0 ? `${countLabel(inMonthCount)} this month. Select a day to see them.` : "No workouts this month."}
+        {inMonthCount > 0 ? t("history.monthCount", { count: countLabel(inMonthCount) }) : t("history.monthEmpty")}
       </p>
     {/if}
   {/if}

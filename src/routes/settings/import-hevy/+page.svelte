@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { intlLocale } from "#lib/i18n.svelte";
+  import { t, tn } from "#lib/i18n.svelte";
   // Hevy history import (PRD §12.1, docs/hevy-import.md): file + time zone → summary → exercise mapping → duplicates → confirm.
   // Nothing is written until the final confirm; the write is one all-or-nothing transaction (commitHevyImport).
   import { goto } from "$app/navigation";
@@ -24,12 +26,7 @@
   import type { Exercise } from "#lib/types";
 
   type Step = "file" | "summary" | "exercises" | "review" | "done";
-  const STEPS: { id: Exclude<Step, "done">; title: string }[] = [
-    { id: "file", title: "File and time zone" },
-    { id: "summary", title: "Summary" },
-    { id: "exercises", title: "Exercises" },
-    { id: "review", title: "Duplicates and confirm" },
-  ];
+  const STEPS: { id: Exclude<Step, "done"> }[] = [{ id: "file" }, { id: "summary" }, { id: "exercises" }, { id: "review" }];
   const SHOWN = 10;
 
   let step = $state<Step>("file");
@@ -75,8 +72,7 @@
   const newCount = $derived((normalized?.drafts.length ?? 0) - flagged.length);
 
   const formatIn = (iso: string, zone: string) =>
-    new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone: zone }).format(new Date(iso));
-  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+    new Intl.DateTimeFormat(intlLocale(), { dateStyle: "medium", timeStyle: "short", timeZone: zone }).format(new Date(iso));
 
   async function onfile(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
@@ -89,12 +85,12 @@
     reading = true;
     try {
       const read = await readTextFile(file, MAX_HEVY_BYTES);
-      if (!read.ok) return void (fileErrors = ["File is larger than 10 MB."]);
+      if (!read.ok) return void (fileErrors = [t("hv.tooBig")]);
       const result = parseHevyCsv(read.text);
       if (result.ok) parsed = result;
       else fileErrors = result.errors.map((e) => e.message);
     } catch {
-      fileErrors = ["Couldn't read that file."];
+      fileErrors = [t("hv.readFailed")];
     } finally {
       reading = false;
     }
@@ -127,7 +123,7 @@
       include = {};
       step = "summary";
     } catch {
-      analysisError = "Couldn't read your exercises or workout history. Nothing was changed.";
+      analysisError = t("hv.analysisFailed");
     } finally {
       analyzing = false;
     }
@@ -142,9 +138,9 @@
       importedCount = written;
       settings.hevyExerciseMap = { ...settings.hevyExerciseMap, ...plan.mappings };
       step = "done";
-      toast(`Imported ${plural(written, "workout")}`, { action: { label: "View history", run: () => void goto(resolve("/history")) } });
+      toast(t("hv.imported", { workouts: tn("count.workouts", written) }), { action: { label: t("hv.viewHistory"), run: () => void goto(resolve("/history")) } });
     } catch {
-      commitError = "Couldn't import. Nothing was changed.";
+      commitError = t("hv.importFailed");
     } finally {
       committing = false;
     }
@@ -165,109 +161,109 @@
   const matchLabel = (m: DuplicateMatch) =>
     m.status === "duplicate"
       ? m.source === "stored"
-        ? "Already imported"
-        : "Repeated in this file"
-      : "Possible duplicate: a workout starts within 10 minutes of this one";
+        ? t("hv.alreadyImported")
+        : t("hv.repeated")
+      : t("hv.possibleDup");
 </script>
 
-<PageHeader title="Import from Hevy" back={{ href: resolve("/settings"), label: "Back to settings" }} />
+<PageHeader title={t("hv.title")} back={{ href: resolve("/settings"), label: t("hv.back") }} />
 
 <div class="steps">
   {#if step !== "done"}
-    <p class="progress" aria-live="polite">Step {stepIndex + 1} of {STEPS.length}: {STEPS[stepIndex].title}</p>
+    <p class="progress" aria-live="polite">{t("hv.step", { n: stepIndex + 1, total: STEPS.length, title: t(`hv.step.${STEPS[stepIndex].id}`) })}</p>
   {/if}
 
   {#if step === "file"}
     <Card as="section">
       <div class="stack">
         <p class="note">
-          In Hevy: Settings → Export Data → Export Workout Data. Choose the <code>workouts.csv</code> file here. Nothing is saved until you confirm.
+          {t("hv.help")} <code>workouts.csv</code> {t("hv.helpEnd")}
         </p>
         <input bind:this={fileInput} type="file" accept=".csv,text/csv" hidden onchange={onfile} data-testid="hevy-file-input" />
-        <Button onclick={() => fileInput?.click()} loading={reading}>{fileName ? "Choose another file…" : "Choose file…"}</Button>
+        <Button onclick={() => fileInput?.click()} loading={reading}>{fileName ? t("hv.chooseAnother") : t("hv.choose")}</Button>
         {#if fileName}<p class="file" data-testid="hevy-file-name">{fileName}</p>{/if}
         {#if fileErrors.length > 0}
-          <Banner variant="danger" urgent title="This file can't be imported">
+          <Banner variant="danger" urgent title={t("hv.badFile")}>
             <ul>{#each fileErrors as m, i (i)}<li>{m}</li>{/each}</ul>
           </Banner>
         {/if}
         {#if parsed}
-          <Banner variant="success">Read {plural(parsed.rows.length, "set row")} (units: {parsed.units}).</Banner>
+          <Banner variant="success">{t("hv.read", { rows: tn("count.setRows", parsed.rows.length), units: parsed.units })}</Banner>
         {/if}
         <Select
-          label="Time zone of your Hevy workouts"
-          hint="Hevy's export has no time zone. Pick where you trained; it decides which day each workout lands on."
+          label={t("hv.zone")}
+          hint={t("hv.zoneHint")}
           options={zones}
           bind:value={timeZone}
         />
         {#if analysisError}<Banner variant="danger" urgent>{analysisError}</Banner>{/if}
-        <Button variant="primary" disabled={!parsed} loading={analyzing} onclick={analyze}>Continue</Button>
+        <Button variant="primary" disabled={!parsed} loading={analyzing} onclick={analyze}>{t("hv.continue")}</Button>
       </div>
     </Card>
   {:else if step === "summary" && normalized}
-    {@const t = normalized.totals}
+    {@const totals = normalized.totals}
     {@const first = normalized.drafts[0]}
     {@const last = normalized.drafts[normalized.drafts.length - 1]}
     {@const u = normalized.unsupported}
     <Card as="section">
       <div class="stack">
         <dl data-testid="hevy-summary">
-          <dt>Workouts</dt>
-          <dd>{t.workouts}</dd>
-          <dt>Sets</dt>
-          <dd>{t.sets}</dd>
-          <dt>Exercises</dt>
+          <dt>{t("hv.workouts")}</dt>
+          <dd>{totals.workouts}</dd>
+          <dt>{t("hv.sets")}</dt>
+          <dd>{totals.sets}</dd>
+          <dt>{t("hv.exercises")}</dt>
           <dd>{normalized.exercises.length}</dd>
           {#if first && last}
-            <dt>First</dt>
+            <dt>{t("hv.first")}</dt>
             <dd>{formatIn(first.startedAt, timeZone)}<span class="sub">{new Date(first.startedAt).toISOString().slice(0, 16).replace("T", " ")} UTC</span></dd>
-            <dt>Last</dt>
+            <dt>{t("hv.last")}</dt>
             <dd>{formatIn(last.startedAt, timeZone)}<span class="sub">{new Date(last.startedAt).toISOString().slice(0, 16).replace("T", " ")} UTC</span></dd>
           {/if}
-          <dt>Time zone</dt>
+          <dt>{t("hv.timeZone")}</dt>
           <dd>{timeZone}</dd>
         </dl>
 
-        {#if t.workouts === 0}
-          <Banner variant="warning" title="No workouts to import">The file has no workouts with usable sets.</Banner>
+        {#if totals.workouts === 0}
+          <Banner variant="warning" title={t("hv.noWorkoutsTitle")}>{t("hv.noWorkouts")}</Banner>
         {/if}
 
         {#if u.columns.length > 0 || u.emptySetsSkipped > 0 || u.unknownSetTypes.length > 0 || u.workoutsRejected.length > 0 || (parsed?.errorCount ?? 0) > 0}
-          <Banner variant="warning" title="Not imported">
+          <Banner variant="warning" title={t("hv.notImported")}>
             <ul>
-              {#if u.columns.length > 0}<li>Unsupported columns with data (ignored): {u.columns.join(", ")}.</li>{/if}
-              {#if u.emptySetsSkipped > 0}<li>{plural(u.emptySetsSkipped, "empty set")} skipped.</li>{/if}
-              {#each u.unknownSetTypes as s (s.value)}<li>Set type “{s.value}” ({plural(s.rows, "set")}) imported as normal.</li>{/each}
-              {#if (parsed?.errorCount ?? 0) > 0}<li>{plural(parsed?.errorCount ?? 0, "invalid row")} skipped.</li>{/if}
+              {#if u.columns.length > 0}<li>{t("hv.unsupportedCols", { cols: u.columns.join(", ") })}</li>{/if}
+              {#if u.emptySetsSkipped > 0}<li>{t("hv.emptySkipped", { count: tn("count.emptySets", u.emptySetsSkipped) })}</li>{/if}
+              {#each u.unknownSetTypes as s (s.value)}<li>{t("hv.setType", { value: s.value, sets: tn("count.sets", s.rows) })}</li>{/each}
+              {#if (parsed?.errorCount ?? 0) > 0}<li>{t("hv.invalidSkipped", { count: tn("count.invalidRows", parsed?.errorCount ?? 0) })}</li>{/if}
               {#each u.workoutsRejected.slice(0, SHOWN) as w, i (i)}<li>{w.workout}: {w.message}</li>{/each}
-              {#if u.workoutsRejected.length > SHOWN}<li>…and {u.workoutsRejected.length - SHOWN} more workouts left out.</li>{/if}
+              {#if u.workoutsRejected.length > SHOWN}<li>{t("hv.moreLeftOut", { n: u.workoutsRejected.length - SHOWN })}</li>{/if}
             </ul>
           </Banner>
         {/if}
-        <p class="note">Hevy's export doesn't include per-set notes, media or routines, so those aren't imported.</p>
+        <p class="note">{t("hv.noExtras")}</p>
         {#if u.warnings.length > 0}
           <details>
-            <summary>{plural(u.warnings.length, "warning")}</summary>
+            <summary>{tn("count.warnings", u.warnings.length)}</summary>
             <ul>
               {#each u.warnings.slice(0, 50) as w, i (i)}<li>{w.workout ? `${w.workout}: ` : ""}{w.message}</li>{/each}
-              {#if u.warnings.length > 50}<li>…and {u.warnings.length - 50} more.</li>{/if}
+              {#if u.warnings.length > 50}<li>{t("hv.andMore", { n: u.warnings.length - 50 })}</li>{/if}
             </ul>
           </details>
         {/if}
         <div class="nav">
-          <Button onclick={() => (step = "file")}>Back</Button>
-          <Button variant="primary" disabled={t.workouts === 0} onclick={() => (step = "exercises")}>Continue</Button>
+          <Button onclick={() => (step = "file")}>{t("hv.back2")}</Button>
+          <Button variant="primary" disabled={totals.workouts === 0} onclick={() => (step = "exercises")}>{t("hv.continue")}</Button>
         </div>
       </div>
     </Card>
   {:else if step === "exercises" && normalized}
     <Card as="section">
       <div class="stack">
-        <p class="note">Match each Hevy exercise to your catalog. Your choices are remembered for the next import.</p>
+        <p class="note">{t("hv.matchNote")}</p>
         <ExerciseMappingTable exercises={normalized.exercises} {catalog} {resolutions} {sources} bind:choices />
         <div class="nav">
-          <Button onclick={() => (step = "summary")}>Back</Button>
-          <Button variant="primary" onclick={() => (step = "review")}>Continue</Button>
+          <Button onclick={() => (step = "summary")}>{t("hv.back2")}</Button>
+          <Button variant="primary" onclick={() => (step = "review")}>{t("hv.continue")}</Button>
         </div>
       </div>
     </Card>
@@ -277,8 +273,7 @@
         {#if flagged.length > 0}
           <div class="stack" data-testid="hevy-duplicates">
             <p class="note">
-              {plural(flagged.length, "workout")} look{flagged.length === 1 ? "s" : ""} like ones already in your history. Already-imported workouts are skipped unless you
-              switch them on; nothing is merged or overwritten.
+              {tn("hv.flagged", flagged.length)}
             </p>
             {#each flagged as { draft, match } (draft.id)}
               <div class="dup">
@@ -292,46 +287,45 @@
           </div>
         {/if}
         <p class="note">
-          If you import the same file again with a different time zone, the workouts can't be recognised as duplicates. Delete mistaken imports from History.
+          {t("hv.zoneNote")}
         </p>
 
         <dl>
-          <dt>New workouts</dt>
+          <dt>{t("hv.newWorkouts")}</dt>
           <dd>{newCount}</dd>
           {#if flagged.length > 0}
-            <dt>Flagged workouts included</dt>
+            <dt>{t("hv.flaggedIncluded")}</dt>
             <dd>{flagged.length - (plan.counts.deselectedWorkouts)}</dd>
           {/if}
-          <dt>Sets</dt>
+          <dt>{t("hv.sets")}</dt>
           <dd>{plan.counts.sets}</dd>
           {#if plan.counts.skippedSets > 0}
-            <dt>Sets skipped</dt>
+            <dt>{t("hv.setsSkipped")}</dt>
             <dd>{plan.counts.skippedSets}</dd>
           {/if}
           {#if plan.newExercises.length > 0}
-            <dt>New custom exercises</dt>
+            <dt>{t("hv.newCustom")}</dt>
             <dd>{plan.newExercises.length}</dd>
           {/if}
         </dl>
 
         {#if plan.undecided.length > 0}
-          <Banner variant="warning" title="Some exercises need a decision">
-            {plural(plan.undecided.length, "exercise")} in the workouts to import {plan.undecided.length === 1 ? "isn't" : "aren't"} mapped yet:
-            {plan.undecided.slice(0, 5).join(", ")}{plan.undecided.length > 5 ? "…" : ""}.
-            <Button size="sm" onclick={() => (step = "exercises")}>Go to exercises</Button>
+          <Banner variant="warning" title={t("hv.undecidedTitle")}>
+            {tn("hv.undecided", plan.undecided.length, { names: plan.undecided.slice(0, 5).join(", ") + (plan.undecided.length > 5 ? "…" : "") })}
+            <Button size="sm" onclick={() => (step = "exercises")}>{t("hv.goExercises")}</Button>
           </Banner>
         {:else if plan.sessions.length === 0}
-          <Banner variant="info" title="Nothing new to import">Every workout in this file is already in your history or left out.</Banner>
+          <Banner variant="info" title={t("hv.nothingNewTitle")}>{t("hv.nothingNew")}</Banner>
         {/if}
         {#if plan.counts.emptiedWorkouts > 0}
-          <Banner variant="warning">{plural(plan.counts.emptiedWorkouts, "workout")} left out because all of {plan.counts.emptiedWorkouts === 1 ? "its" : "their"} exercises are skipped.</Banner>
+          <Banner variant="warning">{tn("hv.emptied", plan.counts.emptiedWorkouts)}</Banner>
         {/if}
         {#if commitError}<Banner variant="danger" urgent>{commitError}</Banner>{/if}
 
         <div class="nav">
-          <Button onclick={() => (step = "exercises")}>Back</Button>
+          <Button onclick={() => (step = "exercises")}>{t("hv.back2")}</Button>
           <Button variant="primary" loading={committing} disabled={plan.undecided.length > 0 || plan.sessions.length === 0} onclick={confirm}>
-            Import {plural(plan.counts.workouts, "workout")}
+            {t("hv.import", { workouts: tn("count.workouts", plan.counts.workouts) })}
           </Button>
         </div>
       </div>
@@ -339,10 +333,10 @@
   {:else if step === "done"}
     <Card as="section">
       <div class="stack">
-        <Banner variant="success" title="Import complete">Imported {plural(importedCount, "workout")}. They now appear in History and in your previous values.</Banner>
+        <Banner variant="success" title={t("hv.doneTitle")}>{t("hv.done", { workouts: tn("count.workouts", importedCount) })}</Banner>
         <div class="nav">
-          <Button onclick={reset}>Import another file</Button>
-          <Button variant="primary" href={resolve("/history")}>View history</Button>
+          <Button onclick={reset}>{t("hv.another")}</Button>
+          <Button variant="primary" href={resolve("/history")}>{t("hv.viewHistory")}</Button>
         </div>
       </div>
     </Card>

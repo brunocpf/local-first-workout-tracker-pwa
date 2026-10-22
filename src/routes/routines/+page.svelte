@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, tn } from "#lib/i18n.svelte";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
@@ -66,7 +67,7 @@
   const byFolder = $derived(groupByFolder(grouped));
   /** Routines in a program are listed (and organized) under it; folders hold the others. */
   const inProgram = (r: Routine) => !grouped.standalone.some((s) => s.id === r.id);
-  const count = (r: Routine) => `${r.exercises.length} ${r.exercises.length === 1 ? "exercise" : "exercises"}`;
+  const count = (r: Routine) => tn("count.exercises", r.exercises.length);
   const newHref = resolve("/routines/new");
   const importHref = resolve("/routines/import");
   const generateHref = resolve("/routines/generate");
@@ -82,7 +83,7 @@
       await duplicateRoutine(r.id);
       await load();
     } catch {
-      toast("Couldn't duplicate the routine");
+      toast(t("rt.duplicateFailed"));
     }
   }
 
@@ -91,9 +92,9 @@
     try {
       await setRoutineFavorite(r.id, !r.favorite);
       await load();
-      toast(r.favorite ? "Removed from favorites" : "Added to favorites");
+      toast(r.favorite ? t("rt.favRemoved") : t("rt.favAdded"));
     } catch {
-      toast("Couldn't update favorites");
+      toast(t("rt.favFailed"));
     }
   }
 
@@ -108,9 +109,9 @@
     try {
       await setRoutineFolder(r.id, folder?.id);
       await load();
-      toast(folder ? `Moved to ${folder.name}` : "Moved out of the folder");
+      toast(folder ? t("rt.movedTo", { name: folder.name }) : t("rt.movedOut"));
     } catch {
-      toast("Couldn't move the routine");
+      toast(t("rt.moveFailed"));
     }
   }
 
@@ -127,11 +128,11 @@
 
   async function saveFolder() {
     if (!folderName.trim()) {
-      folderError = "Enter a folder name.";
+      folderError = t("rt.enterFolder");
       return;
     }
     if (folderName.trim().length > FOLDER_NAME_MAX) {
-      folderError = `Use at most ${FOLDER_NAME_MAX} characters.`;
+      folderError = t("rt.folderMax", { max: FOLDER_NAME_MAX });
       return;
     }
     try {
@@ -144,7 +145,7 @@
       folderFormOpen = false;
       await load();
     } catch {
-      folderError = folderRenaming ? "Couldn't rename the folder." : "Couldn't create the folder.";
+      folderError = folderRenaming ? t("rt.renameFailed") : t("rt.createFolderFailed");
     }
   }
 
@@ -156,12 +157,9 @@
   async function removeFolder(folder: RoutineFolder, routines: number) {
     folderMenuOpen = false;
     const ok = await confirm({
-      title: `Delete folder "${folder.name}"?`,
-      body:
-        routines === 0
-          ? "The folder is empty."
-          : `Its ${routines} ${routines === 1 ? "routine is" : "routines are"} kept and moved out of the folder.`,
-      confirmLabel: "Delete folder",
+      title: t("rt.deleteFolderTitle", { name: folder.name }),
+      body: routines === 0 ? t("rt.folderIsEmpty") : tn("rt.folderKept", routines),
+      confirmLabel: t("rt.deleteFolder"),
       danger: true,
     });
     if (!ok) return;
@@ -169,13 +167,13 @@
       await deleteFolder(folder.id);
       await load();
     } catch {
-      toast("Couldn't delete the folder");
+      toast(t("rt.deleteFolderFailed"));
     }
   }
 
   async function addProgram() {
     if (!programName.trim()) {
-      programError = "Enter a program name.";
+      programError = t("rt.enterProgram");
       return;
     }
     try {
@@ -184,16 +182,16 @@
       programName = "";
       await goto(resolve(`/programs/${program.id}` as "/"));
     } catch {
-      programError = "Couldn't create the program.";
+      programError = t("rt.createProgramFailed");
     }
   }
 
   async function remove(r: Routine) {
     menuOpen = false;
     const ok = await confirm({
-      title: `Delete "${r.name}"?`,
-      body: "The routine is removed. Past workouts that used it are not affected.",
-      confirmLabel: "Delete routine",
+      title: t("rt.deleteTitle", { name: r.name }),
+      body: t("rt.deleteBody"),
+      confirmLabel: t("rt.deleteConfirm"),
       danger: true,
     });
     if (!ok) return;
@@ -201,7 +199,7 @@
       await deleteRoutine(r.id);
       await load();
     } catch {
-      toast("Couldn't delete the routine");
+      toast(t("rt.deleteFailed"));
     }
   }
 </script>
@@ -213,13 +211,13 @@
     {:else if folder}
       <div class="folder-head">
         <h2>{title}</h2>
-        <IconButton icon="more-vertical" size="sm" label={`Options for folder ${title}`} onclick={() => openFolderMenu(folder)} />
+        <IconButton icon="more-vertical" size="sm" label={t("rt.optionsFolder", { name: title })} onclick={() => openFolderMenu(folder)} />
       </div>
     {:else}
       <h2>{title}</h2>
     {/if}
     {#if routines.length === 0}
-      <p class="empty">No routines yet. Use a routine’s options to move it here.</p>
+      <p class="empty">{t("rt.folderEmpty")}</p>
     {:else}
       <ul class="group" aria-label={title}>
         {#each routines as r (r.id)}
@@ -228,13 +226,13 @@
               <div class="link">
                 <ListRow title={r.name} subtitle={count(r)} href={resolve(`/routines/${r.id}` as "/")}>
                   {#snippet trailing()}
-                    {#if r.favorite}<span class="fav"><Icon name="star" size={16} /><span class="vh">Favorite</span></span>{/if}
+                    {#if r.favorite}<span class="fav"><Icon name="star" size={16} /><span class="vh">{t("picker.favorite")}</span></span>{/if}
                   {/snippet}
                 </ListRow>
               </div>
               <div class="actions">
                 <StartRoutineButton routine={r} />
-                <IconButton icon="more-vertical" label={`Options for ${r.name}`} onclick={() => openMenu(r)} />
+                <IconButton icon="more-vertical" label={t("rt.optionsFor", { name: r.name })} onclick={() => openMenu(r)} />
               </div>
             </div>
           </li>
@@ -244,22 +242,22 @@
   </section>
 {/snippet}
 
-<PageHeader title="Routines">
+<PageHeader title={t("rt.title")}>
   {#snippet actions()}
-    <Button variant="primary" size="sm" icon="plus" href={newHref}>New routine</Button>
-    <IconButton icon="more-vertical" label="More routine actions" onclick={() => (moreOpen = true)} />
+    <Button variant="primary" size="sm" icon="plus" href={newHref}>{t("rt.new")}</Button>
+    <IconButton icon="more-vertical" label={t("rt.more")} onclick={() => (moreOpen = true)} />
   {/snippet}
 </PageHeader>
 
 {#if failed}
-  <EmptyState icon="alert-triangle" title="Couldn’t load routines" body="Reload the app and try again." />
+  <EmptyState icon="alert-triangle" title={t("rt.loadFailed")} body={t("history.reloadHint")} />
 {:else if loaded}
   {#if isEmpty}
-    <EmptyState icon="list" title="No routines yet" body="Create a routine or import a plan to start from one.">
+    <EmptyState icon="list" title={t("rt.empty")} body={t("rt.emptyBody")}>
       {#snippet action()}
-        <Button variant="primary" icon="plus" href={newHref}>New routine</Button>
-        <Button variant="secondary" icon="import" href={importHref}>Import routine</Button>
-        <Button variant="secondary" href={generateHref}>Generate with AI</Button>
+        <Button variant="primary" icon="plus" href={newHref}>{t("rt.new")}</Button>
+        <Button variant="secondary" icon="import" href={importHref}>{t("rt.import")}</Button>
+        <Button variant="secondary" href={generateHref}>{t("rt.generate")}</Button>
       {/snippet}
     </EmptyState>
   {:else}
@@ -270,63 +268,63 @@
       {@render group(folder.name, routines, { folder })}
     {/each}
     {#if byFolder.unfiled.length > 0}
-      {@render group(grouped.programs.length + grouped.folders.length > 0 ? "Other routines" : "Routines", byFolder.unfiled)}
+      {@render group(grouped.programs.length + grouped.folders.length > 0 ? t("rt.otherRoutines") : t("rt.title"), byFolder.unfiled)}
     {/if}
   {/if}
 {/if}
 
 <!-- One primary action in the header (design.md §6.15); the rest live in an action sheet. -->
-<Sheet bind:open={moreOpen} title="Routine actions">
+<Sheet bind:open={moreOpen} title={t("rt.actions")}>
   <div class="menu">
-    <Button block icon="import" href={importHref}>Import</Button>
-    <Button block href={generateHref}>Generate with AI</Button>
-    <Button block icon="plus" onclick={() => ((moreOpen = false), (programOpen = true))}>New program</Button>
-    <Button block icon="plus" onclick={() => openFolderForm()}>New folder</Button>
+    <Button block icon="import" href={importHref}>{t("rt.importShort")}</Button>
+    <Button block href={generateHref}>{t("rt.generate")}</Button>
+    <Button block icon="plus" onclick={() => ((moreOpen = false), (programOpen = true))}>{t("rt.newProgram")}</Button>
+    <Button block icon="plus" onclick={() => openFolderForm()}>{t("rt.newFolder")}</Button>
   </div>
 </Sheet>
 
-<Sheet bind:open={menuOpen} title={menuFor?.name ?? "Routine"}>
+<Sheet bind:open={menuOpen} title={menuFor?.name ?? t("rt.routine")}>
   {#if menuFor}
     <div class="menu">
       <StartRoutineButton routine={menuFor} variant="primary" size="md" block onstart={() => (menuOpen = false)} />
       <Button block icon="star" onclick={() => toggleFavorite(menuFor!)}>
-        {menuFor.favorite ? "Remove from favorites" : "Add to favorites"}
+        {menuFor.favorite ? t("rt.removeFav") : t("rt.addFav")}
       </Button>
       {#if !inProgram(menuFor)}
-        <Button block icon="list" onclick={() => openMove(menuFor!)}>Move to folder…</Button>
+        <Button block icon="list" onclick={() => openMove(menuFor!)}>{t("rt.moveToFolder")}</Button>
       {/if}
-      <Button block icon="copy" onclick={() => duplicate(menuFor!)}>Duplicate</Button>
-      <Button block variant="danger" icon="trash" onclick={() => remove(menuFor!)}>Delete…</Button>
+      <Button block icon="copy" onclick={() => duplicate(menuFor!)}>{t("rt.duplicate")}</Button>
+      <Button block variant="danger" icon="trash" onclick={() => remove(menuFor!)}>{t("rt.deleteEllipsis")}</Button>
     </div>
   {/if}
 </Sheet>
 
-<Sheet bind:open={moveOpen} title={moveFor ? `Move "${moveFor.name}"` : "Move routine"}>
+<Sheet bind:open={moveOpen} title={moveFor ? t("rt.moveTitle", { name: moveFor.name }) : t("rt.moveRoutine")}>
   {#if moveFor}
     {@const current = grouped.folders.find((f) => f.id === moveFor?.folderId)}
-    <ul class="group" aria-label="Folders">
-      <li><ListRow title="No folder" selected={!current} onclick={() => moveTo(moveFor!)} /></li>
+    <ul class="group" aria-label={t("rt.folders")}>
+      <li><ListRow title={t("rt.noFolder")} selected={!current} onclick={() => moveTo(moveFor!)} /></li>
       {#each grouped.folders as folder (folder.id)}
         <li><ListRow title={folder.name} selected={current?.id === folder.id} onclick={() => moveTo(moveFor!, folder)} /></li>
       {/each}
     </ul>
     <div class="menu after">
-      <Button block icon="plus" onclick={() => openFolderForm(undefined, moveFor)}>New folder…</Button>
+      <Button block icon="plus" onclick={() => openFolderForm(undefined, moveFor)}>{t("rt.newFolderEllipsis")}</Button>
     </div>
   {/if}
 </Sheet>
 
-<Sheet bind:open={folderMenuOpen} title={folderMenuFor?.name ?? "Folder"}>
+<Sheet bind:open={folderMenuOpen} title={folderMenuFor?.name ?? t("rt.folder")}>
   {#if folderMenuFor}
     {@const routines = byFolder.folders.find((f) => f.folder.id === folderMenuFor?.id)?.routines.length ?? 0}
     <div class="menu">
-      <Button block icon="edit" onclick={() => openFolderForm(folderMenuFor)}>Rename…</Button>
-      <Button block variant="danger" icon="trash" onclick={() => removeFolder(folderMenuFor!, routines)}>Delete…</Button>
+      <Button block icon="edit" onclick={() => openFolderForm(folderMenuFor)}>{t("rt.rename")}</Button>
+      <Button block variant="danger" icon="trash" onclick={() => removeFolder(folderMenuFor!, routines)}>{t("rt.deleteEllipsis")}</Button>
     </div>
   {/if}
 </Sheet>
 
-<Sheet bind:open={folderFormOpen} title={folderRenaming ? "Rename folder" : "New folder"}>
+<Sheet bind:open={folderFormOpen} title={folderRenaming ? t("rt.renameFolder") : t("rt.newFolder")}>
   <form
     class="menu"
     onsubmit={(e) => {
@@ -334,12 +332,12 @@
       void saveFolder();
     }}
   >
-    <TextField label="Folder name" bind:value={folderName} error={folderError} required enterkeyhint="done" />
-    <Button type="submit" variant="primary" block>{folderRenaming ? "Save" : folderFormMoves ? "Create and move" : "Create folder"}</Button>
+    <TextField label={t("rt.folderName")} bind:value={folderName} error={folderError} required enterkeyhint="done" />
+    <Button type="submit" variant="primary" block>{folderRenaming ? t("common.save") : folderFormMoves ? t("rt.createMove") : t("rt.createFolder")}</Button>
   </form>
 </Sheet>
 
-<Sheet bind:open={programOpen} title="New program">
+<Sheet bind:open={programOpen} title={t("rt.newProgram")}>
   <form
     class="menu"
     onsubmit={(e) => {
@@ -347,8 +345,8 @@
       void addProgram();
     }}
   >
-    <TextField label="Program name" bind:value={programName} error={programError} required enterkeyhint="done" />
-    <Button type="submit" variant="primary" block>Create program</Button>
+    <TextField label={t("rt.programName")} bind:value={programName} error={programError} required enterkeyhint="done" />
+    <Button type="submit" variant="primary" block>{t("rt.createProgram")}</Button>
   </form>
 </Sheet>
 
