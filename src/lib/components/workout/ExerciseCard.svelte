@@ -1,6 +1,6 @@
 <script lang="ts">
   import { equipmentLabel, muscleLabel, setTypeLabel } from "#lib/catalog/labels";
-  import { t, tn } from "#lib/i18n.svelte";
+  import { t } from "#lib/i18n.svelte";
   import { exerciseLabel } from "#lib/catalog/localize";
   // Presentational exercise card (design.md §8): the page decides how to persist. Reused for past sessions (T4.06).
   import Badge from "#lib/components/ui/Badge.svelte";

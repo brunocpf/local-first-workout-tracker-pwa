@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "#lib/i18n.svelte";
   // Edits a completed session on a local `$state` copy: not the active store, no rest timer, no prefill-on-complete.
   import { onMount } from "svelte";
   import { beforeNavigate, goto } from "$app/navigation";
@@ -48,7 +49,7 @@
   const justCreated = page.url.searchParams.has("new");
   let storedHasLoggedSets = true;
 
-  const back = $derived({ href: resolve(`/history/${page.params.id}` as "/"), label: "Session" });
+  const back = $derived({ href: resolve(`/history/${page.params.id}` as "/"), label: t("history.session") });
   const snapshot = () => JSON.stringify([$state.snapshot(draft), startLocal, minutes]);
   const dirty = $derived(loaded && draft !== undefined && snapshot() !== baseline);
 
@@ -107,7 +108,7 @@
     if (!draft || saving) return;
     const startedAt = timesEditable ? zonedLocalToUtc(startLocal, draft.timeZone) : draft.startedAt;
     if (!startedAt || minutes === null) {
-      error = "Enter a start date and time and a duration.";
+      error = t("past.missing");
       return;
     }
     error = "";
@@ -119,19 +120,19 @@
     next.name = next.name.trim() || draft.name;
     if (!next.notes?.trim()) delete next.notes;
     const ok = await confirm({
-      title: "Save changes?",
-      body: "Stats and PRs will be recalculated from the edited session.",
-      confirmLabel: "Save changes",
+      title: t("edit.saveTitle"),
+      body: t("edit.saveBody"),
+      confirmLabel: t("edit.saveConfirm"),
     });
     if (!ok) return;
     saving = true;
     try {
       await updateCompletedSession(next);
       baseline = snapshot();
-      toast("Session updated");
+      toast(t("edit.updated"));
       await goto(resolve(`/history/${page.params.id}` as "/"), { replaceState: true });
     } catch (e) {
-      toast(e instanceof InvalidSessionEditError ? e.message : "Couldn’t save the session");
+      toast(e instanceof InvalidSessionEditError ? e.message : t("edit.saveFailed"));
     } finally {
       saving = false;
     }
@@ -140,17 +141,17 @@
   async function cancel() {
     if (justCreated && !storedHasLoggedSets) {
       const remove = await confirm({
-        title: "Delete this workout?",
-        body: "You haven’t logged any sets. Delete it, or keep it to finish later.",
-        confirmLabel: "Delete workout",
-        cancelLabel: "Keep workout",
+        title: t("edit.deleteTitle"),
+        body: t("edit.deleteBody"),
+        confirmLabel: t("edit.deleteConfirm"),
+        cancelLabel: t("edit.keep"),
         danger: true,
       });
       if (remove) {
         try {
           await deleteCompletedSession(page.params.id ?? "");
         } catch {
-          return void toast("Couldn’t delete the workout");
+          return void toast(t("edit.deleteFailed"));
         }
         baseline = snapshot(); // nothing left to discard
         await goto(resolve("/history"), { replaceState: true });
@@ -169,10 +170,10 @@
     prompting = true;
     const to = nav.to?.url;
     const ok = await confirm({
-      title: "Discard changes?",
-      body: "You have unsaved changes to this session.",
-      confirmLabel: "Discard changes",
-      cancelLabel: "Keep editing",
+      title: t("edit.discardTitle"),
+      body: t("edit.discardBody"),
+      confirmLabel: t("edit.discardConfirm"),
+      cancelLabel: t("edit.keepEditing"),
       danger: true,
     });
     prompting = false;
@@ -192,42 +193,42 @@
 </script>
 
 <svelte:window {onbeforeunload} />
-<svelte:head><title>Edit session · Workouts</title></svelte:head>
+<svelte:head><title>{t("edit.title")} · Workouts</title></svelte:head>
 
 {#if !loaded}
-  <PageHeader title="Edit session" {back} />
+  <PageHeader title={t("edit.title")} {back} />
 {:else if failed}
-  <PageHeader title="Edit session" {back} />
-  <EmptyState icon="alert-triangle" title="Couldn’t load this session" body="Reload the app and try again." />
+  <PageHeader title={t("edit.title")} {back} />
+  <EmptyState icon="alert-triangle" title={t("history.sessionLoadFailed")} body={t("history.reloadHint")} />
 {:else if !draft}
-  <PageHeader title="Edit session" back={{ href: resolve("/history"), label: "History" }} />
-  <EmptyState icon="history" title="Session not found" body="It may have been deleted.">
-    {#snippet action()}<Button variant="primary" href={resolve("/history")}>Back to History</Button>{/snippet}
+  <PageHeader title={t("edit.title")} back={{ href: resolve("/history"), label: t("history.title") }} />
+  <EmptyState icon="history" title={t("history.notFound")} body={t("history.notFoundBody")}>
+    {#snippet action()}<Button variant="primary" href={resolve("/history")}>{t("history.backTo")}</Button>{/snippet}
   </EmptyState>
 {:else}
-  <PageHeader title="Edit session" {back}>
+  <PageHeader title={t("edit.title")} {back}>
     {#snippet actions()}
-      <Button variant="ghost" size="md" disabled={saving} onclick={cancel}>Cancel</Button>
-      <Button variant="primary" size="md" disabled={saving} onclick={save}>Save</Button>
+      <Button variant="ghost" size="md" disabled={saving} onclick={cancel}>{t("common.cancel")}</Button>
+      <Button variant="primary" size="md" disabled={saving} onclick={save}>{t("common.save")}</Button>
     {/snippet}
   </PageHeader>
 
   <div class="form">
-    <TextField label="Name" bind:value={draft.name} required />
+    <TextField label={t("edit.name")} bind:value={draft.name} required />
     {#if timesEditable}
       <TextField
-        label="Start"
+        label={t("edit.start")}
         type="datetime-local"
         bind:value={startLocal}
         required
-        hint="In the time zone of the workout ({draft.timeZone})."
+        hint={t("edit.zoneHint", { zone: draft.timeZone })}
         {error}
       />
-      <NumberField label="Duration" bind:value={minutes} mode="integer" suffix="min" min={0} />
+      <NumberField label={t("edit.duration")} bind:value={minutes} mode="integer" suffix="min" min={0} />
     {:else}
-      <p class="hint">Start time and duration can’t be edited: unknown time zone “{draft.timeZone}”.</p>
+      <p class="hint">{t("edit.noTimes", { zone: draft.timeZone })}</p>
     {/if}
-    <TextField label="Notes" multiline bind:value={() => draft?.notes ?? "", (v) => draft && (draft.notes = v)} />
+    <TextField label={t("edit.notes")} multiline bind:value={() => draft?.notes ?? "", (v) => draft && (draft.notes = v)} />
   </div>
 
   <div class="exercises">
@@ -258,7 +259,7 @@
         ondeleteset={(setId) => withExercise(exercise.id, (e) => removeSet(e, setId))}
       />
     {/each}
-    <Button block icon="plus" onclick={() => (pickerOpen = true)}>Add exercise</Button>
+    <Button block icon="plus" onclick={() => (pickerOpen = true)}>{t("workout.addExercise")}</Button>
   </div>
   <ExercisePicker bind:open={pickerOpen} multiple onpick={addPicked} />
 {/if}

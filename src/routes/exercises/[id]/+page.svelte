@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { equipmentLabel, exerciseTypeLabel, muscleLabel } from "#lib/catalog/labels";
+  import { formatLocaleNumber, formatZoned } from "#lib/format";
+  import { t, tn } from "#lib/i18n.svelte";
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
@@ -37,10 +40,7 @@
     }
   });
 
-  const words = (ids: string[]) => ids.map((id) => id.replaceAll("_", " "));
-  const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-  const typeLabel = (t: string) => capitalize(t.replaceAll("_", " "));
-  const list = (ids: string[]) => capitalize(words(ids).join(", "));
+  const list = (labels: string[]) => labels.join(", ");
 
   const guideUrl = $derived.by(() => {
     const candidates = [exercise?.source?.sourceUrl, ...(exercise?.media ?? []).filter((m) => m.type === "external_link").map((m) => m.url)];
@@ -67,61 +67,54 @@
   const unit = $derived(settings.weightUnit);
   function setText(s: LoggedSet) {
     const parts: string[] = [];
-    if (s.weight !== undefined) parts.push(`${displayWeight(s.weight, unit).toLocaleString()} ${unit}`);
+    if (s.weight !== undefined) parts.push(`${formatLocaleNumber(displayWeight(s.weight, unit))} ${unit}`);
     if (s.reps !== undefined) parts.push(`× ${s.reps}`);
     if (s.durationSeconds !== undefined) parts.push(`${s.durationSeconds} s`);
     if (s.distance !== undefined) parts.push(`${s.distance} m`);
     return parts.join(" ");
   }
-  function dayLabel(s: WorkoutSession) {
-    let timeZone: string | undefined = s.timeZone;
-    try {
-      return new Date(s.startedAt).toLocaleDateString(undefined, { dateStyle: "medium", timeZone });
-    } catch {
-      return new Date(s.startedAt).toLocaleDateString(undefined, { dateStyle: "medium", timeZone: "UTC" });
-    }
-  }
+  const dayLabel = (s: WorkoutSession) => formatZoned(s.startedAt, s.timeZone, { dateStyle: "medium" });
   function historySubtitle(s: WorkoutSession) {
     const se = s.exercises.find((e) => e.exerciseId === exercise?.id);
     const best = se ? bestSet(se.sets, se.exerciseTypeSnapshot) : undefined;
-    return (best && setText(best)) || "No completed sets";
+    return (best && setText(best)) || t("ex.noSets");
   }
 
-  const back = { href: resolve("/exercises"), label: "Back to exercises" };
+  const back = { href: resolve("/exercises"), label: t("ex.back") };
 </script>
 
 {#if failed}
-  <PageHeader title="Exercise" {back} />
-  <EmptyState icon="alert-triangle" title="Couldn’t load exercise" body="Reload the app and try again." />
+  <PageHeader title={t("ex.detail.title")} {back} />
+  <EmptyState icon="alert-triangle" title={t("ex.loadOneFailed")} body={t("history.reloadHint")} />
 {:else if loaded && !exercise}
-  <PageHeader title="Exercise" {back} />
-  <EmptyState icon="search" title="Exercise not found" />
+  <PageHeader title={t("ex.detail.title")} {back} />
+  <EmptyState icon="search" title={t("ex.notFound")} />
 {:else if exercise}
   <PageHeader title={exercise.name} {back}>
     {#snippet actions()}
-      <IconButton icon="star" label={exercise?.favorite ? "Remove from favorites" : "Add to favorites"} pressed={!!exercise?.favorite} onclick={toggleFavorite} />
+      <IconButton icon="star" label={exercise?.favorite ? t("ex.unfavorite") : t("ex.favorite")} pressed={!!exercise?.favorite} onclick={toggleFavorite} />
       {#if exercise?.isCustom}
-        <IconButton icon="edit" label="Edit exercise" href={resolve(`/exercises/${exercise.id}/edit` as "/")} />
+        <IconButton icon="edit" label={t("ex.edit")} href={resolve(`/exercises/${exercise.id}/edit` as "/")} />
       {/if}
     {/snippet}
   </PageHeader>
 
   <dl class="facts">
-    <div><dt>Type</dt><dd>{typeLabel(exercise.exerciseType)}</dd></div>
-    {#if exercise.equipment.length}<div><dt>Equipment</dt><dd>{list(exercise.equipment)}</dd></div>{/if}
-    {#if exercise.primaryMuscles.length}<div><dt>Primary muscles</dt><dd>{list(exercise.primaryMuscles)}</dd></div>{/if}
-    {#if exercise.secondaryMuscles.length}<div><dt>Secondary muscles</dt><dd>{list(exercise.secondaryMuscles)}</dd></div>{/if}
+    <div><dt>{t("ex.type")}</dt><dd>{exerciseTypeLabel(exercise.exerciseType)}</dd></div>
+    {#if exercise.equipment.length}<div><dt>{t("ex.equipment")}</dt><dd>{list(exercise.equipment.map(equipmentLabel))}</dd></div>{/if}
+    {#if exercise.primaryMuscles.length}<div><dt>{t("ex.primary")}</dt><dd>{list(exercise.primaryMuscles.map(muscleLabel))}</dd></div>{/if}
+    {#if exercise.secondaryMuscles.length}<div><dt>{t("ex.secondary")}</dt><dd>{list(exercise.secondaryMuscles.map(muscleLabel))}</dd></div>{/if}
   </dl>
 
   {#if exercise.instructions}
     <section>
-      <h2>Instructions</h2>
+      <h2>{t("ex.instructions")}</h2>
       <p class="prose">{exercise.instructions}</p>
     </section>
   {/if}
   {#if exercise.formCues?.length}
     <section>
-      <h2>Form cues</h2>
+      <h2>{t("ex.cues")}</h2>
       <ul class="cues">
         {#each exercise.formCues as cue, i (i)}<li>{cue}</li>{/each}
       </ul>
@@ -130,23 +123,23 @@
   {#if guideUrl}
     <section>
       <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external URL, validated http(s) -->
-      <a class="guide" href={guideUrl} target="_blank" rel="noopener noreferrer">External guide (opens in browser)</a>
+      <a class="guide" href={guideUrl} target="_blank" rel="noopener noreferrer">{t("ex.guide")}</a>
     </section>
   {/if}
 
   {#if allSessions.length}
     <section>
-      <h2>Personal records</h2>
+      <h2>{t("ex.records")}</h2>
       <PrSummary sessions={allSessions} exerciseId={exercise.id} exerciseType={exercise.exerciseType} {unit} />
     </section>
   {/if}
 
   <section>
-    <h2>Recent history</h2>
+    <h2>{t("ex.recent")}</h2>
     {#if sessions.length === 0}
-      <p class="muted">No completed workouts with this exercise yet.</p>
+      <p class="muted">{t("ex.noHistory")}</p>
     {:else}
-      <ul class="group" aria-label="Recent history">
+      <ul class="group" aria-label={t("ex.recent")}>
         {#each sessions as s (s.id)}
           <li><ListRow title={dayLabel(s)} subtitle={historySubtitle(s)} href={resolve(`/history/${s.id}` as "/")} /></li>
         {/each}
