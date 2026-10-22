@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "#lib/i18n.svelte";
   // The single confirm() host, mounted once in +layout.svelte (design.md §6.10).
   import { confirmQueue, settleConfirm } from "#lib/ui/confirm.svelte";
   import Button from "./Button.svelte";
@@ -57,7 +58,7 @@
         <Button variant="ghost" loading={secondaryBusy} onclick={runSecondary}>{request.secondaryAction.label}</Button>
       </span>
     {/if}
-    <Button onclick={() => close(false)}>{request?.cancelLabel ?? "Cancel"}</Button>
+    <Button onclick={() => close(false)}>{request?.cancelLabel ?? t("common.cancel")}</Button>
     <Button variant={request?.danger ? "danger" : "primary"} onclick={() => close(true)}>
       {request?.confirmLabel ?? ""}
     </Button>

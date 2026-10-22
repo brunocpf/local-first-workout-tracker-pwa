@@ -10,6 +10,7 @@
 </script>
 
 <script lang="ts">
+  import { t } from "#lib/i18n.svelte";
   import { resolve } from "$app/paths";
   import { db as defaultDb, isQuotaError, type AppDB, type DbStatus, type StorageProblem } from "#lib/storage/db";
   import { active } from "#lib/logger/activeSession.svelte";
@@ -30,12 +31,7 @@
     return off;
   });
 
-  const guidance: Record<StorageProblem, string> = {
-    unsupported:
-      "This browser isn't letting the app store data. Private or incognito windows and some privacy settings block it. Open the app in a normal window or from the installed app.",
-    quota: "Your device is out of storage. Free up some space, then reload.",
-    unavailable: "The browser couldn't open the app's database. Close other tabs of this app and reload. If that doesn't help, restart the browser.",
-  };
+  const guidance = (problem: StorageProblem) => t(`status.${problem}`);
 
   const reload = () => location.reload();
   const settingsHref = resolve("/settings" as "/");
@@ -44,9 +40,9 @@
 {#if status.openError}
   <!-- Rendered by the layout instead of the app (not over it), so focus and screen readers can't reach the page behind. -->
   <div class="fullscreen" role="alert">
-    <EmptyState icon="alert-triangle" title="Storage unavailable" body={guidance[status.openError.problem]}>
+    <EmptyState icon="alert-triangle" title={t("status.title")} body={guidance(status.openError.problem)}>
       {#snippet action()}
-        <Button variant="primary" onclick={reload}>Reload</Button>
+        <Button variant="primary" onclick={reload}>{t("common.reload")}</Button>
       {/snippet}
     </EmptyState>
     <p class="detail">{status.openError.message}</p>
@@ -54,34 +50,32 @@
 {:else if fullscreen(status)}
   <!-- A slow open may be a long migration: no Reload here, it would abort the upgrade and restart it. -->
   <div class="fullscreen" role="status">
-    <Spinner label="Still opening your data…" size="2rem" />
-    <p class="detail">This can take a while after an update on older devices. Keep the app open; it continues by itself.</p>
+    <Spinner label={t("status.slow")} size="2rem" />
+    <p class="detail">{t("status.slowDetail")}</p>
   </div>
 {:else if status.versionChanged}
   <div class="banner">
-    <Banner variant="warning" title="App updated in another tab" action={{ label: "Reload", onclick: reload }}>
+    <Banner variant="warning" title={t("status.updatedTab")} action={{ label: t("common.reload"), onclick: reload }}>
       {#if active.writeFailed}
-        Changes made since then can't be saved in this tab. Reload to keep logging.
+        {t("status.updatedTab.failed")}
       {:else}
-        Reload this tab to continue. Everything is already saved.
+        {t("status.updatedTab.ok")}
       {/if}
     </Banner>
   </div>
 {:else}
   {#if status.blocked}
     <div class="banner">
-      <Banner variant="info" title="Waiting for other tabs">Close other tabs of this app to finish updating its database.</Banner>
+      <Banner variant="info" title={t("status.waiting")}>{t("status.waitingBody")}</Banner>
     </div>
   {/if}
   {#if active.writeFailed}
     <div class="banner">
-      <Banner variant="danger" urgent title="Workout not saved" action={{ label: "Retry", onclick: () => void active.flush() }}>
+      <Banner variant="danger" urgent title={t("status.notSaved")} action={{ label: t("common.retry"), onclick: () => void active.flush() }}>
         {#if isQuotaError(active.error)}
-          Your device is out of storage. Your latest changes are kept on this screen and saved with your next change.
-          Free up space on the device, then <a href={settingsHref}>export a backup</a>.
+          {t("status.notSaved.quota")} <a href={settingsHref}>{t("status.exportBackup")}</a>.
         {:else}
-          Your latest changes couldn't be written to storage. They're kept on this screen and saved with your next
-          change. Tap Retry; if it keeps failing, <a href={settingsHref}>export a backup</a>.
+          {t("status.notSaved.other")} <a href={settingsHref}>{t("status.exportBackup")}</a>.
         {/if}
       </Banner>
     </div>

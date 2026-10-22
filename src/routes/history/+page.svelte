@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { formatDuration, formatLocaleNumber, formatPlainDate, formatZoned } from "#lib/format";
+  import { t, tn } from "#lib/i18n.svelte";
   import { onMount } from "svelte";
   import { resolve } from "$app/paths";
   import HistoryViewSwitch from "#lib/components/history/HistoryViewSwitch.svelte";
@@ -39,28 +41,15 @@
 
   onMount(() => load());
 
-  const zoned = (s: WorkoutSession, opts: Intl.DateTimeFormatOptions) => {
-    try {
-      return new Date(s.startedAt).toLocaleString(undefined, { ...opts, timeZone: s.timeZone });
-    } catch {
-      return new Date(s.startedAt).toLocaleString(undefined, { ...opts, timeZone: "UTC" });
-    }
-  };
-
-  function duration(ms: number) {
-    const min = Math.round(ms / 60_000);
-    return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")} min`;
-  }
-
   const subtitle = (s: WorkoutSession) => {
     const x = sessionSummary(s);
     const parts = [
-      `${zoned(s, { weekday: "short", month: "short", day: "numeric" })}, ${zoned(s, { hour: "numeric", minute: "2-digit" })}`,
-      duration(x.durationMs),
-      `${x.exerciseCount} ${x.exerciseCount === 1 ? "exercise" : "exercises"}`,
-      `${x.completedSets} ${x.completedSets === 1 ? "set" : "sets"}`,
+      `${formatZoned(s.startedAt, s.timeZone, { weekday: "short", month: "short", day: "numeric" })}, ${formatZoned(s.startedAt, s.timeZone, { hour: "numeric", minute: "2-digit" })}`,
+      formatDuration(x.durationMs),
+      tn("count.exercises", x.exerciseCount),
+      tn("count.sets", x.completedSets),
     ];
-    if (x.volumeKg > 0) parts.push(`${displayWeight(x.volumeKg, settings.weightUnit).toLocaleString()} ${settings.weightUnit}`);
+    if (x.volumeKg > 0) parts.push(`${formatLocaleNumber(displayWeight(x.volumeKg, settings.weightUnit))} ${settings.weightUnit}`);
     return parts.join(" · ");
   };
 
@@ -71,9 +60,8 @@
       const key = localWeekStart(s, settings.weekStartsOn);
       let g = out.at(-1);
       if (g?.key !== key) {
-        const [y, m, d] = key.split("-").map(Number);
-        const label = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
-        out.push((g = { key, label: `Week of ${label}`, sessions: [] }));
+        const label = formatPlainDate(key, { month: "short", day: "numeric" });
+        out.push((g = { key, label: t("history.weekOf", { date: label }), sessions: [] }));
       }
       g.sessions.push(s);
     }
@@ -81,19 +69,19 @@
   });
 </script>
 
-<PageHeader title="History">
+<PageHeader title={t("history.title")}>
   {#snippet actions()}
-    <Button variant="secondary" size="md" icon="plus" onclick={() => (pastOpen = true)}>Log past workout</Button>
+    <Button variant="secondary" size="md" icon="plus" onclick={() => (pastOpen = true)}>{t("history.logPast")}</Button>
   {/snippet}
 </PageHeader>
 <HistoryViewSwitch current="list" />
 <PastWorkoutDialog bind:open={pastOpen} />
 
 {#if failed}
-  <EmptyState icon="alert-triangle" title="Couldn’t load history" body="Reload the app and try again." />
+  <EmptyState icon="alert-triangle" title={t("history.loadFailed")} body={t("history.reloadHint")} />
 {:else if loaded && sessions.length === 0}
-  <EmptyState icon="history" title="No workouts yet" body="Finished workouts show up here.">
-    {#snippet action()}<Button variant="primary" href={resolve("/")}>Start workout</Button>{/snippet}
+  <EmptyState icon="history" title={t("history.empty")} body={t("history.emptyBody")}>
+    {#snippet action()}<Button variant="primary" href={resolve("/")}>{t("history.startWorkout")}</Button>{/snippet}
   </EmptyState>
 {:else if loaded}
   {#each weeks as week (week.key)}
@@ -108,7 +96,7 @@
   {/each}
   {#if more}
     <div class="more">
-      <Button variant="secondary" {loading} onclick={() => load(sessions.at(-1)?.startedAt)}>Load more</Button>
+      <Button variant="secondary" {loading} onclick={() => load(sessions.at(-1)?.startedAt)}>{t("history.loadMore")}</Button>
     </div>
   {/if}
 {/if}

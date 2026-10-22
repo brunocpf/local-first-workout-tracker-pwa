@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { formatLocaleNumber, prLabel } from "#lib/format";
+  import { t, tn } from "#lib/i18n.svelte";
   import { sessionSummary } from "#lib/progress/summary";
-  import { describePr, loadSessionPrs, type ExercisePrs } from "#lib/progress/sessionPrs";
+  import { loadSessionPrs, type ExercisePrs } from "#lib/progress/sessionPrs";
   import { displayWeight } from "#lib/units";
   import Button from "#lib/components/ui/Button.svelte";
   import Icon from "#lib/components/ui/Icon.svelte";
@@ -23,12 +25,12 @@
   const summary = $derived(sessionSummary(session));
   const minutes = $derived(Math.round(summary.durationMs / 60000));
   const duration = $derived(minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`);
-  const volume = $derived(displayWeight(summary.volumeKg, unit).toLocaleString(undefined, { maximumFractionDigits: 0 }));
+  const volume = $derived(formatLocaleNumber(displayWeight(summary.volumeKg, unit), { maximumFractionDigits: 0 }));
   const stats = $derived([
-    ["Duration", duration],
-    ["Exercises", String(summary.exerciseCount)],
-    ["Sets", String(summary.completedSets)],
-    ["Volume", `${volume} ${unit}`],
+    [t("summary.duration"), duration],
+    [t("summary.exercises"), String(summary.exerciseCount)],
+    [t("summary.sets"), String(summary.completedSets)],
+    [t("summary.volume"), `${volume} ${unit}`],
   ]);
 
   // New PRs, computed from earlier sessions. Optional: the summary works without them.
@@ -77,15 +79,15 @@
     };
   });
 
-  const nameOf = (exerciseId: string) => names[exerciseId] ?? "Unknown exercise";
+  const nameOf = (exerciseId: string) => names[exerciseId] ?? t("summary.unknown");
   const changes = $derived.by(() => {
     if (!diff) return [];
     const out: string[] = [];
-    for (const a of diff.added) out.push(`Add ${a.name} (${a.sets} sets)`);
-    for (const r of diff.removed) out.push(`Remove ${nameOf(r.exerciseId)}`);
-    for (const r of diff.replaced) out.push(`Replace ${nameOf(r.fromExerciseId)} with ${r.toName}`);
-    for (const c of diff.setCountChanges) out.push(`${c.name}: ${c.from} → ${c.to} sets`);
-    if (diff.reordered) out.push("Change exercise order");
+    for (const a of diff.added) out.push(t("summary.add", { name: a.name, sets: tn("count.sets", a.sets) }));
+    for (const r of diff.removed) out.push(t("summary.remove", { name: nameOf(r.exerciseId) }));
+    for (const r of diff.replaced) out.push(t("summary.replace", { from: nameOf(r.fromExerciseId), to: r.toName }));
+    for (const c of diff.setCountChanges) out.push(t("summary.setCount", { name: c.name, from: c.from, to: c.to }));
+    if (diff.reordered) out.push(t("summary.reorder"));
     return out;
   });
 
@@ -97,16 +99,16 @@
       const fresh = await getRoutine(routine.id);
       if (!fresh) throw new Error("routine gone");
       await saveRoutine(applySessionToRoutine(fresh, diffSessionAgainstRoutine(session, fresh)));
-      toast("Routine updated");
+      toast(t("summary.routineUpdated"));
       ondone();
     } catch {
       saving = false;
-      toast("Couldn't update the routine");
+      toast(t("summary.routineFailed"));
     }
   }
 </script>
 
-<Sheet bind:open title="Workout complete" description={session.name} dismissible={false}>
+<Sheet bind:open title={t("summary.title")} description={session.name} dismissible={false}>
   <dl class="stats">
     {#each stats as [label, value] (label)}
       <div class="stat">
@@ -117,13 +119,13 @@
   </dl>
   {#if records.length > 0}
     <section class="records" aria-labelledby="records-title">
-      <h3 id="records-title"><Icon name="star" size="1em" /> New personal records</h3>
+      <h3 id="records-title"><Icon name="star" size="1em" /> {t("summary.records")}</h3>
       <ul>
         {#each records as r (r.exerciseId)}
           <li>
             <strong>{r.name}</strong>
             {#each r.prs as pr (`${pr.kind}-${pr.reps ?? ""}`)}
-              <span class="pr">{describePr(pr, unit)}</span>
+              <span class="pr">{prLabel(pr, unit)}</span>
             {/each}
           </li>
         {/each}
@@ -132,7 +134,7 @@
   {/if}
   {#if diff && routine}
     <section class="update" aria-labelledby="update-title">
-      <h3 id="update-title">Update routine “{routine.name}”?</h3>
+      <h3 id="update-title">{t("summary.updateTitle", { name: routine.name })}</h3>
       <ul>
         {#each changes as change (change)}
           <li>{change}</li>
@@ -142,10 +144,10 @@
   {/if}
   {#snippet actions()}
     {#if diff && routine}
-      <Button block disabled={saving} onclick={updateRoutine}>Update routine</Button>
+      <Button block disabled={saving} onclick={updateRoutine}>{t("summary.updateRoutine")}</Button>
     {/if}
     <Button variant="primary" block disabled={saving} onclick={ondone}>
-      {diff && routine ? "Keep routine as is" : "Done"}
+      {diff && routine ? t("summary.keep") : t("summary.done")}
     </Button>
   {/snippet}
 </Sheet>

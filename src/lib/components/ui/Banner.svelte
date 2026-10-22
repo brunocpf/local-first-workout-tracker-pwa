@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "#lib/i18n.svelte";
   import type { Snippet } from "svelte";
   import Icon from "./Icon.svelte";
 
@@ -43,7 +44,7 @@
       <button type="button" class="action" onclick={action.onclick}>{action.label}</button>
     {/if}
     {#if dismissible}
-      <button type="button" class="dismiss" aria-label="Dismiss" onclick={dismiss}><Icon name="x" size={20} /></button>
+      <button type="button" class="dismiss" aria-label={t("common.dismiss")} onclick={dismiss}><Icon name="x" size={20} /></button>
     {/if}
   </div>
 {/if}

@@ -45,11 +45,12 @@ export function formatElapsed(startedAt: string, now = Date.now()): string {
 }
 
 /** Default name for a blank workout, by local time of day. */
-export function defaultWorkoutName(now = new Date()): string {
+export function defaultWorkoutName(now = new Date(), label: (part: DayPart) => string = (part) => `${part[0].toUpperCase()}${part.slice(1)} workout`): string {
   const h = now.getHours();
-  const part = h < 5 ? "Night" : h < 12 ? "Morning" : h < 17 ? "Afternoon" : h < 21 ? "Evening" : "Night";
-  return `${part} workout`;
+  return label(h < 5 ? "night" : h < 12 ? "morning" : h < 17 ? "afternoon" : h < 21 ? "evening" : "night");
 }
+
+export type DayPart = "night" | "morning" | "afternoon" | "evening";
 
 const partsFormatters = new Map<string, Intl.DateTimeFormat>();
 

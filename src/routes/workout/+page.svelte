@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, tn } from "#lib/i18n.svelte";
   import { exerciseLabel, localizeExercises } from "#lib/catalog/localize";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
@@ -77,9 +78,9 @@
     void active.mutate((s) => (removed = removeExercise(s, id)), { persist: "now" });
     if (!removed) return;
     const undo = removed;
-    toast(`Removed ${exerciseLabel(undo.exercise.exerciseId, undo.exercise.exerciseNameSnapshot)}`, {
+    toast(t("workout.removed", { name: exerciseLabel(undo.exercise.exerciseId, undo.exercise.exerciseNameSnapshot) }), {
       action: {
-        label: "Undo",
+        label: t("common.undo"),
         run: () => {
           if (active.session) void active.mutate((s) => restoreExercise(s, undo), { persist: "now" });
         },
@@ -98,19 +99,17 @@
   async function replace(exercise: SessionExercise, to: Exercise) {
     const { completed, remaining } = setProgress(exercise);
     if (completed > 0) {
-      const done = `${completed} completed set${completed === 1 ? "" : "s"}`;
+      const from = exerciseLabel(exercise.exerciseId, exercise.exerciseNameSnapshot);
+      const keep = tn("workout.replace.keep", completed, { name: from });
       const ok = await confirm({
-        title: `Replace ${exerciseLabel(exercise.exerciseId, exercise.exerciseNameSnapshot)}?`,
-        body:
-          remaining > 0
-            ? `${done} stay${completed === 1 ? "s" : ""} with ${exerciseLabel(exercise.exerciseId, exercise.exerciseNameSnapshot)}. The other ${remaining} set${remaining === 1 ? "" : "s"} move${remaining === 1 ? "s" : ""} to ${to.name}.`
-            : `${done} stay${completed === 1 ? "s" : ""} with ${exerciseLabel(exercise.exerciseId, exercise.exerciseNameSnapshot)}. ${to.name} starts with one empty set.`,
-        confirmLabel: "Replace exercise",
+        title: t("workout.replace.title", { name: from }),
+        body: `${keep} ${remaining > 0 ? tn("workout.replace.move", remaining, { to: to.name }) : t("workout.replace.empty", { to: to.name })}`,
+        confirmLabel: t("workout.replace.confirm"),
       });
       if (!ok) return;
     }
     void active.mutate((s) => replaceExercise(s, exercise.id, to), { persist: "now" });
-    toast(`Replaced with ${to.name}`);
+    toast(t("workout.replaced", { name: to.name }));
   }
 
   function setNotes(id: string, notes: string) {
@@ -231,7 +230,7 @@
       },
       { persist: "now" },
     );
-    if (prName) toast(`New PR: ${prName}`);
+    if (prName) toast(t("workout.newPr", { name: prName }));
     prepareAlerts(); // inside the tap, so the browser lets the done-beep play later
   }
 
@@ -246,9 +245,9 @@
     withExercise(id, "now", (e) => (removed = removeSet(e, setId)));
     if (!removed) return;
     const undo = removed;
-    toast("Set deleted", {
+    toast(t("workout.setDeleted"), {
       action: {
-        label: "Undo",
+        label: t("common.undo"),
         run: () => {
           if (active.session) withExercise(id, "now", (e) => restoreSet(e, undo));
         },
@@ -268,12 +267,12 @@
     const sets = s.exercises.reduce((n, e) => n + e.sets.length, 0);
     const lost =
       s.exercises.length === 0
-        ? `“${s.name}” will be deleted.`
-        : `“${s.name}” and its ${s.exercises.length} exercise${s.exercises.length === 1 ? "" : "s"} (${sets} set${sets === 1 ? "" : "s"}) will be deleted.`;
+        ? t("workout.discard.empty", { name: s.name })
+        : t("workout.discard.full", { name: s.name, exercises: tn("count.exercises", s.exercises.length), sets: tn("count.sets", sets) });
     const ok = await confirm({
-      title: "Discard workout?",
-      body: `${lost} This can't be undone.`,
-      confirmLabel: "Discard workout",
+      title: t("workout.discard.title"),
+      body: `${lost} ${t("workout.discard.undone")}`,
+      confirmLabel: t("workout.discard.confirm"),
       danger: true,
     });
     if (!ok) return;
@@ -282,10 +281,10 @@
       await active.discard();
     } catch {
       leaving = false;
-      toast("Couldn't discard the workout");
+      toast(t("workout.discard.failed"));
       return;
     }
-    toast("Workout discarded");
+    toast(t("workout.discarded"));
     await goto(resolve("/"), { replaceState: true });
   }
 
@@ -298,9 +297,9 @@
     const incomplete = s.exercises.reduce((n, e) => n + e.sets.filter((x) => !x.completedAt).length, 0);
     if (incomplete > 0) {
       const ok = await confirm({
-        title: "Finish with incomplete sets?",
-        body: `${incomplete} set${incomplete === 1 ? " isn't" : "s aren't"} completed. ${incomplete === 1 ? "It" : "They"} will be kept but not counted in your totals or progress.`,
-        confirmLabel: "Finish workout",
+        title: t("workout.finish.title"),
+        body: tn("workout.finish.body", incomplete),
+        confirmLabel: t("workout.finish.confirm"),
       });
       if (!ok) return;
     }
@@ -310,7 +309,7 @@
       summary = await active.finish();
     } catch {
       leaving = false;
-      toast("Couldn't finish the workout");
+      toast(t("workout.finish.failed"));
       return;
     } finally {
       finishing = false;
@@ -327,14 +326,14 @@
 {#if active.session}
   <WorkoutHeader onfinish={finish} ondiscard={discard} />
   {#if active.error}
-    <Banner variant="danger" title="Changes may not be saved">Your latest edits couldn't be written to this device.</Banner>
+    <Banner variant="danger" title={t("workout.unsaved.title")}>{t("workout.unsaved.body")}</Banner>
   {/if}
 
   <div class="exercises">
     {#if active.session.exercises.length === 0}
-      <EmptyState icon="dumbbell" title="No exercises yet" body="Add your first exercise to start logging.">
+      <EmptyState icon="dumbbell" title={t("workout.empty.title")} body={t("workout.empty.body")}>
         {#snippet action()}
-          <Button variant="primary" icon="plus" onclick={() => (pickerOpen = true)}>Add exercise</Button>
+          <Button variant="primary" icon="plus" onclick={() => (pickerOpen = true)}>{t("workout.addExercise")}</Button>
         {/snippet}
       </EmptyState>
     {:else}
@@ -374,7 +373,7 @@
         />
         </div>
       {/each}
-      <Button block icon="plus" onclick={() => (pickerOpen = true)}>Add exercise</Button>
+      <Button block icon="plus" onclick={() => (pickerOpen = true)}>{t("workout.addExercise")}</Button>
     {/if}
   </div>
   <RestTimerBar />

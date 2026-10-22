@@ -1,4 +1,6 @@
 <script lang="ts">
+  import type { MessageKey } from "#lib/messages";
+  import { t } from "#lib/i18n.svelte";
   import { onMount } from "svelte";
   import Banner from "#lib/components/ui/Banner.svelte";
   import Button from "#lib/components/ui/Button.svelte";
@@ -7,8 +9,6 @@
     canPromptInstall,
     captureInstallPrompt,
     detectPlatform,
-    INSTALL_STEPS,
-    IOS_STORAGE_NOTE,
     isDismissed,
     isStandalone,
     promptInstall,
@@ -37,15 +37,15 @@
 </script>
 
 {#if visible}
-  <Banner variant="info" title="Install the app" {dismissible} ondismiss={rememberDismissed}>
+  <Banner variant="info" title={t("install.title")} {dismissible} ondismiss={rememberDismissed}>
     <ol>
-      {#each INSTALL_STEPS[platform] as step (step)}
-        <li>{step}</li>
+      {#each [1, 2, 3] as n (n)}
+        <li>{t(`install.${platform}.${n}` as MessageKey)}</li>
       {/each}
     </ol>
-    {#if platform === "ios"}<p>{IOS_STORAGE_NOTE}</p>{/if}
+    {#if platform === "ios"}<p>{t("install.iosNote")}</p>{/if}
     {#if nativePrompt}
-      <Button onclick={promptInstall}>Install</Button>
+      <Button onclick={promptInstall}>{t("common.install")}</Button>
     {/if}
   </Banner>
 {/if}
