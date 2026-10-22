@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, tn } from "#lib/i18n.svelte";
   import Banner from "#lib/components/ui/Banner.svelte";
   import Button from "#lib/components/ui/Button.svelte";
   import { extractJsonCandidates, isJson } from "#lib/imports/extract";
@@ -54,18 +55,18 @@
     input.value = "";
     if (!file) return;
     // Check the size before reading so an oversized file is never loaded into memory.
-    if (file.size > MAX_IMPORT_BYTES) return fail(`Input too large (max ${MAX_IMPORT_BYTES} bytes)`);
+    if (file.size > MAX_IMPORT_BYTES) return fail(t("imp.tooLarge", { max: MAX_IMPORT_BYTES }));
     try {
       text = await file.text();
     } catch {
-      return fail("Couldn't read that file.");
+      return fail(t("imp.readFailed"));
     }
     validate(text);
   }
 </script>
 
 <form onsubmit={submit} novalidate>
-  <label class="label" for="import-text">Plan JSON</label>
+  <label class="label" for="import-text">{t("imp.planJson")}</label>
   <textarea
     id="import-text"
     bind:value={text}
@@ -77,14 +78,14 @@
     placeholder={'{ "schemaVersion": 1, … }'}
   ></textarea>
   <div class="actions">
-    <Button type="submit" variant="primary" disabled={text.trim() === ""}>Check plan</Button>
-    <Button variant="secondary" onclick={() => fileInput?.click()}>Open .json file</Button>
+    <Button type="submit" variant="primary" disabled={text.trim() === ""}>{t("imp.check")}</Button>
+    <Button variant="secondary" onclick={() => fileInput?.click()}>{t("imp.openFile")}</Button>
     <input
       bind:this={fileInput}
       class="file"
       type="file"
       accept=".json,application/json"
-      aria-label="Open a .json file"
+      aria-label={t("imp.openFileLabel")}
       tabindex="-1"
       onchange={onfile}
     />
@@ -93,7 +94,7 @@
 
 <div class="messages" role="alert">
   {#if errors.length > 0}
-    <Banner variant="danger" title="This plan can't be imported">
+    <Banner variant="danger" title={t("imp.badPlan")}>
       <ul>
         {#each errors as message, i (i)}<li>{message}</li>{/each}
       </ul>
@@ -101,17 +102,17 @@
   {/if}
 </div>
 {#if candidates.length > 0}
-  <Banner variant="info" title={`Found ${candidates.length} JSON block${candidates.length === 1 ? "" : "s"} — use block 1?`}>
-    <p class="choose">The text isn't plain JSON. Choose which fenced block to check.</p>
+  <Banner variant="info" title={tn("imp.found", candidates.length)}>
+    <p class="choose">{t("imp.notPlain")}</p>
     <div class="choices">
       {#each candidates as _block, i (i)}
-        <Button variant="secondary" onclick={() => useCandidate(i)}>Use block {i + 1}</Button>
+        <Button variant="secondary" onclick={() => useCandidate(i)}>{t("imp.useBlock", { n: i + 1 })}</Button>
       {/each}
     </div>
   </Banner>
 {/if}
 {#if warnings.length > 0}
-  <Banner variant="warning" title="Warnings (you can still import)">
+  <Banner variant="warning" title={t("imp.warnings")}>
     <ul>
       {#each warnings as message, i (i)}<li>{message}</li>{/each}
     </ul>

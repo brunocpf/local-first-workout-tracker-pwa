@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { exerciseTypeLabel } from "#lib/catalog/labels";
+  import { localizeExercises } from "#lib/catalog/localize";
+  import { t, tn } from "#lib/i18n.svelte";
   // Import step 2 (PRD §11.1): preview, settle every exercise, confirm. Nothing is written until Confirm.
   import { onMount } from "svelte";
   import ExercisePicker from "#lib/components/ExercisePicker.svelte";
@@ -32,14 +35,7 @@
     onsaved: (routineCount: number) => void;
   } = $props();
 
-  const TYPE_OPTIONS: { value: ExerciseType; label: string }[] = [
-    { value: "weighted_reps", label: "Weight × reps" },
-    { value: "bodyweight_reps", label: "Bodyweight reps" },
-    { value: "weighted_bodyweight", label: "Weighted bodyweight" },
-    { value: "assisted_bodyweight", label: "Assisted bodyweight" },
-    { value: "duration", label: "Duration" },
-    { value: "distance", label: "Distance" },
-  ];
+  const TYPE_OPTIONS = $derived((["weighted_reps", "bodyweight_reps", "weighted_bodyweight", "assisted_bodyweight", "duration", "distance"] as const).map((value) => ({ value, label: exerciseTypeLabel(value) })));
 
   let catalog = $state<Exercise[]>([]);
   let loaded = $state(false);
@@ -54,7 +50,7 @@
   onMount(() => {
     listExercises().then(
       (all) => {
-        catalog = all;
+        catalog = localizeExercises(all);
         loaded = true;
       },
       () => {
@@ -66,7 +62,7 @@
 
   const matches = $derived<Map<string, MatchResult>>(matchProgram(data, catalog));
   const byId = $derived(new Map(catalog.map((e) => [e.id, e])));
-  const nameOf = (id: string) => byId.get(id)?.name ?? "Unknown exercise";
+  const nameOf = (id: string) => byId.get(id)?.name ?? t("summary.unknown");
 
   /** Exact matches count as resolved; everything else needs an explicit choice. */
   const effective = $derived.by(() => {
@@ -123,9 +119,9 @@
       (s) =>
         [setTarget({ ...s, targetDistanceMeters: s.targetDistance }), s.targetWeight !== undefined ? `@ ${fmtWeight(s.targetWeight)}` : ""]
           .filter(Boolean)
-          .join(" ") || "set",
+          .join(" ") || t("imp.setWord"),
     );
-    return [`${re.prescribedSets.length} sets: ${parts.join(", ")}`, re.restSeconds !== undefined ? `rest ${fmtRest(re.restSeconds)}` : ""].filter(Boolean).join(" · ");
+    return [t("imp.setsOf", { n: re.prescribedSets.length, parts: parts.join(", ") }), re.restSeconds !== undefined ? t("imp.rest", { time: fmtRest(re.restSeconds) }) : ""].filter(Boolean).join(" · ");
   }
 
   const fmtWeight = (kg: number) => `${displayWeight(kg, settings.weightUnit)} ${settings.weightUnit}`;
@@ -142,12 +138,12 @@
   function setsSummary(e: ProgramImportV1["program"]["routines"][number]["exercises"][number]): string {
     const parts: string[] = [];
     if (e.setList) {
-      parts.push(e.setList.map((s) => [setTarget(s), s.targetWeight !== undefined ? `@ ${fmtWeight(s.targetWeight)}` : ""].filter(Boolean).join(" ") || "set").join(", "));
+      parts.push(e.setList.map((s) => [setTarget(s), s.targetWeight !== undefined ? `@ ${fmtWeight(s.targetWeight)}` : ""].filter(Boolean).join(" ") || t("imp.setWord")).join(", "));
     } else {
-      const t = setTarget(e);
-      parts.push(`${e.sets} × ${t || "sets"}${e.targetWeight !== undefined ? ` @ ${fmtWeight(e.targetWeight)}` : ""}`);
+      const target = setTarget(e);
+      parts.push(`${e.sets} × ${target || t("imp.setsX")}${e.targetWeight !== undefined ? ` @ ${fmtWeight(e.targetWeight)}` : ""}`);
     }
-    if (e.restSeconds !== undefined) parts.push(`rest ${fmtRest(e.restSeconds)}`);
+    if (e.restSeconds !== undefined) parts.push(t("imp.rest", { time: fmtRest(e.restSeconds) }));
     return parts.join(" · ");
   }
 
@@ -155,7 +151,7 @@
     const res = effective[path];
     return res?.kind === "exercise" ? nameOf(res.exerciseId) : res?.kind === "create" ? res.name : refLabel(ref);
   };
-  const refLabel = (ref: ExerciseRefV1) => ref.name ?? ref.id ?? "Exercise";
+  const refLabel = (ref: ExerciseRefV1) => ref.name ?? ref.id ?? t("imp.exerciseFallback");
 
   // Picker / create-custom target.
   let pickPath = $state<string>();
@@ -197,7 +193,7 @@
     saveError = undefined;
     try {
       await saveProgramImport(draft);
-      toast(`Imported ${draft.routines.length} ${draft.routines.length === 1 ? "routine" : "routines"}`);
+      toast(tn("imp.imported", draft.routines.length));
       onsaved(draft.routines.length);
     } catch (e) {
       saveError = e instanceof Error ? e.message : String(e);
@@ -209,10 +205,10 @@
 </script>
 
 <div class="preview">
-  <TextField label="Program name" bind:value={programName} required />
+  <TextField label={t("imp.programName")} bind:value={programName} required />
 
   {#if loadError}
-    <Banner variant="danger" title="Couldn't load the exercise catalog">Try again after reloading the page.</Banner>
+    <Banner variant="danger" title={t("imp.catalogFailed")}>{t("imp.reloadRetry")}</Banner>
   {/if}
   {#each [...warnings, ...draft.warnings] as w (w)}
     <Banner variant="warning">{w}</Banner>
@@ -221,7 +217,7 @@
   {#each data.program.routines as routine, ri (ri)}
     <Card>
       <TextField
-        label="Routine name"
+        label={t("imp.routineName")}
         bind:value={() => edits.routineNames[ri] ?? routine.name, (v) => (edits.routineNames[ri] = v)}
       />
       <ol class="exercises">
@@ -237,33 +233,33 @@
                 {#if res?.kind === "exercise"}{nameOf(res.exerciseId)}{:else if res?.kind === "create"}{res.name}{:else}{refLabel(e.exercise)}{/if}
               </span>
               {#if res?.kind === "drop"}
-                <Badge variant="neutral" icon="x">Removed</Badge>
+                <Badge variant="neutral" icon="x">{t("imp.removed")}</Badge>
               {:else if res?.kind === "create"}
-                <Badge variant="info" icon="plus">New custom</Badge>
+                <Badge variant="info" icon="plus">{t("imp.newCustom")}</Badge>
               {:else if res}
-                <Badge variant="success" icon="check">Matched</Badge>
+                <Badge variant="success" icon="check">{t("imp.matched")}</Badge>
               {:else if m?.status === "suggested"}
-                <Badge variant="warning" icon="alert-triangle">Suggested</Badge>
+                <Badge variant="warning" icon="alert-triangle">{t("imp.suggested")}</Badge>
               {:else if loaded}
-                <Badge variant="danger" icon="alert-triangle">Unresolved</Badge>
+                <Badge variant="danger" icon="alert-triangle">{t("imp.unresolved")}</Badge>
               {/if}
             </div>
             <p class="meta">{edited ? editedSummary(edited) : setsSummary(e)}</p>
             {#if edited ? edited.notes : e.notes}<p class="meta">{edited ? edited.notes : e.notes}</p>{/if}
             {#if res?.kind === "exercise" && e.exercise.name && nameOf(res.exerciseId) !== e.exercise.name}
-              <p class="meta">Imported as “{e.exercise.name}”</p>
+              <p class="meta">{t("imp.importedAs", { name: e.exercise.name })}</p>
             {/if}
 
             <div class="resolve">
-              <IconButton icon="chevron-up" label={`Move ${nameLabel(path, e.exercise)} up`} disabled={pos === 0} onclick={() => move(ri, pos, pos - 1)} />
+              <IconButton icon="chevron-up" label={t("imp.moveUp", { name: nameLabel(path, e.exercise) })} disabled={pos === 0} onclick={() => move(ri, pos, pos - 1)} />
               <IconButton
                 icon="chevron-down"
-                label={`Move ${nameLabel(path, e.exercise)} down`}
+                label={t("imp.moveDown", { name: nameLabel(path, e.exercise) })}
                 disabled={pos === routine.exercises.length - 1}
                 onclick={() => move(ri, pos, pos + 1)}
               />
               {#if res && res.kind !== "drop"}
-                <Button onclick={() => startEdit(ri, ei)}>Edit sets</Button>
+                <Button onclick={() => startEdit(ri, ei)}>{t("imp.editSets")}</Button>
               {/if}
             </div>
 
@@ -272,19 +268,19 @@
                 {#if !res && m?.status === "suggested"}
                   {#each m.candidates as c (c.exerciseId)}
                     <Button icon="check" onclick={() => set(path, { kind: "exercise", exerciseId: c.exerciseId })}>
-                      Use {nameOf(c.exerciseId)}
+                      {t("imp.use", { name: nameOf(c.exerciseId) })}
                     </Button>
                   {/each}
                 {/if}
                 {#if resolutions[path]}
-                  <Button variant="ghost" icon="undo" onclick={() => undo(path)}>Change</Button>
+                  <Button variant="ghost" icon="undo" onclick={() => undo(path)}>{t("imp.change")}</Button>
                 {/if}
                 {#if !res || res.kind === "create"}
-                  <Button onclick={() => startPick(path)}>Pick from catalog</Button>
-                  <Button onclick={() => startCreate(path, e.exercise)}>Create custom</Button>
+                  <Button onclick={() => startPick(path)}>{t("imp.pick")}</Button>
+                  <Button onclick={() => startCreate(path, e.exercise)}>{t("imp.createCustom")}</Button>
                 {/if}
                 {#if res?.kind !== "drop"}
-                  <Button variant="ghost" icon="trash" onclick={() => set(path, { kind: "drop" })}>Remove</Button>
+                  <Button variant="ghost" icon="trash" onclick={() => set(path, { kind: "drop" })}>{t("imp.remove")}</Button>
                 {/if}
               </div>
             {/if}
@@ -295,15 +291,15 @@
   {/each}
 
   {#if saveError}
-    <Banner variant="danger" title="Couldn't save the import">{saveError} Nothing was changed.</Banner>
+    <Banner variant="danger" title={t("imp.saveFailed")}>{saveError} {t("imp.nothingChanged")}</Banner>
   {/if}
 
   <div class="actions">
     {#if unresolvedCount > 0}
-      <p class="meta" role="status">{unresolvedCount} {unresolvedCount === 1 ? "exercise needs" : "exercises need"} a decision.</p>
+      <p class="meta" role="status">{tn("imp.needs", unresolvedCount)}</p>
     {/if}
-    <Button variant="primary" disabled={!canConfirm} loading={saving} onclick={confirm}>Confirm import</Button>
-    <Button variant="ghost" disabled={saving} onclick={oncancel}>Cancel</Button>
+    <Button variant="primary" disabled={!canConfirm} loading={saving} onclick={confirm}>{t("imp.confirm")}</Button>
+    <Button variant="ghost" disabled={saving} onclick={oncancel}>{t("common.cancel")}</Button>
   </div>
 </div>
 
@@ -319,19 +315,19 @@
 
 <ExercisePicker
   bind:open={pickerOpen}
-  title="Choose exercise"
+  title={t("imp.chooseExercise")}
   allowCreate={false}
   onpick={(picked) => {
     if (pickPath !== undefined && picked[0]) set(pickPath, { kind: "exercise", exerciseId: picked[0].id });
   }}
 />
 
-<Dialog bind:open={createOpen} title="Create custom exercise">
-  <TextField label="Name" bind:value={createName} required />
-  <Select label="Type" bind:value={createType} options={TYPE_OPTIONS} />
+<Dialog bind:open={createOpen} title={t("imp.createDialog")}>
+  <TextField label={t("edit.name")} bind:value={createName} required />
+  <Select label={t("imp.type")} bind:value={createType} options={TYPE_OPTIONS} />
   {#snippet actions()}
-    <Button variant="ghost" onclick={() => (createOpen = false)}>Cancel</Button>
-    <Button variant="primary" disabled={createName.trim() === ""} onclick={confirmCreate}>Create</Button>
+    <Button variant="ghost" onclick={() => (createOpen = false)}>{t("common.cancel")}</Button>
+    <Button variant="primary" disabled={createName.trim() === ""} onclick={confirmCreate}>{t("imp.create")}</Button>
   {/snippet}
 </Dialog>
 
