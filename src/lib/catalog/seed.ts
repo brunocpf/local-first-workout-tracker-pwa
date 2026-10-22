@@ -623,3 +623,9 @@ export const SEED_EXERCISES: readonly SeedExercise[] = BASE_EXERCISES.map((x) =>
 
 /** Lookup by id. */
 export const SEED_EXERCISES_BY_ID: ReadonlyMap<string, SeedExercise> = new Map(SEED_EXERCISES.map((x) => [x.id, x]));
+
+/**
+ * Name to store in a snapshot (session or routine): the seed's English name for a built-in exercise, so a localized
+ * display copy never leaks into saved data; anything else keeps its own name.
+ */
+export const snapshotName = (id: string, name: string): string => SEED_EXERCISES_BY_ID.get(id)?.name ?? name;

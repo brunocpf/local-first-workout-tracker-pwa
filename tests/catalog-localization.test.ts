@@ -3,7 +3,9 @@ import { SEED_EXERCISES } from "#lib/catalog/seed";
 import { SEED_PT_BR } from "#lib/catalog/seed.pt-BR";
 import { exerciseLabel, localizeExercise } from "#lib/catalog/localize";
 import { normalizeName, searchExercises } from "#lib/catalog/search";
-import type { Exercise } from "#lib/types";
+import { createSessionExercise, replaceExercise } from "#lib/logger/workout";
+import { SEED_EXERCISES_BY_ID } from "#lib/catalog/seed";
+import type { Exercise, WorkoutSession } from "#lib/types";
 
 const asExercise = (s: (typeof SEED_EXERCISES)[number]): Exercise => ({ ...s, createdAt: "", updatedAt: "" }) as Exercise;
 
@@ -54,5 +56,21 @@ describe("pt-BR catalog", () => {
     expect(exerciseLabel("back_squat", "Back Squat", "en")).toBe("Back Squat");
     expect(exerciseLabel("back_squat", "My own name", "pt-BR")).toBe("My own name");
     expect(exerciseLabel("custom_1", "Back Squat", "pt-BR")).toBe("Back Squat");
+  });
+
+  it("never stores a localized name in a session snapshot", () => {
+    const squat = asExercise(SEED_EXERCISES.find((s) => s.id === "back_squat")!);
+    const shown = localizeExercise(squat, "pt-BR");
+    expect(shown.name).toBe("Agachamento livre");
+    const se = createSessionExercise(shown);
+    expect(se.exerciseNameSnapshot).toBe(SEED_EXERCISES_BY_ID.get("back_squat")!.name);
+
+    const press = localizeExercise(asExercise(SEED_EXERCISES.find((s) => s.id === "overhead_press")!), "pt-BR");
+    const session = { exercises: [{ ...se, sets: [{ id: "s1", type: "normal" as const }] }] } as unknown as WorkoutSession;
+    replaceExercise(session, se.id, press);
+    expect(session.exercises[0].exerciseNameSnapshot).toBe("Overhead Press");
+
+    const custom = createSessionExercise({ id: "mine", name: "Meu exercício", exerciseType: "weighted_reps" });
+    expect(custom.exerciseNameSnapshot).toBe("Meu exercício");
   });
 });
