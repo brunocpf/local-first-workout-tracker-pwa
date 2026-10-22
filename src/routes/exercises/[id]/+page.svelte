@@ -1,7 +1,7 @@
 <script lang="ts">
   import { equipmentLabel, exerciseTypeLabel, muscleLabel } from "#lib/catalog/labels";
   import { formatLocaleNumber, formatZoned } from "#lib/format";
-  import { t, tn } from "#lib/i18n.svelte";
+  import { t } from "#lib/i18n.svelte";
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { resolve } from "$app/paths";

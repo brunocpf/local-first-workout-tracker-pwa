@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { formatLocaleNumber } from "#lib/format";
+  import { t, tn } from "#lib/i18n.svelte";
   // Routine builder (PRD §7.2): the draft lives in memory; Save validates and writes, leaving with edits asks first.
   import { onMount } from "svelte";
   import { beforeNavigate, goto } from "$app/navigation";
@@ -64,7 +66,7 @@
   const unit = $derived(settings.weightUnit);
   const back = $derived({
     href: isNew ? resolve("/routines") : resolve(`/routines/${initial.id}` as "/"),
-    label: isNew ? "Routines" : "Routine",
+    label: isNew ? t("rt.title") : t("rt.routine"),
   });
 
   async function loadNames(ids: string[]) {
@@ -80,17 +82,17 @@
 
   function summary(re: RoutineExercise) {
     const sets = re.prescribedSets;
-    if (sets.length === 0) return "No sets";
+    if (sets.length === 0) return t("re.noSets");
     const first = sets[0];
     const same = (f: (s: PrescribedSet) => unknown) => sets.every((s) => JSON.stringify(f(s)) === JSON.stringify(f(first)));
-    const parts = [`${sets.length} ${sets.length === 1 ? "set" : "sets"}`];
+    const parts = [tn("re.setsCount", sets.length)];
     if (first.repRange && same((s) => s.repRange)) {
       parts[0] += ` × ${first.repRange[0] === first.repRange[1] ? first.repRange[0] : `${first.repRange[0]}–${first.repRange[1]}`}`;
     }
     if (first.targetWeight !== undefined && same((s) => s.targetWeight)) {
-      parts.push(`@ ${displayWeight(first.targetWeight, unit).toLocaleString()} ${unit}`);
+      parts.push(`@ ${formatLocaleNumber(displayWeight(first.targetWeight, unit))} ${unit}`);
     }
-    if (re.restSeconds !== undefined) parts.push(`rest ${re.restSeconds} s`);
+    if (re.restSeconds !== undefined) parts.push(t("re.rest", { n: re.restSeconds }));
     return parts.join(" ");
   }
 
@@ -109,9 +111,9 @@
     const index = draft.exercises.findIndex((e) => e.id === re.id);
     const removed = removeRoutineExercise(draft, re.id);
     if (!removed) return;
-    toast(`Removed ${names[removed.exerciseId] ?? "exercise"}`, {
+    toast(t("re.removed", { name: names[removed.exerciseId] ?? t("re.exerciseFallback") }), {
       action: {
-        label: "Undo",
+        label: t("common.undo"),
         run: () => draft.exercises.splice(Math.min(index, draft.exercises.length), 0, removed),
       },
     });
@@ -125,10 +127,10 @@
       const saved = await saveRoutine($state.snapshot(draft) as Routine);
       baseline = JSON.stringify(saved);
       draft = JSON.parse(baseline);
-      toast("Routine saved");
+      toast(t("re.saved"));
       await goto(resolve(`/routines/${saved.id}` as "/"));
     } catch {
-      toast("Couldn't save the routine");
+      toast(t("re.saveFailed"));
     } finally {
       saving = false;
     }
@@ -144,10 +146,10 @@
     nav.cancel();
     const to = nav.to?.url;
     const ok = await confirm({
-      title: "Discard changes?",
-      body: "You have unsaved changes to this routine.",
-      confirmLabel: "Discard changes",
-      cancelLabel: "Keep editing",
+      title: t("edit.discardTitle"),
+      body: t("re.discardBody"),
+      confirmLabel: t("edit.discardConfirm"),
+      cancelLabel: t("edit.keepEditing"),
       danger: true,
     });
     if (ok && to) {
@@ -165,9 +167,9 @@
 
 <svelte:window {onbeforeunload} />
 
-<PageHeader title={isNew ? "New routine" : "Edit routine"} {back}>
+<PageHeader title={isNew ? t("re.newTitle") : t("re.editTitle")} {back}>
   {#snippet actions()}
-    <Button variant="primary" size="md" disabled={saving} onclick={save}>Save</Button>
+    <Button variant="primary" size="md" disabled={saving} onclick={save}>{t("common.save")}</Button>
   {/snippet}
 </PageHeader>
 
@@ -178,9 +180,9 @@
     void save();
   }}
 >
-  <TextField label="Name" bind:value={draft.name} required autocomplete="off" error={nameError} />
+  <TextField label={t("re.name")} bind:value={draft.name} required autocomplete="off" error={nameError} />
   <TextField
-    label="Description"
+    label={t("re.description")}
     multiline
     bind:value={() => draft.description ?? "", (v) => (draft.description = v.trim() === "" ? undefined : v)}
   />
@@ -192,20 +194,20 @@
   </ul>
 {/if}
 
-<h2>Exercises</h2>
+<h2>{t("re.exercises")}</h2>
 {#if draft.exercises.length === 0}
-  <EmptyState icon="dumbbell" title="No exercises yet" body="Add the exercises this routine is made of." />
+  <EmptyState icon="dumbbell" title={t("re.empty")} body={t("re.emptyBody")} />
 {:else}
   <ol class="list">
     {#each blocks as block (block.items[0].re.id)}
       <li>
         <div class={block.items.length > 1 ? "superset" : "single"}>
           {#if block.items.length > 1}
-            <Badge variant="accent" icon="link">Superset</Badge>
+            <Badge variant="accent" icon="link">{t("rt.superset")}</Badge>
           {/if}
           <ul class="members">
             {#each block.items as { re, i } (re.id)}
-              {@const name = names[re.exerciseId] ?? "Unknown exercise"}
+              {@const name = names[re.exerciseId] ?? t("summary.unknown")}
               <li>
                 <Card>
                   <div class="row">
@@ -214,10 +216,10 @@
                       <p>{summary(re)}</p>
                     </div>
                     <div class="buttons">
-                      <IconButton icon="chevron-up" label={`Move ${name} up`} disabled={i === 0} onclick={() => stepRoutineExercise(draft, i, -1)} />
+                      <IconButton icon="chevron-up" label={t("re.moveUp", { name })} disabled={i === 0} onclick={() => stepRoutineExercise(draft, i, -1)} />
                       <IconButton
                         icon="chevron-down"
-                        label={`Move ${name} down`}
+                        label={t("re.moveDown", { name })}
                         disabled={i === draft.exercises.length - 1}
                         onclick={() => stepRoutineExercise(draft, i, 1)}
                       />
@@ -230,7 +232,7 @@
                       onclick={() => {
                         editingId = re.id;
                         editOpen = true;
-                      }}>Edit sets for {name}</Button
+                      }}>{t("re.editSets", { name })}</Button
                     >
                     <Button
                       size="sm"
@@ -238,15 +240,15 @@
                       onclick={() => {
                         replacingId = re.id;
                         pickerOpen = true;
-                      }}>Replace {name}</Button
+                      }}>{t("re.replaceName", { name })}</Button
                     >
                     {#if i < draft.exercises.length - 1 && !(re.supersetGroupId && re.supersetGroupId === draft.exercises[i + 1].supersetGroupId)}
-                      <Button size="sm" variant="secondary" onclick={() => groupWithNext(draft, re.id)}>Group {name} with next</Button>
+                      <Button size="sm" variant="secondary" onclick={() => groupWithNext(draft, re.id)}>{t("re.groupNext", { name })}</Button>
                     {/if}
                     {#if re.supersetGroupId}
-                      <Button size="sm" variant="secondary" onclick={() => ungroupRoutineExercise(draft, re.id)}>Ungroup {name}</Button>
+                      <Button size="sm" variant="secondary" onclick={() => ungroupRoutineExercise(draft, re.id)}>{t("re.ungroup", { name })}</Button>
                     {/if}
-                    <Button size="sm" variant="danger" icon="trash" onclick={() => remove(re)}>Remove {name}</Button>
+                    <Button size="sm" variant="danger" icon="trash" onclick={() => remove(re)}>{t("re.removeName", { name })}</Button>
                   </div>
                 </Card>
               </li>
@@ -265,14 +267,14 @@
     onclick={() => {
       replacingId = undefined;
       pickerOpen = true;
-    }}>Add exercise</Button
+    }}>{t("workout.addExercise")}</Button
   >
 </div>
 
 <ExercisePicker
   bind:open={pickerOpen}
   multiple={!replacingId}
-  title={replacingId ? "Replace exercise" : "Add exercise"}
+  title={replacingId ? t("card.replace") : t("workout.addExercise")}
   onpick={picked}
   oncancel={() => (replacingId = undefined)}
 />
@@ -281,15 +283,15 @@
   <PrescriptionEditor
     bind:open={editOpen}
     exercise={editing}
-    name={names[editing.exerciseId] ?? "Unknown exercise"}
+    name={names[editing.exerciseId] ?? t("summary.unknown")}
     exerciseType={types[editing.exerciseId]}
     {unit}
   />
 {/if}
 
 <div class="footer">
-  <Button variant="ghost" onclick={cancel}>Cancel</Button>
-  <Button variant="primary" disabled={saving} onclick={save}>Save routine</Button>
+  <Button variant="ghost" onclick={cancel}>{t("common.cancel")}</Button>
+  <Button variant="primary" disabled={saving} onclick={save}>{t("re.saveRoutine")}</Button>
 </div>
 
 <style>

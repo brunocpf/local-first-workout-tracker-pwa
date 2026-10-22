@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, tn } from "#lib/i18n.svelte";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
@@ -11,7 +12,7 @@
   import Select from "#lib/components/ui/Select.svelte";
   import Sheet from "#lib/components/ui/Sheet.svelte";
   import TextField from "#lib/components/ui/TextField.svelte";
-  import { WEEKDAYS, scheduleByDay, setProgramSchedule, weekdayLabel, type Weekday } from "#lib/routines/schedule";
+  import { WEEKDAYS, scheduleByDay, setProgramSchedule, type Weekday } from "#lib/routines/schedule";
   import {
     deleteProgram,
     getProgram,
@@ -43,7 +44,7 @@
     return Object.fromEntries(WEEKDAYS.map((d) => [d, ""])) as Record<Weekday, string>;
   }
   const backHref = resolve("/routines");
-  const count = (r: Routine) => `${r.exercises.length} ${r.exercises.length === 1 ? "exercise" : "exercises"}`;
+  const count = (r: Routine) => tn("count.exercises", r.exercises.length);
 
   async function load() {
     try {
@@ -74,13 +75,13 @@
   }
   onMount(load);
 
-  const programNameOf = (r: Routine) => (r.programId ? "In another program" : "Standalone");
+  const programNameOf = (r: Routine) => (r.programId ? t("pg.anotherProgram") : t("pg.standalone"));
 
   async function saveName() {
     if (!program) return;
     const trimmed = name.trim();
     if (!trimmed) {
-      nameError = "Enter a program name.";
+      nameError = t("pg.enterName");
       return;
     }
     nameError = undefined;
@@ -89,7 +90,7 @@
       program = await renameProgram(program.id, trimmed);
       name = program.name;
     } catch {
-      toast("Couldn't rename the program");
+      toast(t("pg.renameFailed"));
     }
   }
 
@@ -102,7 +103,7 @@
     try {
       await reorderProgramRoutines(program.id, ids);
     } catch {
-      toast("Couldn't reorder the routines");
+      toast(t("pg.reorderFailed"));
     }
     await load();
   }
@@ -112,7 +113,7 @@
     try {
       await setRoutineProgram(r.id, program.id);
     } catch {
-      toast("Couldn't add the routine");
+      toast(t("pg.addFailed"));
     }
     await load();
   }
@@ -121,7 +122,7 @@
     try {
       await setRoutineProgram(r.id, undefined);
     } catch {
-      toast("Couldn't remove the routine");
+      toast(t("pg.removeFailed"));
     }
     await load();
   }
@@ -131,9 +132,9 @@
     try {
       program = await setProgramSchedule(program.id, draft);
       savedDraft = { ...draft };
-      toast("Schedule saved");
+      toast(t("pg.scheduleSaved"));
     } catch {
-      toast("Couldn't save the schedule");
+      toast(t("pg.scheduleFailed"));
     }
   }
 
@@ -143,15 +144,15 @@
     const ok = await confirm(
       deleteRoutines
         ? {
-            title: `Delete "${program.name}" and its routines?`,
-            body: `The program and its ${n} ${n === 1 ? "routine" : "routines"} are removed. Past workouts are not affected.`,
-            confirmLabel: "Delete program and routines",
+            title: t("pg.confirmAllTitle", { name: program.name }),
+            body: tn("pg.confirmAllBody", n),
+            confirmLabel: t("pg.confirmAllConfirm"),
             danger: true,
           }
         : {
-            title: `Delete "${program.name}"?`,
-            body: `The program is removed. Its ${n} ${n === 1 ? "routine stays" : "routines stay"} as standalone routines. Past workouts are not affected.`,
-            confirmLabel: "Delete program",
+            title: t("pg.confirmKeepTitle", { name: program.name }),
+            body: tn("pg.confirmKeepBody", n),
+            confirmLabel: t("pg.confirmKeepConfirm"),
             danger: true,
           },
     );
@@ -161,22 +162,22 @@
       deleteOpen = false;
       await goto(backHref);
     } catch {
-      toast("Couldn't delete the program");
+      toast(t("pg.deleteFailed"));
     }
   }
 </script>
 
-<PageHeader title={program?.name ?? "Program"} back={{ href: backHref, label: "Routines" }}>
+<PageHeader title={program?.name ?? t("pg.title")} back={{ href: backHref, label: t("rt.title") }}>
   {#snippet actions()}
-    {#if program}<IconButton icon="trash" label="Delete program" onclick={() => (deleteOpen = true)} />{/if}
+    {#if program}<IconButton icon="trash" label={t("pg.delete")} onclick={() => (deleteOpen = true)} />{/if}
   {/snippet}
 </PageHeader>
 
 {#if failed}
-  <EmptyState icon="alert-triangle" title="Couldn’t load the program" body="Reload the app and try again." />
+  <EmptyState icon="alert-triangle" title={t("pg.loadFailed")} body={t("history.reloadHint")} />
 {:else if loaded && !program}
-  <EmptyState icon="list" title="Program not found" body="It may have been deleted.">
-    {#snippet action()}<Button variant="primary" href={backHref}>Back to routines</Button>{/snippet}
+  <EmptyState icon="list" title={t("pg.notFound")} body={t("rt.detail.notFoundBody")}>
+    {#snippet action()}<Button variant="primary" href={backHref}>{t("pg.backTo")}</Button>{/snippet}
   </EmptyState>
 {:else if program}
   <form
@@ -186,42 +187,42 @@
       void saveName();
     }}
   >
-    <TextField label="Program name" bind:value={name} error={nameError} required enterkeyhint="done" />
-    <Button type="submit" variant="secondary" disabled={name.trim() === program.name}>Save name</Button>
+    <TextField label={t("pg.name")} bind:value={name} error={nameError} required enterkeyhint="done" />
+    <Button type="submit" variant="secondary" disabled={name.trim() === program.name}>{t("pg.saveName")}</Button>
   </form>
 
   <section>
-    <h2>Routines</h2>
+    <h2>{t("pg.routines")}</h2>
     {#if members.length === 0}
-      <EmptyState icon="list" title="No routines in this program" body="Add routines to group them here." />
+      <EmptyState icon="list" title={t("pg.noRoutines")} body={t("pg.noRoutinesBody")} />
     {:else}
-      <ul class="group" aria-label="Routines in this program">
+      <ul class="group" aria-label={t("pg.inProgram")}>
         {#each members as r, i (r.id)}
           <li>
             <div class="item">
               <div class="link"><ListRow title={r.name} subtitle={count(r)} href={resolve(`/routines/${r.id}` as "/")} /></div>
               <div class="actions">
-                <IconButton icon="chevron-up" label={`Move ${r.name} up`} disabled={i === 0} onclick={() => move(i, -1)} />
+                <IconButton icon="chevron-up" label={t("pg.moveUp", { name: r.name })} disabled={i === 0} onclick={() => move(i, -1)} />
                 <IconButton
                   icon="chevron-down"
-                  label={`Move ${r.name} down`}
+                  label={t("pg.moveDown", { name: r.name })}
                   disabled={i === members.length - 1}
                   onclick={() => move(i, 1)}
                 />
-                <IconButton icon="x" label={`Remove ${r.name} from program`} onclick={() => remove(r)} />
+                <IconButton icon="x" label={t("pg.removeFrom", { name: r.name })} onclick={() => remove(r)} />
               </div>
             </div>
           </li>
         {/each}
       </ul>
     {/if}
-    <div class="add"><Button icon="plus" onclick={() => (addOpen = true)}>Add routines</Button></div>
+    <div class="add"><Button icon="plus" onclick={() => (addOpen = true)}>{t("pg.addRoutines")}</Button></div>
   </section>
 
   {#if members.length > 0}
     <section aria-labelledby="schedule">
-      <h2 id="schedule">Weekly schedule</h2>
-      <p class="muted">Optional. Home suggests the routine for today; nothing is missed or penalized if you skip it.</p>
+      <h2 id="schedule">{t("pg.schedule")}</h2>
+      <p class="muted">{t("pg.scheduleHint")}</p>
       <form
         class="schedule"
         onsubmit={(e) => {
@@ -231,22 +232,22 @@
       >
         {#each WEEKDAYS as day (day)}
           <Select
-            label={weekdayLabel(day)}
+            label={t(`weekday.${day}`)}
             bind:value={draft[day]}
-            options={[{ value: "", label: "Rest day" }, ...members.map((r) => ({ value: r.id, label: r.name }))]}
+            options={[{ value: "", label: t("pg.rest") }, ...members.map((r) => ({ value: r.id, label: r.name }))]}
           />
         {/each}
-        <Button type="submit" variant="secondary" disabled={!scheduleDirty}>Save schedule</Button>
+        <Button type="submit" variant="secondary" disabled={!scheduleDirty}>{t("pg.saveSchedule")}</Button>
       </form>
     </section>
   {/if}
 {/if}
 
-<Sheet bind:open={addOpen} title="Add routines">
+<Sheet bind:open={addOpen} title={t("pg.addRoutines")}>
   {#if available.length === 0}
-    <p class="muted">Every routine is already in this program.</p>
+    <p class="muted">{t("pg.allIn")}</p>
   {:else}
-    <ul class="group" aria-label="Routines to add">
+    <ul class="group" aria-label={t("pg.toAdd")}>
       {#each available as r (r.id)}
         <li><ListRow title={r.name} subtitle={`${count(r)} · ${programNameOf(r)}`} onclick={() => add(r)} /></li>
       {/each}
@@ -254,11 +255,11 @@
   {/if}
 </Sheet>
 
-<Sheet bind:open={deleteOpen} title="Delete program">
+<Sheet bind:open={deleteOpen} title={t("pg.deleteSheet")}>
   <div class="menu">
-    <p class="muted">Past workouts are never affected. What should happen to the program's routines?</p>
-    <Button block variant="danger" icon="trash" onclick={() => removeProgram(false)}>Delete program, keep routines</Button>
-    <Button block variant="danger" icon="trash" onclick={() => removeProgram(true)}>Delete program and routines</Button>
+    <p class="muted">{t("pg.deleteHint")}</p>
+    <Button block variant="danger" icon="trash" onclick={() => removeProgram(false)}>{t("pg.deleteKeep")}</Button>
+    <Button block variant="danger" icon="trash" onclick={() => removeProgram(true)}>{t("pg.deleteAll")}</Button>
   </div>
 </Sheet>
 
