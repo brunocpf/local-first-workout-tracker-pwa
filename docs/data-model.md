@@ -7,7 +7,7 @@ Types live in `src/lib/types.ts` (logical model from PRD §15). Storage is Dexie
 - **Exercise**: catalog entry. `exerciseType`, `isUnilateral?`, `favorite?`. Archived, never deleted, once used.
 - **Program** → **Routine** → **RoutineExercise** → **PrescribedSet**: templates. Program membership is stored **only** on the routine (`Routine.programId` + `programOrder`); a routine belongs to at most one program. A program's routines are queried via the `routines.programId` index and sorted by `programOrder`. Array order is the order of exercises and sets (no `order` fields).
 - **WorkoutSession** → **SessionExercise** → **LoggedSet**: history and the active workout. Self-describing (see below).
-- **UserSettings**: single row in the `settings` table (key `"settings"`), merged over `DEFAULT_SETTINGS` on read.
+- **UserSettings**: single row in the `settings` table (key `"settings"`), merged over `DEFAULT_SETTINGS` on read. Includes `locale` (`"system" | "en" | "pt-BR"`, [ADR 0006](decisions/0006-localization.md)).
 
 ## Conventions
 

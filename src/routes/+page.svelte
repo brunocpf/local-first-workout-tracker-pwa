@@ -1,2 +1,6 @@
-<h1>Workout Tracker</h1>
-<p>Scaffold ready. See docs/PRD.md and docs/roadmap.md.</p>
+<script lang="ts">
+  import { t } from "#lib/i18n.svelte";
+</script>
+
+<h1>{t("app.title")}</h1>
+<p>{t("app.scaffold")}</p>

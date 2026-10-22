@@ -8,6 +8,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   previousValuesMode: "exercise",
   weekStartsOn: 1,
   theme: "system",
+  locale: "system",
 };
 
 /** Stored settings merged over defaults, so fields added later get a value for existing users. */

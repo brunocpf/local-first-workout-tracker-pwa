@@ -138,6 +138,8 @@ export type WorkoutSession = {
 
 export type WeightUnit = "kg" | "lb";
 
+export type LocaleSetting = "system" | "en" | "pt-BR";
+
 export type UserSettings = {
   weightUnit: WeightUnit;
   defaultRestSeconds: number;
@@ -146,4 +148,5 @@ export type UserSettings = {
   /** 0 = Sunday, 1 = Monday, ... 6 = Saturday. */
   weekStartsOn: 0 | 1 | 6;
   theme: "system" | "light" | "dark";
+  locale: LocaleSetting;
 };

@@ -6,6 +6,7 @@ Local-first static SvelteKit SPA (`adapter-static`, SSR off): IndexedDB (via Dex
 
 - `src/lib/` – UI-free domain code, as **flat module files**, imported as `#lib/<file>` (e.g. `#lib/storage/db`). Today: `types.ts` plus whatever exists in `src/lib/` (storage, imports, metrics, …).
 - `src/routes/` – Svelte pages/components only.
+- UI strings: never hard-code them in components; add a key to both catalogs in `src/lib/messages.ts` and use `t("key")` from `#lib/i18n.svelte` ([ADR 0006](decisions/0006-localization.md)).
 - `src/service-worker/` – offline shell.
 
 **Rule:** add a module file when there's code for it. No empty placeholder folders and no speculative repository/service classes; keep abstractions pragmatic.

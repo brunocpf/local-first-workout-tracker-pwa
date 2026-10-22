@@ -49,3 +49,15 @@ test("shell renders offline after first load", async ({ page, context }) => {
   await page.goto("/history");
   await expect(page.getByRole("heading", { name: "History" })).toBeVisible();
 });
+
+test.describe("pt-BR browser", () => {
+  test.use({ locale: "pt-BR" });
+
+  test("UI follows the browser language", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("lang", "pt-BR");
+    const primary = page.getByRole("navigation", { name: "Principal" });
+    await primary.getByRole("link", { name: "Histórico" }).click();
+    await expect(page.getByRole("heading", { name: "Histórico" })).toBeVisible();
+  });
+});
