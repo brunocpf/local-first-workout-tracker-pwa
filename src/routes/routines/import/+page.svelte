@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorText } from "#lib/errorText";
   import { t } from "#lib/i18n.svelte";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
@@ -45,7 +46,7 @@
     <div role="alert">
       <Banner variant="danger" title={t("imp.linkBad")}>
         <ul>
-          {#each linkErrors as message, i (i)}<li>{message}</li>{/each}
+          {#each linkErrors as message, i (i)}<li>{errorText(message)}</li>{/each}
         </ul>
       </Banner>
     </div>

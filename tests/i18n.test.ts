@@ -32,3 +32,11 @@ describe("i18n", () => {
     expect(resolveLocale(undefined, ["pt"])).toBe("pt-BR");
   });
 });
+
+describe("errorText", () => {
+  it("translates known domain messages and passes everything else through", async () => {
+    const { errorText } = await import("#lib/errorText");
+    expect(errorText("Name is required.")).toBe("Name is required.");
+    expect(errorText("Something only the parser says")).toBe("Something only the parser says");
+  });
+});

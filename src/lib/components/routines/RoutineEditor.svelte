@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorText } from "#lib/errorText";
   import { formatLocaleNumber } from "#lib/format";
   import { t, tn } from "#lib/i18n.svelte";
   // Routine builder (PRD §7.2): the draft lives in memory; Save validates and writes, leaving with edits asks first.
@@ -51,7 +52,7 @@
 
   const dirty = $derived(JSON.stringify($state.snapshot(draft)) !== baseline);
   const validation = $derived(validateRoutine(draft));
-  const nameError = $derived(submitted ? validation.errors.find((e) => e.path === "name")?.message : undefined);
+  const nameError = $derived(submitted ? errorText(validation.errors.find((e) => e.path === "name")?.message ?? "") || undefined : undefined);
   const otherErrors = $derived(validation.errors.filter((e) => e.path !== "name"));
   // Adjacent exercises sharing a supersetGroupId render as one block.
   const blocks = $derived.by(() => {
@@ -190,7 +191,7 @@
 
 {#if submitted && otherErrors.length > 0}
   <ul class="errors" role="alert">
-    {#each otherErrors as e (e.path)}<li>{e.path}: {e.message}</li>{/each}
+    {#each otherErrors as e (e.path)}<li>{e.path}: {errorText(e.message)}</li>{/each}
   </ul>
 {/if}
 

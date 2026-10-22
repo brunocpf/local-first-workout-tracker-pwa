@@ -7,9 +7,16 @@ export const DEFAULT_PROGRESSION_INCREMENT: Record<WeightUnit, number> = { kg: 2
 export type ProgressionSuggestion = {
   weightKg: number;
   reps: number;
-  /** Human-readable explanation of the rule that produced the suggestion. */
+  /** Human-readable (English) explanation of the rule that produced the suggestion. */
   reason: string;
+  /** The same explanation as data, for rendering in the app language. */
+  why: ProgressionWhy;
 };
+
+export type ProgressionWhy =
+  | { kind: "increase"; sets: number; high: number; low: number; weightKg: number; incrementKg: number }
+  | { kind: "stay"; high: number; lowest: number; weightKg: number; reps: number }
+  | { kind: "mixed"; weightKg: number; reps: number };
 
 type ProgressionSettings = Pick<UserSettings, "weightUnit" | "progressionEnabled" | "progressionIncrement">;
 
@@ -52,6 +59,7 @@ export function suggestProgression(
       weightKg: topWeight + incrementKg,
       reps: low,
       reason: `All ${sets.length} working set${sets.length === 1 ? "" : "s"} reached ${high} reps at ${label(topWeight, unit)}, so add ${label(incrementKg, unit)} (to ${label(topWeight + incrementKg, unit)}) and aim for ${low} reps.`,
+      why: { kind: "increase", sets: sets.length, high, low, weightKg: topWeight, incrementKg },
     };
   }
 
@@ -61,5 +69,6 @@ export function suggestProgression(
   const reason = sameWeight
     ? `Not every working set reached ${high} reps yet (lowest: ${weakest}), so stay at ${label(topWeight, unit)} and aim for ${reps} reps.`
     : `Working sets used different weights, so stay at the heaviest, ${label(topWeight, unit)}, and aim for ${reps} reps.`;
-  return { weightKg: topWeight, reps, reason };
+  const why: ProgressionWhy = sameWeight ? { kind: "stay", high, lowest: weakest, weightKg: topWeight, reps } : { kind: "mixed", weightKg: topWeight, reps };
+  return { weightKg: topWeight, reps, reason, why };
 }

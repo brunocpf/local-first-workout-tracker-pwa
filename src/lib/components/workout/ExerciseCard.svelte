@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { progressionReason } from "#lib/format";
   import { equipmentLabel, muscleLabel, setTypeLabel } from "#lib/catalog/labels";
   import { t } from "#lib/i18n.svelte";
   import { exerciseLabel } from "#lib/catalog/localize";
@@ -252,7 +253,7 @@
   {#if exercise.notes}<p class="notes">{t("card.notes", { notes: exercise.notes })}</p>{/if}
   {#if suggestion}
     <div class="suggest" role="group" aria-label={t("card.suggestion")}>
-      <p class="reason"><Icon name="chevron-up" size="1.1em" /> {applied ? t("card.suggestionApplied") : suggestion.reason}</p>
+      <p class="reason"><Icon name="chevron-up" size="1.1em" /> {applied ? t("card.suggestionApplied") : progressionReason(suggestion.why, unit)}</p>
       {#if !applied}<Button size="sm" onclick={() => (appliedKey = key)}>{t("card.apply")}</Button>{/if}
     </div>
   {/if}

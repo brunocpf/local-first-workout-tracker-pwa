@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorText } from "#lib/errorText";
   import { formatLocaleNumber } from "#lib/format";
   import { t } from "#lib/i18n.svelte";
   import { onMount } from "svelte";
@@ -91,7 +92,7 @@
       await navigator.clipboard.writeText(url);
       toast(t("rt.linkCopied"));
     } catch (err) {
-      shareError = err instanceof ShareLinkError ? err.message : t("rt.shareFailed");
+      shareError = err instanceof ShareLinkError ? errorText(err.message) : t("rt.shareFailed");
     } finally {
       sharing = false;
     }

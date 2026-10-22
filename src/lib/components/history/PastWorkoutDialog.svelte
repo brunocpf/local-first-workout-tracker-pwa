@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorText } from "#lib/errorText";
   import { localizedWorkoutName } from "#lib/workoutName";
   import { t, tn } from "#lib/i18n.svelte";
   // "Log past workout" (PRD §5.3): creates a completed session at the chosen time, then opens the edit screen to log sets.
@@ -77,7 +78,7 @@
       open = false;
       await goto(resolve(`/history/${session.id}/edit?new=1` as "/"));
     } catch (e) {
-      error = e instanceof InvalidSessionEditError ? e.message : t("past.failed");
+      error = e instanceof InvalidSessionEditError ? errorText(e.message) : t("past.failed");
     } finally {
       saving = false;
     }

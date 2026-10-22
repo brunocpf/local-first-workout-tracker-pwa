@@ -1,4 +1,5 @@
-import { intlLocale, t } from "#lib/i18n.svelte";
+import { intlLocale, t, tn } from "#lib/i18n.svelte";
+import type { ProgressionWhy } from "#lib/progress/progression";
 import type { PrEvent } from "#lib/progress/metrics";
 import { formatNumber } from "#lib/numberInput";
 import { displayWeight } from "#lib/units";
@@ -39,5 +40,18 @@ export function prLabel(pr: PrEvent, unit: WeightUnit): string {
       return t("pr.e1rm", { value });
     case "sessionVolume":
       return t("pr.sessionVolume", { value });
+  }
+}
+
+/** The progression suggestion's explanation in the app language. */
+export function progressionReason(why: ProgressionWhy, unit: WeightUnit): string {
+  const w = (kg: number) => `${formatNumber(displayWeight(kg, unit))} ${unit}`;
+  switch (why.kind) {
+    case "increase":
+      return tn("prog.increase", why.sets, { high: why.high, low: why.low, weight: w(why.weightKg), increment: w(why.incrementKg), next: w(why.weightKg + why.incrementKg) });
+    case "stay":
+      return t("prog.stay", { high: why.high, lowest: why.lowest, weight: w(why.weightKg), reps: why.reps });
+    case "mixed":
+      return t("prog.mixed", { weight: w(why.weightKg), reps: why.reps });
   }
 }

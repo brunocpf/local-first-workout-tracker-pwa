@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorText } from "#lib/errorText";
   import { t } from "#lib/i18n.svelte";
   // Edits a completed session on a local `$state` copy: not the active store, no rest timer, no prefill-on-complete.
   import { onMount } from "svelte";
@@ -132,7 +133,7 @@
       toast(t("edit.updated"));
       await goto(resolve(`/history/${page.params.id}` as "/"), { replaceState: true });
     } catch (e) {
-      toast(e instanceof InvalidSessionEditError ? e.message : t("edit.saveFailed"));
+      toast(e instanceof InvalidSessionEditError ? errorText(e.message) : t("edit.saveFailed"));
     } finally {
       saving = false;
     }

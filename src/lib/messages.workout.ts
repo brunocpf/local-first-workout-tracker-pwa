@@ -114,6 +114,10 @@ export const workout = defineMessages({
     "header.discard": "Discard workout…",
     "header.renameTitle": "Rename workout",
     "header.nameLabel": "Workout name",
+    "prog.increase.one": "The working set reached {high} reps at {weight}, so add {increment} (to {next}) and aim for {low} reps.",
+    "prog.increase.other": "All {n} working sets reached {high} reps at {weight}, so add {increment} (to {next}) and aim for {low} reps.",
+    "prog.stay": "Not every working set reached {high} reps yet (lowest: {lowest}), so stay at {weight} and aim for {reps} reps.",
+    "prog.mixed": "Working sets used different weights, so stay at the heaviest, {weight}, and aim for {reps} reps.",
   },
   ptBR: {
     "common.undo": "Desfazer",
@@ -228,5 +232,9 @@ export const workout = defineMessages({
     "header.discard": "Descartar treino…",
     "header.renameTitle": "Renomear treino",
     "header.nameLabel": "Nome do treino",
+    "prog.increase.one": "A série de trabalho chegou a {high} reps com {weight}; então some {increment} (para {next}) e busque {low} reps.",
+    "prog.increase.other": "Todas as {n} séries de trabalho chegaram a {high} reps com {weight}; então some {increment} (para {next}) e busque {low} reps.",
+    "prog.stay": "Nem todas as séries de trabalho chegaram a {high} reps ainda (menor: {lowest}); então mantenha {weight} e busque {reps} reps.",
+    "prog.mixed": "As séries de trabalho usaram cargas diferentes; então mantenha a mais pesada, {weight}, e busque {reps} reps.",
   },
 });

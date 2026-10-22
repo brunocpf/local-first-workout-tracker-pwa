@@ -144,6 +144,18 @@ test.describe("pt-BR browser", () => {
     const primary = page.getByRole("navigation", { name: "Principal" });
     await expect(primary.getByRole("link", { name: "Histórico" })).toBeVisible();
   });
+
+  test("built-in exercises are shown and searchable in Portuguese, and in English too", async ({ page }) => {
+    await page.goto("/exercises");
+    await page.getByRole("searchbox", { name: "Buscar exercícios" }).fill("agachamento livre");
+    await expect(page.getByRole("link", { name: /Agachamento livre/ }).first()).toBeVisible();
+    await page.getByRole("searchbox", { name: "Buscar exercícios" }).fill("back squat");
+    await expect(page.getByRole("link", { name: /Agachamento livre/ }).first()).toBeVisible();
+    await page.getByRole("link", { name: /Agachamento livre/ }).first().click();
+    await expect(page.getByRole("heading", { name: "Agachamento livre" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Instruções" })).toBeVisible();
+    await expect(page.getByText("Apoie a barra na parte alta das costas")).toBeVisible();
+  });
 });
 
 test("the Language setting overrides the browser language and survives a reload", async ({ page }) => {
