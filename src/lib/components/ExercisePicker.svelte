@@ -11,6 +11,7 @@
   import Sheet from "#lib/components/ui/Sheet.svelte";
   import TextField from "#lib/components/ui/TextField.svelte";
   import { createCustomExercise, listExercises } from "#lib/storage/exercises";
+  import { localizeExercises } from "#lib/catalog/localize";
   import { listCompletedSessions } from "#lib/storage/sessions";
   import type { Exercise } from "#lib/types";
 
@@ -61,7 +62,7 @@
     );
     listExercises().then(
       (all) => {
-        exercises = all;
+        exercises = localizeExercises(all);
         loaded = true;
       },
       () => {

@@ -10,6 +10,7 @@
   import { bestSet } from "#lib/progress/bestSet";
   import { settings } from "#lib/settings.svelte";
   import { getExercise, setFavorite } from "#lib/storage/exercises";
+  import { localizeExercise } from "#lib/catalog/localize";
   import { completedSessionsWithExercise } from "#lib/storage/sessions";
   import { displayWeight } from "#lib/units";
   import type { Exercise, LoggedSet, WorkoutSession } from "#lib/types";
@@ -24,6 +25,7 @@
     try {
       const id = page.params.id ?? "";
       exercise = await getExercise(id);
+      if (exercise) exercise = localizeExercise(exercise);
       if (exercise) {
         allSessions = await completedSessionsWithExercise(id);
         sessions = allSessions.slice(0, 10);

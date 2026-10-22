@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { exerciseLabel, localizeExercises } from "#lib/catalog/localize";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
@@ -76,7 +77,7 @@
     void active.mutate((s) => (removed = removeExercise(s, id)), { persist: "now" });
     if (!removed) return;
     const undo = removed;
-    toast(`Removed ${undo.exercise.exerciseNameSnapshot}`, {
+    toast(`Removed ${exerciseLabel(undo.exercise.exerciseId, undo.exercise.exerciseNameSnapshot)}`, {
       action: {
         label: "Undo",
         run: () => {
@@ -87,7 +88,7 @@
   }
 
   async function loadSuggestions(exercise: SessionExercise): Promise<Exercise[]> {
-    const catalog = await listExercises();
+    const catalog = localizeExercises(await listExercises());
     const current = catalog.find((c) => c.id === exercise.exerciseId);
     if (!current) return [];
     const inWorkout = active.session?.exercises.map((e) => e.exerciseId) ?? [];
@@ -99,11 +100,11 @@
     if (completed > 0) {
       const done = `${completed} completed set${completed === 1 ? "" : "s"}`;
       const ok = await confirm({
-        title: `Replace ${exercise.exerciseNameSnapshot}?`,
+        title: `Replace ${exerciseLabel(exercise.exerciseId, exercise.exerciseNameSnapshot)}?`,
         body:
           remaining > 0
-            ? `${done} stay${completed === 1 ? "s" : ""} with ${exercise.exerciseNameSnapshot}. The other ${remaining} set${remaining === 1 ? "" : "s"} move${remaining === 1 ? "s" : ""} to ${to.name}.`
-            : `${done} stay${completed === 1 ? "s" : ""} with ${exercise.exerciseNameSnapshot}. ${to.name} starts with one empty set.`,
+            ? `${done} stay${completed === 1 ? "s" : ""} with ${exerciseLabel(exercise.exerciseId, exercise.exerciseNameSnapshot)}. The other ${remaining} set${remaining === 1 ? "" : "s"} move${remaining === 1 ? "s" : ""} to ${to.name}.`
+            : `${done} stay${completed === 1 ? "s" : ""} with ${exerciseLabel(exercise.exerciseId, exercise.exerciseNameSnapshot)}. ${to.name} starts with one empty set.`,
         confirmLabel: "Replace exercise",
       });
       if (!ok) return;
@@ -223,7 +224,7 @@
         const baseline = priors[e.exerciseId];
         if (baseline) {
           const sets = s.exercises.filter((x) => x.exerciseId === e.exerciseId).flatMap((x) => x.sets);
-          if (prSetIdsAgainst(baseline, sets).has(set.id)) prName = e.exerciseNameSnapshot;
+          if (prSetIdsAgainst(baseline, sets).has(set.id)) prName = exerciseLabel(e.exerciseId, e.exerciseNameSnapshot);
         }
         const rest = restAfterSet(s.exercises, s.exercises.indexOf(e), set.id, settings);
         if (settings.autoStartRestTimer && rest > 0) s.restTimer = startRestTimer(rest);

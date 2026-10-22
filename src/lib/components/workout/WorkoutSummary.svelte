@@ -8,6 +8,7 @@
   import { toast } from "#lib/ui/toast.svelte";
   import { getRoutine, saveRoutine } from "#lib/storage/routines";
   import { getExercisesByIds } from "#lib/storage/exercises";
+  import { localizeExercises } from "#lib/catalog/localize";
   import {
     applySessionToRoutine,
     diffSessionAgainstRoutine,
@@ -64,7 +65,7 @@
         const ids = [...found.exercises.map((e) => e.exerciseId)];
         const loaded = await getExercisesByIds(ids);
         if (cancelled) return;
-        names = Object.fromEntries(loaded.map((e) => [e.id, e.name]));
+        names = Object.fromEntries(localizeExercises(loaded).map((e) => [e.id, e.name]));
         routine = found;
         diff = d;
       } catch {

@@ -10,6 +10,7 @@
   import Switch from "#lib/components/ui/Switch.svelte";
   import TextField from "#lib/components/ui/TextField.svelte";
   import { listExercises } from "#lib/storage/exercises";
+  import { localizeExercises } from "#lib/catalog/localize";
   import type { Exercise } from "#lib/types";
 
   let exercises = $state<Exercise[]>([]);
@@ -26,7 +27,7 @@
     const token = ++loadToken;
     try {
       const all = await listExercises({ includeArchived: showArchived });
-      if (token === loadToken) exercises = all;
+      if (token === loadToken) exercises = localizeExercises(all);
     } catch {
       if (token === loadToken) failed = true;
     } finally {

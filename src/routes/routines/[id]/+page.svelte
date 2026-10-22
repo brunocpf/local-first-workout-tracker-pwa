@@ -12,6 +12,7 @@
   import { buildShareData, buildShareUrl, ShareLinkError } from "#lib/imports/shareLink";
   import { settings } from "#lib/settings.svelte";
   import { getExercisesByIds } from "#lib/storage/exercises";
+  import { localizeExercises } from "#lib/catalog/localize";
   import { getProgram, getRoutine, listRoutinesGrouped } from "#lib/storage/routines";
   import { toast } from "#lib/ui/toast.svelte";
   import { displayWeight } from "#lib/units";
@@ -32,7 +33,7 @@
           getExercisesByIds(r.exercises.map((e) => e.exerciseId)),
         ]);
         program = p;
-        names = Object.fromEntries(exercises.map((e) => [e.id, e.name]));
+        names = Object.fromEntries(localizeExercises(exercises).map((e) => [e.id, e.name]));
         routine = r;
       }
     } catch {

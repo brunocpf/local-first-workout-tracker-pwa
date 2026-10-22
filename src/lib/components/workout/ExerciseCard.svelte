@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { exerciseLabel } from "#lib/catalog/localize";
   // Presentational exercise card (design.md §8): the page decides how to persist. Reused for past sessions (T4.06).
   import Badge from "#lib/components/ui/Badge.svelte";
   import Button from "#lib/components/ui/Button.svelte";
@@ -248,8 +249,8 @@
 <Card as="article" padding="none">
   {#snippet header()}
     <div class="head">
-      <h2 class="name">{#if superset}<span class="tag"><Badge variant="accent"><span class="visually-hidden">Superset </span>{superset.letter}{superset.position + 1}</Badge></span>{/if}{exercise.exerciseNameSnapshot}</h2>
-      <IconButton icon="more-vertical" label="Exercise options for {exercise.exerciseNameSnapshot}" onclick={() => (menuOpen = true)} />
+      <h2 class="name">{#if superset}<span class="tag"><Badge variant="accent"><span class="visually-hidden">Superset </span>{superset.letter}{superset.position + 1}</Badge></span>{/if}{exerciseLabel(exercise.exerciseId, exercise.exerciseNameSnapshot)}</h2>
+      <IconButton icon="more-vertical" label="Exercise options for {exerciseLabel(exercise.exerciseId, exercise.exerciseNameSnapshot)}" onclick={() => (menuOpen = true)} />
     </div>
   {/snippet}
 
@@ -296,7 +297,7 @@
   </div>
 </Card>
 
-<Sheet bind:open={setMenuOpen} title="{setMenu?.name ?? 'Set'} · {exercise.exerciseNameSnapshot}">
+<Sheet bind:open={setMenuOpen} title="{setMenu?.name ?? 'Set'} · {exerciseLabel(exercise.exerciseId, exercise.exerciseNameSnapshot)}">
   <div class="menu">
     {#if barbell}<Button block icon="dumbbell" onclick={openPlates}>Plate calculator</Button>{/if}
     <Button block icon="copy" onclick={() => setAct(onduplicateset)}>Duplicate set</Button>
@@ -325,7 +326,7 @@
   />
 {/if}
 
-<Sheet bind:open={menuOpen} title={exercise.exerciseNameSnapshot}>
+<Sheet bind:open={menuOpen} title={exerciseLabel(exercise.exerciseId, exercise.exerciseNameSnapshot)}>
   <div class="menu">
     <Button block icon="chevron-up" disabled={index === 0} onclick={() => act(() => onmove(-1))}>Move up</Button>
     <Button block icon="chevron-down" disabled={index === count - 1} onclick={() => act(() => onmove(1))}>Move down</Button>
@@ -350,7 +351,7 @@
 </Sheet>
 
 {#if onreplace}
-  <Sheet bind:open={replaceOpen} title="Replace {exercise.exerciseNameSnapshot}" description="Your sets and targets carry over.">
+  <Sheet bind:open={replaceOpen} title="Replace {exerciseLabel(exercise.exerciseId, exercise.exerciseNameSnapshot)}" description="Your sets and targets carry over.">
     <div class="menu">
       {#if suggestionsState === "loading"}
         <p class="hint" role="status">Finding alternatives…</p>

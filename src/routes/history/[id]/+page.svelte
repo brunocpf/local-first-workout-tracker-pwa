@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { exerciseLabel } from "#lib/catalog/localize";
   import { onMount } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
   import { goto } from "$app/navigation";
@@ -158,10 +159,10 @@
   {#each session.exercises as ex (ex.id)}
     {@const vol = exerciseVolume(ex.sets, ex.exerciseTypeSnapshot)}
     <section>
-      <h2>{ex.exerciseNameSnapshot}</h2>
+      <h2>{exerciseLabel(ex.exerciseId, ex.exerciseNameSnapshot)}</h2>
       {#if vol > 0}<p class="vol">Volume: {weight(vol)} {unit}</p>{/if}
       <table>
-        <caption class="sr-only">Sets for {ex.exerciseNameSnapshot}</caption>
+        <caption class="sr-only">Sets for {exerciseLabel(ex.exerciseId, ex.exerciseNameSnapshot)}</caption>
         <thead><tr><th scope="col">Set</th><th scope="col">Result</th></tr></thead>
         <tbody>
           {#each ex.sets as s, i (s.id)}

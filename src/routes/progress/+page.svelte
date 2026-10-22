@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { localizeExercises } from "#lib/catalog/localize";
   import { onMount } from "svelte";
   import { resolve } from "$app/paths";
   import ExercisePicker from "#lib/components/ExercisePicker.svelte";
@@ -42,9 +43,9 @@
       allSessions = await listCompletedSessions({ limit: 10_000 });
       const ids: string[] = [];
       for (const s of allSessions.slice(0, 100)) for (const e of s.exercises) if (!ids.includes(e.exerciseId)) ids.push(e.exerciseId);
-      recent = await getExercisesByIds(ids.slice(0, RECENT));
+      recent = localizeExercises(await getExercisesByIds(ids.slice(0, RECENT)));
       const every = new Set(allSessions.flatMap((s) => s.exercises.map((e) => e.exerciseId)));
-      catalog = new Map((await getExercisesByIds([...every])).map((e) => [e.id, e]));
+      catalog = new Map(localizeExercises(await getExercisesByIds([...every])).map((e) => [e.id, e]));
       if (recent[0]) await choose(recent[0]);
     } catch {
       failed = true;

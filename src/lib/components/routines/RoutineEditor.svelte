@@ -23,6 +23,7 @@
   } from "#lib/routines/edit";
   import { settings } from "#lib/settings.svelte";
   import { getExercisesByIds } from "#lib/storage/exercises";
+  import { localizeExercises } from "#lib/catalog/localize";
   import { saveRoutine } from "#lib/storage/routines";
   import { confirm } from "#lib/ui/confirm.svelte";
   import { toast } from "#lib/ui/toast.svelte";
@@ -69,7 +70,7 @@
   async function loadNames(ids: string[]) {
     try {
       const found = await getExercisesByIds(ids);
-      names = { ...names, ...Object.fromEntries(found.map((e) => [e.id, e.name])) };
+      names = { ...names, ...Object.fromEntries(localizeExercises(found).map((e) => [e.id, e.name])) };
       types = { ...types, ...Object.fromEntries(found.map((e) => [e.id, e.exerciseType])) };
     } catch {
       // Names are display-only; the row falls back to "Unknown exercise".
