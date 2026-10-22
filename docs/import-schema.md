@@ -1,11 +1,11 @@
 # Program import schema (v1)
 
-This is the single authoritative spec for the program import format, a public contract between the app and external AI assistants. Code: `src/lib/imports/programSchema.ts` (Zod schema) and `src/lib/imports/parseProgram.ts` (parser, warnings). Tests: `tests/import.test.ts`; fixtures: `tests/fixtures/`. The format is independent of the internal domain types and the IndexedDB schema; mapping import → domain entities happens later, in the importer.
+This is the single authoritative spec for the program import format, a public contract between the app and external AI assistants. Code: `src/lib/imports/programSchema.ts` (Zod schema) and `src/lib/imports/parseProgram.ts` (parser, warnings). Tests: `tests/import.test.ts`; fixtures: `tests/fixtures/`. The format is independent of the internal domain types and the IndexedDB schema; mapping import → domain entities is `src/lib/imports/saveProgram.ts` (tests: `tests/saveProgram.test.ts`).
 
 ## Rules
 
 - `schemaVersion` must be `1`; other versions are rejected with a clear message.
-- Raw JSON only. Fenced-block / prose extraction is an explicit P1 step.
+- The parser takes raw JSON. Input that isn't plain JSON is searched only for explicit candidates: the whole text when it starts with `{`, or the body of ```` ```json ```` / ```` ``` ```` fenced blocks (`src/lib/imports/extract.ts`). When there are several blocks, the user picks one; prose is never scanned for JSON.
 - Max input size is 1,000,000 **bytes** (UTF-8), not characters. Every string field has a length limit. Imports are never executed or rendered as HTML.
 - **Errors** block saving. **Warnings** never do (see below).
 - Unknown fields do not fail the import. They are dropped and reported as warnings with their path.
@@ -77,6 +77,10 @@ This is the single authoritative spec for the program import format, a public co
 | `equipment` | Optional free text (<=60) hint for custom exercises, e.g. `"landmine"`. |
 | `exerciseType` | Optional: `weighted_reps`, `bodyweight_reps`, `duration`, `distance`. Hint for custom exercises. |
 
+#### Matching (app side)
+
+`matchExerciseRef` (`src/lib/imports/matchExercises.ts`) resolves a reference in order: exact catalog `id` → alias → normalized name (case, diacritics, punctuation ignored) → fuzzy suggestions → unresolved. Archived exercises are never matched. An `id` that is unknown or archived falls through to `name`. An alias/name shared by several exercises is only ever *suggested*. Fuzzy matching (mean of token and trigram Dice similarity, threshold 0.45, +0.15 when `equipment` matches the candidate's equipment, max 3 candidates) never auto-applies; the user confirms in the preview.
+
 If both `id` and `name` are given, `id` wins; `name` is kept as the display fallback. A reference with no `id` is *unresolved* and must be settled in the preview. It is valid, not an error.
 
 ### Sets: `sets` or `setList`, exactly one
@@ -89,6 +93,16 @@ If both `id` and `name` are given, `id` wins; `name` is kept as the display fall
 ### Supersets
 
 Give consecutive exercises in a routine the same `supersetGroup` value (e.g. `"A"`) to form a superset or circuit. Group names are local to the routine. Members must be adjacent; otherwise a warning is shown.
+
+## Mapping to domain entities
+
+`buildProgramDraft(data, resolutions, {programName?})` (pure) and `saveProgramImport(draft)`:
+
+- Fresh UUIDs for the program, routines, routine exercises, prescribed sets and superset groups (one id per `supersetGroup` label per routine); file routine ids are used only to remap `schedule` references. Importing a file twice yields two independent programs.
+- `sets: N` becomes N identical `PrescribedSet`s; `setList` one per entry. `targetDistanceMeters` → `targetDistance`, `rpe`/`rir` → `targetRpe`/`targetRir`. `programOrder` is the routine's position after drops. `schemaVersion` is stored as `1`.
+- Resolutions are keyed by the paths from `unresolvedExercises` (`program.routines[i].exercises[j].exercise`): `{kind:'exercise', exerciseId}`, `{kind:'create', name, exerciseType, equipment?}` or `{kind:'drop'}`. Catalog ids need no resolution (a resolution overrides them).
+- Routines left with no exercises are dropped with a warning; schedule days pointing at them are removed.
+- `saveProgramImport` refuses drafts with unresolved references or exercise ids missing from the database, and writes exercises, program and routines in one transaction (any failure writes nothing).
 
 ## Errors (block saving)
 
@@ -200,9 +214,17 @@ At most 50 messages of each kind are returned; the rest is summarized as `…and
 
 This example illustrates the format and is not a medically validated training prescription.
 
+## Share links
+
+A routine or program can be shared as a URL whose fragment carries the plan: `…/routines/import#p=<payload>` (`src/lib/imports/shareLink.ts`, tests: `tests/shareLink.test.ts`). The payload is the schema v1 JSON → `CompressionStream('deflate-raw')` → base64url (no padding). The fragment is never sent to a server.
+
+- The Share button on a routine page exports the routine's whole program (or just the routine when it has none). Identical sets use `sets: N`; otherwise `setList`. Custom exercises are exported by name (with equipment/type hints where schema v1 can express them), catalog exercises by `id` plus `name`. Routines or exercises without sets are left out. Links are generated through the same validation as imports.
+- Shared with the Web Share API (`url`) when available, otherwise copied. Links over 2,000 characters get a warning, since messaging apps may truncate them.
+- Opening a link runs the normal import path: decoded text is capped at 1,000,000 bytes while inflating (decompression bombs are cut off), then parsed and validated like pasted JSON. Damaged, truncated, oversize or invalid links show an error and no preview. Nothing is saved without the usual confirmation in the preview.
+
 ## Prompt snippet for AI assistants
 
-The app's "Generate a plan with AI" helper should include text like this, plus the user's constraints and the allowed catalog ids/names:
+The app's "Generate a plan with AI" helper (`src/lib/imports/prompt.ts`, page `/routines/generate`) includes text like this, plus the user's constraints and the allowed catalog ids/names:
 
 ```text
 Create a training program as a single JSON object and return ONLY the JSON: no prose, no markdown fences.
@@ -222,3 +244,7 @@ Schema:
 Allowed catalog exercises (id: name):
 <list>
 ```
+
+"Convert a plan" (`buildConvertPrompt`) uses the same schema and catalog rules but takes pasted plan text (capped at 30,000 characters) and an optional http(s) source URL, and asks the assistant to fill `program.source`. Nothing is fetched or uploaded; the user copies the prompt.
+
+The generated prompt is capped at 60,000 characters (`MAX_PROMPT_CHARS`); the catalog list is truncated beyond that. Workout history (last 4 weeks: exercise names, session counts, top sets in kg) is added only when the user opts in, and the page shows exactly that text first. The app makes no network request.

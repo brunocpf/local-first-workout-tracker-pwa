@@ -152,7 +152,7 @@ Stable id, name, aliases, primary/secondary muscles, equipment, exercise type (w
 
 ### 6.2 MVP catalog
 
-~100 common strength exercises, ids stable forever (they are referenced by history, backups and import files), text written for this project (no copied descriptions, no media). Search is offline, case/diacritic-insensitive over name and aliases. Filters (muscle, equipment, type) can follow in P1.
+~100 common strength exercises, ids stable forever (they are referenced by history, backups and import files), text written for this project (no copied descriptions, no media). Search is offline, case/diacritic-insensitive over name and aliases. Filters (muscle, equipment, type, favorites only) combine with the text query; the picker lists Favorites, then Recent (last 5 completed sessions), then all.
 
 ### 6.3 Later
 
@@ -173,7 +173,7 @@ A **program** is a plan (e.g. Upper/Lower); a **routine** is one reusable workou
 - Starting a session copies the routine's prescription into each session exercise (ADR 0004); later routine edits never change that session or any past one.
 - Changes during a session affect only that session unless the user explicitly saves them to the routine (P1).
 - Programs and imported routines remain editable after import (P1 builder).
-- Scheduling is advisory, simple weekly assignment (P1).
+- Scheduling is advisory, simple weekly assignment (P1): the program page assigns one routine per weekday (imported schedules appear there), and Home suggests the routine for the device's current local weekday. Nothing is tracked as missed.
 
 ### 7.2 Builder (P1)
 
@@ -198,11 +198,11 @@ Shows per exercise: name, previous performance, set number, weight, reps, comple
 - Weight and reps independently editable; prefilled from the previous matching set (§8.4) or the routine target.
 - **Completing a prefilled set is one tap.** Editing a value never completes the set; completion is undoable.
 - Quick duplicate of a set; undo for recent destructive actions; keyboard dismissal keeps input.
-- Optional per set: RPE, RIR, duration, distance, notes (UI for RPE/RIR is P1; the model supports them from v1).
+- Optional per set: RPE, RIR, duration, distance, notes (UI for RPE/RIR is P1; the model supports them from v1). The setting `effortInput` (`off` default, `rpe` or `rir`) adds a compact selector under each set row (RPE 6–10 in 0.5 steps; RIR 0–5) showing the prescribed target, and history detail shows the value; with `off` nothing is shown (stored values are kept).
 
 ### 8.4 Previous values
 
-Each set row shows the previous value from the most recent *completed* session containing that exercise (setting for "same routine" is P1). Alignment:
+Each set row shows the previous value from the most recent *completed* session containing that exercise. The setting `previousValuesMode` (`exercise` default, or `routine`) chooses the source: in "same routine" mode the newest completed session from the same routine is used, falling back to the newest session overall when that routine has none. Alignment:
 
 - Set N ↔ previous set N, matched within the same set-type group (working sets with working sets, warm-ups with warm-ups).
 - Extra sets beyond the previous count fall back to the last previous set of that type.
@@ -210,7 +210,7 @@ Each set row shows the previous value from the most recent *completed* session c
 
 ### 8.5 Set types
 
-The model and import format support normal, warm-up, drop and failure sets **from v1**. P0 UI logs normal sets and can mark a set as warm-up; full UI for warm-up/drop/failure and supersets comes later. Warm-ups never count toward volume or PRs.
+The model and import format support normal, warm-up, drop and failure sets **from v1**. Tapping the set label opens a menu to choose normal, warm-up, drop (D) or failure (F) in the logger and in history edit; only normal sets are numbered. Warm-ups never count toward volume or PRs. "Add warm-up sets" in the exercise menu inserts a configurable ramp (default: empty bar × 10, 40 % × 5, 60 % × 3, 80 % × 2 of the first working weight), rounded down to loadable weights; steps are edited in Settings.
 
 ### 8.6 Finish
 
@@ -275,7 +275,7 @@ The app needs no AI API: the user asks any assistant for JSON in the documented 
 4. **Preview** (minimal in P0): program/routine names, exercises with match status (exact / suggested / unresolved), sets, rep ranges, rest, notes, errors and warnings. The user can resolve unmatched exercises, remove exercises, rename the program.
 5. Errors block saving; warnings don't. Nothing is saved or activated without explicit confirmation, and a failed import leaves existing data untouched.
 
-Richer preview editing (set counts, reorder, etc.) arrives with the routine builder.
+The preview also lets the user rename routines, reorder exercises and edit each exercise's sets with the prescription editor; those edits are layered over the draft and are exactly what Confirm saves (Cancel saves nothing).
 
 ### 11.2 Input methods
 
@@ -301,13 +301,13 @@ The importer validates structure, not training quality. It may warn (implausible
 
 Adapter: `Hevy export → normalized records → validation → preview → local database`.
 
-- **Phase 0 task:** obtain a real Hevy export from the user's account and check the fields it contains; do not design from assumptions about formats or tiers. (Hevy references: hevyapp.com, api.hevyapp.com/docs.)
+- **Format and mapping:** designed from a real export (CSV); see [docs/hevy-import.md](hevy-import.md) and ADR 0006. (Hevy references: hevyapp.com, api.hevyapp.com/docs.)
 - Preserve dates, exercise names, sets, reps, weights, supported set types, notes; report unsupported fields; map Hevy exercise names to catalog ids with manual resolution of the unmatched; create custom exercises on request.
 - Detect duplicates; never overwrite history silently; the core app never depends on Hevy's API.
 
 ### 12.2 Online plans and CSV
 
-URL import cannot be assumed to work (CORS, JS-rendered sites); always offer paste-text. Preserve source URL/attribution; don't bypass access controls. CSV export of history (stable ids, timestamps) and CSV import with explicit column mapping and deliberate duplicate handling come after Hevy.
+URL import cannot be assumed to work (CORS, JS-rendered sites); always offer paste-text. Decision (ADR 0008): the app does not fetch URLs; the user pastes the page text and the URL is kept only as source attribution. Preserve source URL/attribution; don't bypass access controls. CSV export of history (stable ids, timestamps) and CSV import with explicit column mapping and deliberate duplicate handling come after Hevy.
 
 ---
 
@@ -343,7 +343,7 @@ Valid manifest with PNG and maskable icons; HTTPS; precached app shell with navi
 
 ### 14.5 Backend policy
 
-None. A backend (cloud backup, sync, shared plans, AI inference, push) needs a concrete requirement and an ADR.
+None, except the optional minimal Web Push relay for rest-timer notifications ([ADR 0014](decisions/0014-rest-timer-push.md)): it stores only a push endpoint and a fire time, never workout data, and the app works fully without it. Any other backend (cloud backup, sync, shared plans, AI inference) needs a concrete requirement and an ADR; cloud backup/sync was evaluated in [ADR 0012](decisions/0012-cloud-backup-sync.md) and not built.
 
 ---
 
@@ -417,6 +417,8 @@ Validate on real mid-range phones, not only desktop.
 - **Import fixtures:** valid; missing fields; unsupported version; bad rep ranges; non-positive sets; unknown/ambiguous exercises; duplicate routine ids; malformed JSON; oversize; unsupported fields; no schedule. Failed imports must not leave partial data.
 - **Persistence:** completed sets survive reload; active session resumes (with timer); routine edit doesn't touch history; backup → restore preserves data; failed restore changes nothing; migrations preserve data.
 - **E2E (Playwright):** projects for **Chromium desktop, Pixel emulation, and WebKit/iPhone emulation**; cover the vertical slice (import routine → start → log → reload → resume → finish → history), offline reload, and backup/restore.
+- **Performance budgets (Playwright, Pixel project only):** `tests/e2e/perf.spec.ts` restores a generated backup (`scripts/generate-backup-fixture.mjs`: 300 completed sessions of 8 exercises × 4 sets + one active session) and, under 4× CPU throttling via CDP, measures cold offline launch → resumed session visible, completing a prefilled set (visual feedback and IndexedDB write) and exercise search. It logs the numbers and asserts generous CI thresholds (catching order-of-magnitude regressions); real-device numbers are still the §21 check.
+- **Accessibility (Playwright + axe):** `tests/e2e/a11y.spec.ts` runs `@axe-core/playwright` (WCAG 2.0–2.2 A/AA and best-practice rules) over every P0 screen in light and dark and fails on serious/critical violations; it also checks 320 px reflow (at 100% and 200% text size) and the desktop Tab order. Screen readers, real-device keyboard behavior and 200% OS text size still need the manual pass below.
 
 ### 22.2 Real-device checks (still required)
 
@@ -495,7 +497,7 @@ Also summarized in [AGENTS.md](../AGENTS.md).
 1. **Vertical slices.** Start routine → log set → persist → reload → recover → finish → history, then expand.
 2. **Inspect before editing.** Read the structure and ADRs; reuse tooling; avoid new dependencies; explain persistence decisions.
 3. **Testable logic.** Progress, matching, import validation and persistence live in `src/lib`, not in Svelte components, and have tests. Never use `{@html}` with imported text.
-4. **No premature infrastructure.** No backend, accounts, paid APIs or sync without a concrete requirement and an ADR.
+4. **No premature infrastructure.** No backend, accounts, paid APIs or sync without a concrete requirement and an ADR (the only backend is the optional push relay, ADR 0014).
 5. **Preserve data.** Data loss is a serious defect: test migrations, interrupted sessions, restore; use `$state.snapshot` before Dexie writes.
 6. **Keep the app usable** after each phase and run the full verification command.
 7. **Document** decisions (ADRs), data model, import schema, backup/restore, install steps, browser limitations, attribution — alongside the code.
@@ -507,12 +509,15 @@ Also summarized in [AGENTS.md](../AGENTS.md).
 
 1. **Name:** repo name only; final product name open.
 2. **Production origin:** currently GitHub Pages (`brunocpf.github.io`). A custom domain later would cost a manual export/restore, so decide before real data accumulates.
-3. **Hevy export format:** inspect a real file in Phase 0.
-4. **Timer alerts:** are foreground-only alerts enough? Decide after real use; otherwise ADR for a native wrapper.
-5. **wger or larger catalog:** after P0.
+3. **Hevy export format:** resolved. Real export inspected (CSV, no time zone, kg); mapping in [docs/hevy-import.md](hevy-import.md), decisions in ADR 0006. Still open: drop/failure/superset/RPE/distance/lb shapes, which the sample doesn't contain.
+4. **Timer alerts:** are foreground-only alerts enough? Optional locked-screen notifications through a minimal push relay: [ADR 0014](decisions/0014-rest-timer-push.md) (device check tracked in #196); otherwise ADR for a native wrapper (#103).
+5. **wger or larger catalog:** evaluated in [ADR 0009](decisions/0009-wger-catalog.md): not bundled; optional text-only pack only on demand. Owner to confirm the CC-BY-SA question.
 6. **Previous values source** (recent vs same routine): default recent; revisit after use.
-7. **Cloud backup/sync, built-in AI, native app:** deferred until a concrete need.
-8. **Online-plan extraction:** paste text first, URL later.
+7. **Cloud backup/sync, native app:** cloud backup/sync decided in [ADR 0012](decisions/0012-cloud-backup-sync.md): not built; manual JSON backup to a user-chosen (ideally synced) folder plus reminders stays, with a user-initiated Drive/Dropbox app-folder upload as the first step if a need appears. Owner to confirm. Native app: deferred (#103).
+9. **Built-in AI (external API, progression suggestions):** decided in [ADR 0013](decisions/0013-built-in-ai.md): not built (key handling without a backend, CSP, privacy, cost); prompt copy/paste flow and deterministic double progression remain the paths. Owner to confirm.
+8. **Online-plan extraction:** decided in [ADR 0008](decisions/0008-url-import.md): no in-app URL fetching (CORS, JS-rendered pages, `connect-src 'self'`, no backend); paste text remains the path. Owner to confirm.
+10. **Progress photos:** decided in [ADR 0010](decisions/0010-progress-photos.md): local-only resized JPEGs in IndexedDB, kept out of the JSON backup and saved in a separate photos archive; build only if wanted. Owner to confirm.
+11. **Monetization and store distribution** (paid upfront / free + one-time Pro / free with ads): facts and tradeoffs collected in [docs/distribution-research.md](distribution-research.md); decision is the owner's (#225). Not decided; no store build exists (#103).
 
 ---
 

@@ -57,3 +57,30 @@ sw.addEventListener("fetch", (event) => {
   // ignoreVary: module scripts send an Origin header and hosts reply "Vary: Origin", which would never match.
   event.respondWith(caches.match(req, { ignoreVary: true }).then((hit) => hit ?? fetch(req)));
 });
+
+// Optional rest-timer push (ADR 0014). The relay sends an empty push at the end of the rest; the fixed text
+// below is all the notification says. Every push must show a notification (iOS revokes the subscription otherwise).
+sw.addEventListener("push", (event) => {
+  event.waitUntil(
+    sw.registration.showNotification("Rest over", {
+      body: "Time for your next set.",
+      icon: url("icon-192.png"),
+      tag: "rest-timer",
+      data: { url: url("workout") },
+    }),
+  );
+});
+
+sw.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target: string = event.notification.data?.url ?? sw.registration.scope;
+  event.waitUntil(
+    sw.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clients) => {
+      const open = clients.find((c) => c.url.startsWith(sw.registration.scope));
+      if (!open) return void (await sw.clients.openWindow(target));
+      const focused = await open.focus();
+      // Bring an app window that is elsewhere back to the workout (the session itself is already persisted).
+      if (!focused.url.startsWith(target)) await focused.navigate(target).catch(() => undefined);
+    }),
+  );
+});

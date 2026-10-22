@@ -1,6 +1,6 @@
 # local-first-workout-tracker-pwa
 
-A local-first, offline-capable workout tracker delivered as an installable PWA for iOS/iPadOS (Safari), Android (Chrome) and desktop browsers. Phone-first UI, responsive on desktop. No backend, no account, no paid APIs. iOS is the most constrained platform and is called out where it differs ([browser limitations](docs/browser-limitations.md)).
+A local-first, offline-capable workout tracker delivered as an installable PWA for iOS/iPadOS (Safari), Android (Chrome) and desktop browsers. Phone-first UI, responsive on desktop. No backend (apart from an optional, minimal push relay for locked-screen rest notifications, [ADR 0014](docs/decisions/0014-rest-timer-push.md)), no account, no paid APIs. iOS is the most constrained platform and is called out where it differs ([browser limitations](docs/browser-limitations.md)).
 
 Full requirements: [docs/PRD.md](docs/PRD.md). Build order: [docs/roadmap.md](docs/roadmap.md).
 
@@ -30,6 +30,7 @@ src/
                      (e.g. storage/db.ts, storage/sessions.ts, imports/…), plus types.ts
   routes/            SvelteKit pages (Home, Routines, History, Exercises, Progress)
   service-worker/    offline app shell
+relay/               optional push relay for rest-timer notifications (separate deploy, see relay/README.md)
 static/              manifest, icons
 docs/                PRD, architecture, data model, import schema, ADRs
 tests/               unit tests, fixtures, e2e
@@ -47,6 +48,7 @@ Modules are added when there is code for them. Domain logic lives in `src/lib` (
 - [PWA install (iOS, Android, desktop)](docs/pwa-install.md)
 - [Known browser limitations](docs/browser-limitations.md)
 - [Exercise data attribution](docs/attribution.md)
+- [Third-party licenses (commercial-use audit)](docs/licenses.md)
 - [Architecture decisions](docs/decisions/) (0005: platforms and MVP scope)
 
 ## Deployment

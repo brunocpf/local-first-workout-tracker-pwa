@@ -6,7 +6,7 @@ Local-first static SvelteKit SPA (`adapter-static`, SSR off): IndexedDB (via Dex
 
 - `src/lib/` – UI-free domain code, as **flat module files**, imported as `#lib/<file>` (e.g. `#lib/storage/db`). Today: `types.ts` plus whatever exists in `src/lib/` (storage, imports, metrics, …).
 - `src/routes/` – Svelte pages/components only.
-- UI strings: never hard-code them in components; add a key to both catalogs in `src/lib/messages.ts` and use `t("key")` from `#lib/i18n.svelte` ([ADR 0006](decisions/0006-localization.md)).
+- UI strings: never hard-code them in components; add a key to both catalogs in `src/lib/messages.ts` and use `t("key")` from `#lib/i18n.svelte` ([ADR 0015](decisions/0015-localization.md)).
 - `src/service-worker/` – offline shell.
 
 **Rule:** add a module file when there's code for it. No empty placeholder folders and no speculative repository/service classes; keep abstractions pragmatic.
@@ -22,15 +22,19 @@ Planned homes (created when needed): `storage/db.ts` (Dexie schema + migrations)
 
 ## Active session write-through
 
-The active workout is an in-memory Svelte `$state` object. Every mutation is written through to Dexie (using `$state.snapshot` so no proxies reach IndexedDB), so a reload, suspension or crash loses nothing; there's at most one active session, and the rest timer (`endsAt` + pause) lives on it. No unload handlers. Details: ADR 0004 (session persistence & data model) in [decisions/](decisions/); entities in [data-model.md](data-model.md).
+The active workout is an in-memory Svelte `$state` object. Every mutation is written through to Dexie (using `$state.snapshot` so no proxies reach IndexedDB), so a reload, suspension or crash loses nothing; there's at most one active session, and the rest timer (`endsAt` + pause) lives on it. No unload handlers. The store is `src/lib/logger/activeSession.svelte.ts` (`active`, loaded in the root `+layout.ts`): `mutate(fn, { persist: 'now' | 'deferred' })` applies a change in place; all writes go through one promise queue (in order; a queued put can't resurrect a finished/discarded session); `'deferred'` writes (typing) coalesce and flush on the next `'now'` write, after 500 ms, or on `visibilitychange → hidden`/`pagehide`. A failed write keeps memory, sets `active.error` and is retried on the next write; `finish()` refuses while the latest state is unsaved. If another tab finished or discarded the session, the next write fails with `SessionNotActiveError` and the stale copy is dropped (`active.error` says why) instead of resurrecting it. Details: ADR 0004 (session persistence & data model) in [decisions/](decisions/); entities in [data-model.md](data-model.md).
 
 ## Service worker updates
 
 The service worker precaches the app shell with a navigation fallback. New versions are installed but **activated only on user action** via an "update available" banner, which is suppressed while a workout is active, so an update never reloads the page mid-session. `BASE_PATH` supports sub-path hosting (GitHub Pages project site). Details: ADR 0003 (PWA shell & updates) in [decisions/](decisions/).
 
+## Rest-timer push (optional)
+
+`src/lib/push.ts` subscribes through the service worker and asks the relay in `relay/` (Cloudflare Worker + Durable Object, [ADR 0014](decisions/0014-rest-timer-push.md)) to push at `endsAt`; `RestTimerBar` keeps that schedule in step with the timer and cancels it shortly before the end when the page is visible. The service worker's `push` handler shows a fixed "Rest over" notification and `notificationclick` focuses or opens the app. The relay holds only `{push endpoint, fireAt}`; the subscription is in `localStorage`, never in IndexedDB or a backup. `relay/` is outside the SvelteKit build and deployed separately.
+
 ## Migrations
 
-Explicit Dexie versions in `src/lib/storage/db.ts`. Never drop user data. Test against representative old DB states and failed upgrades.
+Explicit Dexie versions in `src/lib/storage/db.ts`. Never drop user data. Test against representative old DB states and failed upgrades. A tab running old code closes its connection for good when a newer tab upgrades and asks to reload; open failures and failed workout writes are shown by `AppStatus` (see [data-model.md](data-model.md#database-lifecycle-and-storage-errors-dbts-appstatussvelte)).
 
 ## Origin
 

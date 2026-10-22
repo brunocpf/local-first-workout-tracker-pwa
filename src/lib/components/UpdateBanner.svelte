@@ -11,6 +11,6 @@
 {/if}
 
 <style>
-  .update { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.5rem 1rem; background: #27272a; font-size: 0.875rem; }
-  button { min-height: 32px; padding: 0 0.75rem; border: 1px solid #4ade80; border-radius: 6px; background: none; color: #4ade80; font: inherit; cursor: pointer; }
+  .update { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-2) var(--space-4); background: var(--color-surface-3); font-size: var(--text-sm); }
+  button { min-height: var(--tap-min); padding: 0 var(--space-3); border: var(--border-w) solid var(--color-accent); border-radius: var(--radius-sm); background: none; color: var(--color-accent-text); cursor: pointer; }
 </style>

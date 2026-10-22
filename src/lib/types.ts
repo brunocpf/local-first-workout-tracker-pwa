@@ -59,7 +59,18 @@ export type Routine = {
   name: string;
   description?: string;
   exercises: RoutineExercise[];
+  /** Organizing folder (`RoutineFolder.id`). A folder that no longer exists means "no folder". */
   folderId?: string;
+  /** Listed first in Home quick-start. */
+  favorite?: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** A user folder for organizing routines; membership is stored only on `Routine.folderId`. */
+export type RoutineFolder = {
+  id: string;
+  name: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -137,16 +148,104 @@ export type WorkoutSession = {
 };
 
 export type WeightUnit = "kg" | "lb";
+export type LengthUnit = "cm" | "in";
+
+/** What a body measurement records. Stored units: bodyweight in kg, body fat in %, every other kind in cm. */
+export const MEASUREMENT_KINDS = [
+  "bodyweight",
+  "body_fat",
+  "neck",
+  "shoulders",
+  "chest",
+  "waist",
+  "hips",
+  "arm",
+  "forearm",
+  "thigh",
+  "calf",
+] as const;
+export type MeasurementKind = (typeof MEASUREMENT_KINDS)[number];
+
+/** Largest accepted `value` per kind (generous sanity bound, in the stored unit); values must also be > 0. */
+export const MEASUREMENT_MAX: Record<MeasurementKind, number> = {
+  bodyweight: 1000,
+  body_fat: 100,
+  neck: 300,
+  shoulders: 500,
+  chest: 500,
+  waist: 500,
+  hips: 500,
+  arm: 300,
+  forearm: 300,
+  thigh: 300,
+  calf: 300,
+};
+
+/** A bodyweight or tape measurement at a point in time. Never edited into history: add a new one or delete. */
+export type BodyMeasurement = {
+  id: string;
+  kind: MeasurementKind;
+  /** kg for `bodyweight`, % for `body_fat`, cm otherwise (display unit conversion is a UI concern). */
+  value: number;
+  /** ISO 8601 UTC instant the measurement was taken. */
+  measuredAt: string;
+  /** IANA zone the user was in, for local-day grouping. */
+  timeZone: string;
+  notes?: string;
+};
+
+/** One plate size in the user's inventory. `weight` is in that unit's system (45 for lb, 25 for kg); `count` is how many are available per side. */
+export type PlateStock = { weight: number; count: number };
+
+/** Plates the user owns, per plate system (`kg` plates for kg, `lb` plates for lb). */
+export type PlateInventory = Record<WeightUnit, PlateStock[]>;
+
+/** Which effort measure the logger shows per set (PRD §8.3); `off` hides it entirely. */
+export type EffortInput = "off" | "rpe" | "rir";
+
+/** One warm-up set: a percent of the working weight (0 = the empty bar) for some reps. */
+export type WarmupStep = { percent: number; reps: number };
 
 export type LocaleSetting = "system" | "en" | "pt-BR";
 
 export type UserSettings = {
   weightUnit: WeightUnit;
+  /** Unit for tape measurements (stored in cm); bodyweight follows `weightUnit`. */
+  lengthUnit?: LengthUnit;
   defaultRestSeconds: number;
   autoStartRestTimer: boolean;
+  /** Beep when a rest timer finishes (only while the app is open). */
+  timerSound?: boolean;
+  /** Vibrate when a rest timer finishes, where supported (default on; hidden on iOS). */
+  timerVibration?: boolean;
+  /** Short cue 10 seconds before the rest ends (default off). */
+  timerCountdownCue?: boolean;
+  /** Opt-in background rest-timer notifications via the push relay (ADR 0014). The subscription itself is never stored here. */
+  restNotifications?: boolean;
   previousValuesMode: "exercise" | "routine";
+  /** Per-set effort entry in the logger and history (default off). */
+  effortInput?: EffortInput;
   /** 0 = Sunday, 1 = Monday, ... 6 = Saturday. */
   weekStartsOn: 0 | 1 | 6;
   theme: "system" | "light" | "dark";
-  locale: LocaleSetting;
+  /** UI language; absent in older backups, which restore as "system". */
+  locale?: LocaleSetting;
+  /** ISO 8601 time of the last successful backup export (not set until the first one). */
+  lastBackupAt?: string;
+  /** Remind to back up after this many days (0 = off). */
+  backupReminderDays?: number;
+  /** Remind to back up after this many completed workouts (0 = off). */
+  backupReminderSessions?: number;
+  /** Hevy `exercise_title` → exercise id, remembered from past imports so a re-import maps the same way (docs/hevy-import.md). */
+  hevyExerciseMap?: Record<string, string>;
+  /** Empty bar weight in kg for the plate calculator (default 20). */
+  barWeightKg?: number;
+  /** Plate calculator inventory (defaults in `#lib/tools/plates`). */
+  plateInventory?: PlateInventory;
+  /** Warm-up sets added from the exercise menu (default in `#lib/tools/warmup`). */
+  warmupScheme?: WarmupStep[];
+  /** Opt-in progression suggestions (PRD §17); they are only ever suggested, never applied automatically. */
+  progressionEnabled?: boolean;
+  /** Load added by a progression suggestion, in each unit's own system (2.5 for kg, 5 for lb). */
+  progressionIncrement?: Record<WeightUnit, number>;
 };

@@ -1,0 +1,339 @@
+<script lang="ts">
+  import { onMount } from "svelte";
+  import { t } from "#lib/i18n.svelte";
+  import { version } from "$app/env";
+  import { resolve } from "$app/paths";
+  import InstallHint from "#lib/components/InstallHint.svelte";
+  import BackupSection from "#lib/components/settings/BackupSection.svelte";
+  import NotificationsSection from "#lib/components/settings/NotificationsSection.svelte";
+  import PlateSettings from "#lib/components/settings/PlateSettings.svelte";
+  import Banner from "#lib/components/ui/Banner.svelte";
+  import Button from "#lib/components/ui/Button.svelte";
+  import Card from "#lib/components/ui/Card.svelte";
+  import ListRow from "#lib/components/ui/ListRow.svelte";
+  import NumberField from "#lib/components/ui/NumberField.svelte";
+  import PageHeader from "#lib/components/ui/PageHeader.svelte";
+  import SegmentedControl from "#lib/components/ui/SegmentedControl.svelte";
+  import TextField from "#lib/components/ui/TextField.svelte";
+  import Switch from "#lib/components/ui/Switch.svelte";
+  import { playTestAlert, vibrationSupported } from "#lib/alerts";
+  import { formatBytes } from "#lib/diagnostics";
+  import { isPushConfigured } from "#lib/push";
+  import { isStandalone } from "#lib/pwa/install";
+  import { DEFAULT_PROGRESSION_INCREMENT } from "#lib/progress/progression";
+  import { DEFAULT_WARMUP_SCHEME, formatScheme, parseScheme } from "#lib/tools/warmup";
+  import { settings, updateSettings } from "#lib/settings.svelte";
+  import { getPersistenceStatus, requestPersistentStorage, type PersistenceStatus } from "#lib/storage/persistence";
+  import type { EffortInput, LengthUnit, UserSettings } from "#lib/types";
+
+  // Warm-up scheme is edited as text ("bar x 10, 40 x 5") and saved only when it parses.
+  const savedScheme = $derived(formatScheme(settings.warmupScheme ?? DEFAULT_WARMUP_SCHEME));
+  let schemeEdit = $state<string>();
+  const schemeText = $derived(schemeEdit ?? savedScheme);
+  const schemeParsed = $derived(parseScheme(schemeText));
+  async function saveScheme() {
+    if (!schemeParsed) return;
+    await save({ warmupScheme: schemeParsed });
+    schemeEdit = undefined;
+  }
+
+  const pushConfigured = isPushConfigured();
+  let standalone = $state(false);
+  let persistence = $state<PersistenceStatus>();
+  let requesting = $state(false);
+  let saveError = $state("");
+  let canVibrate = $state(false);
+
+  onMount(async () => {
+    standalone = isStandalone();
+    canVibrate = vibrationSupported();
+    persistence = await getPersistenceStatus();
+  });
+
+  async function save(patch: Partial<UserSettings>) {
+    saveError = "";
+    try {
+      await updateSettings(patch);
+    } catch {
+      saveError = "Couldn't save that change. Storage may be unavailable.";
+    }
+  }
+
+  async function request() {
+    requesting = true;
+    try {
+      persistence = await requestPersistentStorage();
+    } finally {
+      requesting = false;
+    }
+  }
+
+  const persisted = $derived(persistence?.persisted ?? null);
+  const statusLabel = $derived(persisted === true ? "Yes" : persisted === false ? "No" : "Unknown");
+</script>
+
+<PageHeader title="Settings" />
+
+{#if saveError}
+  <Banner variant="danger" urgent>{saveError}</Banner>
+{/if}
+
+<div class="sections">
+  <Card as="section" header={units}>
+    <div class="stack">
+      <SegmentedControl
+        legend="Weight unit"
+        legendVisible
+        bind:value={() => settings.weightUnit, (v) => save({ weightUnit: v as UserSettings["weightUnit"] })}
+        options={[
+          { value: "kg", label: "kg" },
+          { value: "lb", label: "lb" },
+        ]}
+      />
+      <SegmentedControl
+        legend="Length unit"
+        legendVisible
+        bind:value={() => settings.lengthUnit ?? "cm", (v) => save({ lengthUnit: v as LengthUnit })}
+        options={[
+          { value: "cm", label: "cm" },
+          { value: "in", label: "in" },
+        ]}
+      />
+    </div>
+  </Card>
+
+  <Card as="section" header={workout}>
+    <div class="stack">
+      <NumberField
+        label="Default rest"
+        mode="integer"
+        suffix="seconds"
+        min={0}
+        max={3600}
+        value={settings.defaultRestSeconds}
+        onchange={(n) => n !== null && save({ defaultRestSeconds: n })}
+      />
+      <Switch
+        label="Auto-start rest timer"
+        description="Start the timer when you complete a set."
+        bind:checked={() => settings.autoStartRestTimer, (v) => save({ autoStartRestTimer: v })}
+      />
+      <Switch
+        label="Rest-done sound"
+        bind:checked={() => settings.timerSound !== false, (v) => save({ timerSound: v })}
+      />
+      {#if canVibrate}
+        <Switch
+          label="Rest-done vibration"
+          bind:checked={() => settings.timerVibration !== false, (v) => save({ timerVibration: v })}
+        />
+      {/if}
+      <Switch
+        label="10-second warning"
+        description="A short cue when 10 seconds of rest remain."
+        bind:checked={() => settings.timerCountdownCue === true, (v) => save({ timerCountdownCue: v })}
+      />
+      <Button
+        onclick={() => playTestAlert({ sound: settings.timerSound !== false, vibrate: settings.timerVibration !== false })}
+      >
+        Test alert
+      </Button>
+      <SegmentedControl
+        legend="Effort per set"
+        legendVisible
+        bind:value={() => settings.effortInput ?? "off", (v) => save({ effortInput: v as EffortInput })}
+        options={[
+          { value: "off", label: "Off" },
+          { value: "rpe", label: "RPE" },
+          { value: "rir", label: "RIR" },
+        ]}
+      />
+      <SegmentedControl
+        legend="Previous values from"
+        legendVisible
+        bind:value={() => settings.previousValuesMode, (v) => save({ previousValuesMode: v as UserSettings["previousValuesMode"] })}
+        options={[
+          { value: "exercise", label: "Last exercise" },
+          { value: "routine", label: "Same routine" },
+        ]}
+      />
+      <Switch
+        label="Progression suggestions"
+        description="Suggest a weight and reps from your last session. Never applied automatically."
+        bind:checked={() => settings.progressionEnabled ?? false, (v) => save({ progressionEnabled: v })}
+      />
+      {#if settings.progressionEnabled}
+        <NumberField
+          label="Increment"
+          suffix={settings.weightUnit}
+          min={0.25}
+          max={50}
+          value={(settings.progressionIncrement ?? DEFAULT_PROGRESSION_INCREMENT)[settings.weightUnit]}
+          onchange={(n) =>
+            n !== null &&
+            save({ progressionIncrement: { ...DEFAULT_PROGRESSION_INCREMENT, ...settings.progressionIncrement, [settings.weightUnit]: n } })}
+        />
+      {/if}
+      <TextField
+        label="Warm-up sets"
+        hint="Each step is a percent of your working weight × reps; bar is the empty bar. Example: bar x 10, 40 x 5, 60 x 3, 80 x 2."
+        bind:value={() => schemeText, (v) => (schemeEdit = v)}
+        error={schemeParsed ? undefined : "Use steps like 40 x 5, separated by commas."}
+        enterkeyhint="done"
+      />
+      <div class="row">
+        <Button variant="primary" disabled={!schemeParsed || schemeText === savedScheme} onclick={saveScheme}>Save warm-ups</Button>
+        <Button variant="ghost" onclick={() => { schemeEdit = undefined; void save({ warmupScheme: DEFAULT_WARMUP_SCHEME }); }}>Reset</Button>
+      </div>
+    </div>
+  </Card>
+
+  <Card as="section" header={plates}>
+    <PlateSettings onerror={() => (saveError = "Couldn't save that change. Storage may be unavailable.")} />
+  </Card>
+
+  {#if pushConfigured}
+    <Card as="section" header={notifications}>
+      <NotificationsSection />
+    </Card>
+  {/if}
+
+  <Card as="section" header={appearance}>
+    <SegmentedControl
+      legend="Theme"
+      bind:value={() => settings.theme, (v) => save({ theme: v as UserSettings["theme"] })}
+      options={[
+        { value: "system", label: "System" },
+        { value: "light", label: "Light" },
+        { value: "dark", label: "Dark" },
+      ]}
+    />
+    <SegmentedControl
+      legend={t("settings.language")}
+      bind:value={() => settings.locale ?? "system", (v) => save({ locale: v as UserSettings["locale"] })}
+      options={[
+        { value: "system", label: t("settings.language.system") },
+        { value: "en", label: "English" },
+        { value: "pt-BR", label: "Português (Brasil)" },
+      ]}
+    />
+  </Card>
+
+  <Card as="section" header={calendar}>
+    <SegmentedControl
+      legend="Week starts on"
+      legendVisible
+      bind:value={() => String(settings.weekStartsOn), (v) => save({ weekStartsOn: Number(v) as UserSettings["weekStartsOn"] })}
+      options={[
+        { value: "1", label: "Mon" },
+        { value: "0", label: "Sun" },
+        { value: "6", label: "Sat" },
+      ]}
+    />
+  </Card>
+
+  <Card as="section" header={backup}>
+    <BackupSection />
+  </Card>
+
+  <Card as="section" header={install}>
+    {#if standalone}
+      <p class="note">You're using the installed app.</p>
+    {:else}
+      <InstallHint dismissible={false} />
+    {/if}
+  </Card>
+
+  <Card as="section" header={importData} padding="none">
+    <ListRow title="Import from Hevy" subtitle="Bring in your workout history from a Hevy CSV export" href={resolve("/settings/import-hevy")} />
+    <ListRow title="Import from CSV" subtitle="Bring in history from this app's CSV export or any app's CSV, choosing the columns" href={resolve("/settings/import-csv")} />
+  </Card>
+
+  <!-- Backup reminder goes here (T4.05, #73). -->
+
+  <Card as="section" header={storage}>
+    <div class="stack">
+      <dl>
+        <dt>Persistent storage</dt>
+        <dd data-testid="persisted">{statusLabel}</dd>
+        <dt>Usage</dt>
+        <dd>{persistence ? `${formatBytes(persistence.usageBytes)} of ${formatBytes(persistence.quotaBytes)}` : "…"}</dd>
+      </dl>
+      {#if persistence}
+        {#if persisted === true}
+          <Banner variant="success">Your data is protected from automatic cleanup by the browser.</Banner>
+        {:else}
+          <Banner variant="warning" title={persisted === false ? "Storage isn't protected" : "Storage protection unknown"}>
+            {#if !persistence.supported}
+              This browser doesn't report whether storage is persistent.
+            {:else if persisted === false}
+              The browser may delete workout data when the device is low on space, or after a period of not using the app.
+            {:else}
+              The browser didn't say whether your data is protected.
+            {/if}
+            Keep regular backups so you never lose your history. On iPhone and iPad, installing the app to the Home Screen
+            gives the best protection; Chrome and Edge usually grant it to installed apps or after frequent use; Firefox asks
+            for permission.
+          </Banner>
+        {/if}
+        {#if persisted !== true && persistence.supported}
+          <Button onclick={request} loading={requesting}>Request persistent storage</Button>
+        {/if}
+      {/if}
+    </div>
+  </Card>
+
+  <Card as="section" header={about} padding="none">
+    <dl class="about">
+      <dt>Version</dt>
+      <dd>{version}</dd>
+    </dl>
+    <ListRow title="Diagnostics" subtitle="Platform capabilities and a shareable report" href={resolve("/diagnostics")} />
+  </Card>
+</div>
+
+{#snippet units()}Units{/snippet}
+{#snippet workout()}Workout{/snippet}
+{#snippet plates()}Plate calculator{/snippet}
+{#snippet notifications()}Notifications{/snippet}
+{#snippet appearance()}Appearance{/snippet}
+{#snippet calendar()}Calendar{/snippet}
+{#snippet backup()}Backup{/snippet}
+{#snippet install()}Install{/snippet}
+{#snippet importData()}Import{/snippet}
+{#snippet storage()}Storage{/snippet}
+{#snippet about()}About{/snippet}
+
+<style>
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .sections,
+  .stack {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr); /* an implicit auto track grows to the widest child's min-content and overflows at large text sizes */
+    gap: var(--space-4);
+  }
+  dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--space-2) var(--space-4);
+    margin: 0;
+  }
+  dt {
+    color: var(--color-text-muted);
+  }
+  dd {
+    margin: 0;
+    text-align: end;
+  }
+  .note {
+    margin: 0;
+    color: var(--color-text-muted);
+  }
+  .about {
+    padding: var(--space-4);
+  }
+</style>

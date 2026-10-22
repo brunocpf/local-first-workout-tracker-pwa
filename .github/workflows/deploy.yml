@@ -27,6 +27,9 @@ jobs:
         env:
           # Project site: https://<owner>.github.io/<repo>/. Use "" for a custom domain at the root.
           BASE_PATH: /${{ github.event.repository.name }}
+          # Optional push relay (relay/README.md). Repository variables; empty = notifications feature hidden.
+          VITE_PUSH_RELAY_URL: ${{ vars.PUSH_RELAY_URL }}
+          VITE_PUSH_VAPID_PUBLIC_KEY: ${{ vars.PUSH_VAPID_PUBLIC_KEY }}
       - uses: actions/upload-pages-artifact@v5
         with:
           path: build/

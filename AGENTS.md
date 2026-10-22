@@ -7,10 +7,12 @@ Read [docs/PRD.md](docs/PRD.md) first (sections 24–25 are the build order and 
 - Stack: SvelteKit 3 / Svelte 5 (runes), static SPA, Dexie, Zod 4, ESLint, Vitest, Playwright. Keep business logic (progress, matching, import validation, persistence) in `src/lib`, out of components; test it.
 - Modules are **flat files** under `src/lib/` (e.g. `storage/db.ts`, `storage/sessions.ts`, `imports/…`). Add a module file when there is code for it; don't create empty placeholder folders. Import with `#lib/<file>` (Kit 3 has no `$lib`). The service worker lives in `src/service-worker/`.
 - Active session: in-memory `$state` written through to Dexie on every mutation; call `$state.snapshot` before any Dexie write (proxies can't be cloned). Never rely on unload handlers.
-- UI strings are localized (en, pt-BR): add keys to both catalogs in `src/lib/messages.ts`, render with `t()`; see ADR 0006.
+- UI strings are localized (en, pt-BR): add keys to both catalogs in `src/lib/messages.ts`, render with `t()`; see ADR 0015.
+- **UI:** follow [docs/design.md](docs/design.md). Use tokens only (no raw colors in components), reuse `#lib/components/ui/*` before writing new markup, and consult the modern-web-guidance skill for new UI patterns.
+- **Browser support:** Baseline *Widely available* features freely; *Newly available* ones only with feature detection and a working fallback (the allowed exceptions are listed in docs/design.md §1). Minimum iOS/iPadOS Safari 17.5.
 - Never use `{@html}` (enforced by ESLint `svelte/no-at-html-tags`). Imported content is untrusted: validate with Zod, never eval, size-limit.
 - Verify with `npm run check && npm run lint && npm test && npm run build && npm run test:e2e`.
-- No backend, accounts, paid APIs, or sync without a concrete requirement and an ADR.
+- No backend, accounts, paid APIs, or sync without a concrete requirement and an ADR. The one exception is the optional, minimal Web Push relay for rest-timer notifications in `relay/` ([ADR 0014](docs/decisions/0014-rest-timer-push.md)): it stores only a push subscription endpoint and a fire time, never workout data, and the app must work fully without it.
 - Data loss is a serious defect: test migrations, interrupted sessions, backup/restore. Service-worker updates never reload during an active workout.
 - Historical sessions snapshot exercise names and copy routine prescriptions; routine edits never rewrite history.
 - Store raw sets; compute aggregates (PR definitions: PRD §10.1). Weights in kg internally, ISO 8601 timestamps, session `timeZone`.

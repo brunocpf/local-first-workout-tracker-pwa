@@ -8,6 +8,7 @@ import {
   finishSession,
   getActiveSession,
   saveSession,
+  SessionNotActiveError,
   startSession,
 } from "#lib/storage/sessions";
 import { DEFAULT_SETTINGS, getSettings, saveSettings } from "#lib/storage/settings";
@@ -75,6 +76,21 @@ describe("session repository", () => {
     await expect(saveSession(other)).rejects.toBeInstanceOf(ActiveSessionExistsError);
   });
 
+  it("saveSession refuses to re-activate a finished, discarded or never-started session (stale tab)", async () => {
+    const s = await startSession({ name: "A" });
+    await finishSession(s.id);
+    await expect(saveSession({ ...s, name: "stale" })).rejects.toBeInstanceOf(SessionNotActiveError);
+    expect(await db.sessions.get(s.id)).toMatchObject({ status: "completed", name: "A" });
+
+    const d = await startSession({ name: "B" });
+    await discardSession(d.id);
+    await expect(saveSession(d)).rejects.toBeInstanceOf(SessionNotActiveError);
+    expect(await db.sessions.get(d.id)).toBeUndefined();
+    // Completed sessions can still be edited.
+    const done = (await db.sessions.get(s.id))!;
+    await expect(saveSession({ ...done, name: "edited" })).resolves.toMatchObject({ status: "completed", name: "edited" });
+  });
+
   it("finishSession sets endedAt, completes it, clears the rest timer", async () => {
     const s = await startSession({ name: "A", exercises: [ex("bench")] });
     await saveSession({ ...s, restTimer: { endsAt: "2026-01-01T10:02:00.000Z", durationSeconds: 90 } });
@@ -121,5 +137,14 @@ describe("settings", () => {
     await saveSettings({ weightUnit: "lb", weekStartsOn: 0 });
     expect(await getSettings()).toEqual({ ...DEFAULT_SETTINGS, weightUnit: "lb", weekStartsOn: 0 });
     expect(await db.settings.count()).toBe(1);
+  });
+
+  it("keeps every field when saves overlap (read-modify-write is atomic)", async () => {
+    await Promise.all([
+      saveSettings({ weightUnit: "lb" }),
+      saveSettings({ theme: "dark" }),
+      saveSettings({ defaultRestSeconds: 120 }),
+    ]);
+    expect(await getSettings()).toEqual({ ...DEFAULT_SETTINGS, weightUnit: "lb", theme: "dark", defaultRestSeconds: 120 });
   });
 });
