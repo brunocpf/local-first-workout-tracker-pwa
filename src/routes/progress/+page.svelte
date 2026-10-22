@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { formatDuration, formatLocaleNumber } from "#lib/format";
+  import { intlLocale } from "#lib/i18n.svelte";
+  import { muscleLabel } from "#lib/catalog/labels";
+  import { t } from "#lib/i18n.svelte";
   import { localizeExercises } from "#lib/catalog/localize";
   import { onMount } from "svelte";
   import { resolve } from "$app/paths";
@@ -80,10 +84,10 @@
   );
   const unit = $derived(settings.weightUnit);
   const metricInfo = $derived.by(() => {
-    if (bodyweight) return { name: "Best reps", unit: "reps" };
-    if (metric === "max") return { name: "Max weight", unit };
-    if (metric === "volume") return { name: "Session volume", unit };
-    return { name: "Estimated 1RM", unit };
+    if (bodyweight) return { name: t("pg2.bestReps"), unit: t("pg2.reps") };
+    if (metric === "max") return { name: t("pg2.maxWeight"), unit };
+    if (metric === "volume") return { name: t("pg2.sessionVolume"), unit };
+    return { name: t("pg2.estimated"), unit };
   });
 
   const points = $derived.by(() => {
@@ -107,7 +111,6 @@
 
   // Weekly sets per muscle over the last N weeks (current week included), shown as weekly average.
   const WEEK_MS = 7 * 86_400_000;
-  const muscleLabel = (m: string) => `${m[0].toUpperCase()}${m.slice(1).replaceAll("_", " ")}`;
   const muscleRows = $derived.by(() => {
     const n = Number(weeks);
     const tz = currentTimeZone();
@@ -125,7 +128,7 @@
     const max = Math.max(...rows.map((r) => r.avg), 1);
     return rows.map((r) => ({ ...r, pct: (r.avg / max) * 100 }));
   });
-  const fmt1 = (v: number) => Number(v.toFixed(1)).toLocaleString();
+  const fmt1 = (v: number) => formatLocaleNumber(Number(v.toFixed(1)));
 
   // Monthly stats with navigation; month keys are local "YYYY-MM".
   const thisMonth = localDate({ startedAt: new Date().toISOString(), timeZone: currentTimeZone() }).slice(0, 7);
@@ -135,65 +138,62 @@
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
   });
   const monthName = $derived(
-    new Intl.DateTimeFormat(undefined, { timeZone: "UTC", month: "long", year: "numeric" }).format(new Date(`${monthKey}-01T00:00:00Z`)),
+    new Intl.DateTimeFormat(intlLocale(), { timeZone: "UTC", month: "long", year: "numeric" }).format(new Date(`${monthKey}-01T00:00:00Z`)),
   );
   const monthly = $derived(monthlyStats(allSessions));
   const month = $derived(monthly.find((m) => m.month === monthKey));
   const earliest = $derived(monthly[0]?.month ?? thisMonth);
-  const duration = (s: number) => {
-    const mins = Math.round(s / 60);
-    return mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${mins % 60} min`;
-  };
+  const duration = (s: number) => formatDuration(s * 1000);
   const monthTiles = $derived([
-    { label: "Workouts", value: String(month?.sessions ?? 0) },
-    { label: "Total time", value: duration(month?.durationSeconds ?? 0) },
-    { label: `Volume (${unit})`, value: displayWeight(month?.volume ?? 0, unit).toLocaleString() },
-    { label: "Sets", value: String(month?.completedSets ?? 0) },
+    { label: t("pg2.workouts"), value: String(month?.sessions ?? 0) },
+    { label: t("pg2.totalTime"), value: duration(month?.durationSeconds ?? 0) },
+    { label: t("pg2.volumeUnit", { unit }), value: formatLocaleNumber(displayWeight(month?.volume ?? 0, unit)) },
+    { label: t("pg2.sets"), value: String(month?.completedSets ?? 0) },
   ]);
 </script>
 
-<PageHeader title="Progress" />
+<PageHeader title={t("pg2.title")} />
 
 <div class="body-link">
   <Card padding="none">
-    <ListRow title="Body measurements" subtitle="Bodyweight, body fat and tape measurements" href={resolve("/progress/body")} />
+    <ListRow title={t("pg2.body")} subtitle={t("pg2.bodyHint")} href={resolve("/progress/body")} />
   </Card>
 </div>
 
 {#if failed}
-  <EmptyState icon="alert-triangle" title="Couldn’t load progress" body="Reload the app and try again." />
+  <EmptyState icon="alert-triangle" title={t("pg2.loadFailed")} body={t("history.reloadHint")} />
 {:else if loaded && !exercise}
-  <EmptyState icon="chart" title="No data yet" body="Complete a workout to see progress." />
+  <EmptyState icon="chart" title={t("pg2.noData")} body={t("pg2.noDataBody")} />
 {:else if exercise}
-  <h2>Weekly sets per muscle</h2>
+  <h2>{t("pg2.weeklySets")}</h2>
   <div class="controls">
     <SegmentedControl
-      legend="Period"
+      legend={t("pg2.period")}
       bind:value={weeks}
       options={[
-        { value: "4", label: "Last 4 weeks" },
-        { value: "8", label: "Last 8 weeks" },
+        { value: "4", label: t("pg2.last4") },
+        { value: "8", label: t("pg2.last8") },
       ]}
     />
   </div>
   {#if muscleRows.length === 0}
-    <p class="muted">No sets in the last {weeks} weeks.</p>
+    <p class="muted">{t("pg2.noSets", { weeks })}</p>
   {:else}
     <Card>
-      <ul class="bars" aria-label="Average weekly sets per muscle">
+      <ul class="bars" aria-label={t("pg2.avgSets")}>
         {#each muscleRows as r (r.muscle)}
           <li>
             <span class="name">{muscleLabel(r.muscle)}</span>
             <span class="track" aria-hidden="true"><span class="fill" style:inline-size="{r.pct}%"></span></span>
-            <span class="val tabular">{fmt1(r.avg)}<span class="muted">/wk</span></span>
+            <span class="val tabular">{fmt1(r.avg)}<span class="muted">{t("pg2.perWeek")}</span></span>
           </li>
         {/each}
       </ul>
       <details class="data">
-        <summary>View as table</summary>
+        <summary>{t("pg2.viewTable")}</summary>
         <table>
-          <caption>Weekly sets per muscle, last {weeks} weeks</caption>
-          <thead><tr><th scope="col">Muscle</th><th scope="col">Avg / week</th><th scope="col">Total</th></tr></thead>
+          <caption>{t("pg2.caption", { weeks })}</caption>
+          <thead><tr><th scope="col">{t("pg2.colMuscle")}</th><th scope="col">{t("pg2.colAvg")}</th><th scope="col">{t("pg2.colTotal")}</th></tr></thead>
           <tbody>
             {#each muscleRows as r (r.muscle)}
               <tr><th scope="row">{muscleLabel(r.muscle)}</th><td class="tabular">{fmt1(r.avg)}</td><td class="tabular">{fmt1(r.total)}</td></tr>
@@ -201,73 +201,73 @@
           </tbody>
         </table>
       </details>
-      <p class="muted small">Estimate: a set counts 1 for each primary muscle and 0.5 for each secondary muscle. Warm-ups are excluded.</p>
+      <p class="muted small">{t("pg2.estimate")}</p>
     </Card>
   {/if}
 
-  <h2>Monthly statistics</h2>
+  <h2>{t("pg2.monthly")}</h2>
   <div class="months">
-    <IconButton icon="chevron-left" label="Previous month" disabled={monthKey <= earliest} onclick={() => monthOffset--} />
+    <IconButton icon="chevron-left" label={t("history.prev")} disabled={monthKey <= earliest} onclick={() => monthOffset--} />
     <p class="month-name" aria-live="polite">{monthName}</p>
-    <IconButton icon="chevron-right" label="Next month" disabled={monthOffset >= 0} onclick={() => monthOffset++} />
+    <IconButton icon="chevron-right" label={t("history.next")} disabled={monthOffset >= 0} onclick={() => monthOffset++} />
   </div>
-  <ul class="tiles" aria-label="Statistics for {monthName}">
-    {#each monthTiles as t (t.label)}
+  <ul class="tiles" aria-label={t("pg2.statsFor", { month: monthName })}>
+    {#each monthTiles as tile (tile.label)}
       <li>
         <Card>
-          <p class="tv tabular">{t.value}</p>
-          <p class="muted small">{t.label}</p>
+          <p class="tv tabular">{tile.value}</p>
+          <p class="muted small">{tile.label}</p>
         </Card>
       </li>
     {/each}
   </ul>
 
-  <h2>Exercise progress</h2>
+  <h2>{t("pg2.exerciseProgress")}</h2>
   <div class="controls">
-    <Select label="Exercise" bind:value={selectedId.value} {options} />
-    <Button variant="secondary" onclick={() => (pickerOpen = true)}>Choose another exercise</Button>
+    <Select label={t("pg2.exercise")} bind:value={selectedId.value} {options} />
+    <Button variant="secondary" onclick={() => (pickerOpen = true)}>{t("pg2.chooseAnother")}</Button>
     {#if weighted}
       <SegmentedControl
-        legend="Metric"
+        legend={t("pg2.metric")}
         bind:value={metric}
         options={[
-          { value: "e1rm", label: "e1RM" },
-          { value: "max", label: "Max weight" },
-          { value: "volume", label: "Volume" },
+          { value: "e1rm", label: t("pg2.e1rm") },
+          { value: "max", label: t("pg2.maxWeight") },
+          { value: "volume", label: t("pg2.volume") },
         ]}
       />
     {/if}
     <SegmentedControl
-      legend="Range"
+      legend={t("pg2.range")}
       bind:value={range}
-      options={["1M", "3M", "1Y", "All"].map((v) => ({ value: v, label: v }))}
+      options={["1M", "3M", "1Y", "All"].map((v) => ({ value: v, label: v === "All" ? t("pg2.all") : v }))}
     />
   </div>
 
   {#if !weighted && !bodyweight}
-    <EmptyState icon="chart" title="No chart for this exercise type" body="Charts cover weight and rep based exercises." />
+    <EmptyState icon="chart" title={t("pg2.noChart")} body={t("pg2.noChartBody")} />
   {:else}
     <Card>
       {#if latest}
-        <p class="headline"><span class="big tabular">{latest.value.toLocaleString()} {metricInfo.unit}</span> <span class="muted">{metricInfo.name}</span></p>
+        <p class="headline"><span class="big tabular">{formatLocaleNumber(latest.value)} {metricInfo.unit}</span> <span class="muted">{metricInfo.name}</span></p>
       {/if}
-      <LineChart {points} label={`${metricInfo.name} for ${exercise.name}`} unit={metricInfo.unit} />
-      {#if metricInfo.name === "Estimated 1RM"}
-        <p class="muted small">Estimated 1RM is calculated from weight and reps (Epley); it is an estimate, not a tested max.</p>
+      <LineChart {points} label={t("pg2.chartLabel", { metric: metricInfo.name, name: exercise.name })} unit={metricInfo.unit} />
+      {#if !bodyweight && metric !== "max" && metric !== "volume"}
+        <p class="muted small">{t("pg2.epley")}</p>
       {/if}
     </Card>
   {/if}
 
-  <h2>Personal records</h2>
+  <h2>{t("pg2.records")}</h2>
   {#if sessions.length === 0}
-    <p class="muted">No completed workouts with this exercise yet.</p>
+    <p class="muted">{t("ex.noHistory")}</p>
   {:else}
     <PrSummary {sessions} exerciseId={exercise.id} exerciseType={exercise.exerciseType} {unit} />
   {/if}
 
   <ExercisePicker
     bind:open={pickerOpen}
-    title="Choose exercise"
+    title={t("imp.chooseExercise")}
     allowCreate={false}
     onpick={(list) => list[0] && void choose(list[0]).catch(() => (failed = true))}
   />

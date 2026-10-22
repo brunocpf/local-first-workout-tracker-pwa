@@ -1,7 +1,7 @@
 import { en, type MessageKey } from "#lib/messages";
 import { t } from "#lib/i18n.svelte";
 
-type Group = "muscle" | "equipment" | "type" | "setType";
+type Group = "muscle" | "equipment" | "type" | "setType" | "measure";
 
 /** Display label for a vocabulary id; ids outside the vocabulary (custom or imported) are humanized. */
 function label(group: Group, id: string): string {
@@ -18,3 +18,5 @@ export const setTypeLabel = (id: string) => label("setType", id);
 
 /** "Barbell · Quads", for list subtitles. */
 export const joinLabels = (labels: string[]) => labels.join(" · ");
+
+export const measurementLabel = (kind: string) => label("measure", kind);

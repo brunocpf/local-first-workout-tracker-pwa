@@ -55,7 +55,7 @@
     try {
       await updateSettings(patch);
     } catch {
-      saveError = "Couldn't save that change. Storage may be unavailable.";
+      saveError = t("st.saveFailed");
     }
   }
 
@@ -69,10 +69,10 @@
   }
 
   const persisted = $derived(persistence?.persisted ?? null);
-  const statusLabel = $derived(persisted === true ? "Yes" : persisted === false ? "No" : "Unknown");
+  const statusLabel = $derived(persisted === true ? t("st.yes") : persisted === false ? t("st.no") : t("st.unknown"));
 </script>
 
-<PageHeader title="Settings" />
+<PageHeader title={t("st.title")} />
 
 {#if saveError}
   <Banner variant="danger" urgent>{saveError}</Banner>
@@ -82,7 +82,7 @@
   <Card as="section" header={units}>
     <div class="stack">
       <SegmentedControl
-        legend="Weight unit"
+        legend={t("st.weightUnit")}
         legendVisible
         bind:value={() => settings.weightUnit, (v) => save({ weightUnit: v as UserSettings["weightUnit"] })}
         options={[
@@ -91,7 +91,7 @@
         ]}
       />
       <SegmentedControl
-        legend="Length unit"
+        legend={t("st.lengthUnit")}
         legendVisible
         bind:value={() => settings.lengthUnit ?? "cm", (v) => save({ lengthUnit: v as LengthUnit })}
         options={[
@@ -105,66 +105,66 @@
   <Card as="section" header={workout}>
     <div class="stack">
       <NumberField
-        label="Default rest"
+        label={t("st.defaultRest")}
         mode="integer"
-        suffix="seconds"
+        suffix={t("st.seconds")}
         min={0}
         max={3600}
         value={settings.defaultRestSeconds}
         onchange={(n) => n !== null && save({ defaultRestSeconds: n })}
       />
       <Switch
-        label="Auto-start rest timer"
-        description="Start the timer when you complete a set."
+        label={t("st.autoRest")}
+        description={t("st.autoRestDesc")}
         bind:checked={() => settings.autoStartRestTimer, (v) => save({ autoStartRestTimer: v })}
       />
       <Switch
-        label="Rest-done sound"
+        label={t("st.restSound")}
         bind:checked={() => settings.timerSound !== false, (v) => save({ timerSound: v })}
       />
       {#if canVibrate}
         <Switch
-          label="Rest-done vibration"
+          label={t("st.restVibration")}
           bind:checked={() => settings.timerVibration !== false, (v) => save({ timerVibration: v })}
         />
       {/if}
       <Switch
-        label="10-second warning"
-        description="A short cue when 10 seconds of rest remain."
+        label={t("st.warning10")}
+        description={t("st.warning10Desc")}
         bind:checked={() => settings.timerCountdownCue === true, (v) => save({ timerCountdownCue: v })}
       />
       <Button
         onclick={() => playTestAlert({ sound: settings.timerSound !== false, vibrate: settings.timerVibration !== false })}
       >
-        Test alert
+        {t("st.testAlert")}
       </Button>
       <SegmentedControl
-        legend="Effort per set"
+        legend={t("st.effort")}
         legendVisible
         bind:value={() => settings.effortInput ?? "off", (v) => save({ effortInput: v as EffortInput })}
         options={[
-          { value: "off", label: "Off" },
+          { value: "off", label: t("st.off") },
           { value: "rpe", label: "RPE" },
           { value: "rir", label: "RIR" },
         ]}
       />
       <SegmentedControl
-        legend="Previous values from"
+        legend={t("st.previousFrom")}
         legendVisible
         bind:value={() => settings.previousValuesMode, (v) => save({ previousValuesMode: v as UserSettings["previousValuesMode"] })}
         options={[
-          { value: "exercise", label: "Last exercise" },
-          { value: "routine", label: "Same routine" },
+          { value: "exercise", label: t("st.lastExercise") },
+          { value: "routine", label: t("st.sameRoutine") },
         ]}
       />
       <Switch
-        label="Progression suggestions"
-        description="Suggest a weight and reps from your last session. Never applied automatically."
+        label={t("st.progression")}
+        description={t("st.progressionDesc")}
         bind:checked={() => settings.progressionEnabled ?? false, (v) => save({ progressionEnabled: v })}
       />
       {#if settings.progressionEnabled}
         <NumberField
-          label="Increment"
+          label={t("st.increment")}
           suffix={settings.weightUnit}
           min={0.25}
           max={50}
@@ -175,21 +175,21 @@
         />
       {/if}
       <TextField
-        label="Warm-up sets"
-        hint="Each step is a percent of your working weight × reps; bar is the empty bar. Example: bar x 10, 40 x 5, 60 x 3, 80 x 2."
+        label={t("st.warmups")}
+        hint={t("st.warmupsHint")}
         bind:value={() => schemeText, (v) => (schemeEdit = v)}
-        error={schemeParsed ? undefined : "Use steps like 40 x 5, separated by commas."}
+        error={schemeParsed ? undefined : t("st.warmupsError")}
         enterkeyhint="done"
       />
       <div class="row">
-        <Button variant="primary" disabled={!schemeParsed || schemeText === savedScheme} onclick={saveScheme}>Save warm-ups</Button>
-        <Button variant="ghost" onclick={() => { schemeEdit = undefined; void save({ warmupScheme: DEFAULT_WARMUP_SCHEME }); }}>Reset</Button>
+        <Button variant="primary" disabled={!schemeParsed || schemeText === savedScheme} onclick={saveScheme}>{t("st.saveWarmups")}</Button>
+        <Button variant="ghost" onclick={() => { schemeEdit = undefined; void save({ warmupScheme: DEFAULT_WARMUP_SCHEME }); }}>{t("st.reset")}</Button>
       </div>
     </div>
   </Card>
 
   <Card as="section" header={plates}>
-    <PlateSettings onerror={() => (saveError = "Couldn't save that change. Storage may be unavailable.")} />
+    <PlateSettings onerror={() => (saveError = t("st.saveFailed"))} />
   </Card>
 
   {#if pushConfigured}
@@ -200,12 +200,12 @@
 
   <Card as="section" header={appearance}>
     <SegmentedControl
-      legend="Theme"
+      legend={t("st.theme")}
       bind:value={() => settings.theme, (v) => save({ theme: v as UserSettings["theme"] })}
       options={[
-        { value: "system", label: "System" },
-        { value: "light", label: "Light" },
-        { value: "dark", label: "Dark" },
+        { value: "system", label: t("settings.language.system") },
+        { value: "light", label: t("st.light") },
+        { value: "dark", label: t("st.dark") },
       ]}
     />
     <SegmentedControl
@@ -221,13 +221,13 @@
 
   <Card as="section" header={calendar}>
     <SegmentedControl
-      legend="Week starts on"
+      legend={t("st.weekStarts")}
       legendVisible
       bind:value={() => String(settings.weekStartsOn), (v) => save({ weekStartsOn: Number(v) as UserSettings["weekStartsOn"] })}
       options={[
-        { value: "1", label: "Mon" },
-        { value: "0", label: "Sun" },
-        { value: "6", label: "Sat" },
+        { value: "1", label: t("st.mon") },
+        { value: "0", label: t("st.sun") },
+        { value: "6", label: t("st.sat") },
       ]}
     />
   </Card>
@@ -238,15 +238,15 @@
 
   <Card as="section" header={install}>
     {#if standalone}
-      <p class="note">You're using the installed app.</p>
+      <p class="note">{t("st.installed")}</p>
     {:else}
       <InstallHint dismissible={false} />
     {/if}
   </Card>
 
   <Card as="section" header={importData} padding="none">
-    <ListRow title="Import from Hevy" subtitle="Bring in your workout history from a Hevy CSV export" href={resolve("/settings/import-hevy")} />
-    <ListRow title="Import from CSV" subtitle="Bring in history from this app's CSV export or any app's CSV, choosing the columns" href={resolve("/settings/import-csv")} />
+    <ListRow title={t("st.importHevy")} subtitle={t("st.importHevyDesc")} href={resolve("/settings/import-hevy")} />
+    <ListRow title={t("st.importCsv")} subtitle={t("st.importCsvDesc")} href={resolve("/settings/import-csv")} />
   </Card>
 
   <!-- Backup reminder goes here (T4.05, #73). -->
@@ -254,30 +254,28 @@
   <Card as="section" header={storage}>
     <div class="stack">
       <dl>
-        <dt>Persistent storage</dt>
+        <dt>{t("st.persistent")}</dt>
         <dd data-testid="persisted">{statusLabel}</dd>
-        <dt>Usage</dt>
-        <dd>{persistence ? `${formatBytes(persistence.usageBytes)} of ${formatBytes(persistence.quotaBytes)}` : "…"}</dd>
+        <dt>{t("st.usage")}</dt>
+        <dd>{persistence ? t("st.usageOf", { used: formatBytes(persistence.usageBytes), quota: formatBytes(persistence.quotaBytes) }) : "…"}</dd>
       </dl>
       {#if persistence}
         {#if persisted === true}
-          <Banner variant="success">Your data is protected from automatic cleanup by the browser.</Banner>
+          <Banner variant="success">{t("st.protected")}</Banner>
         {:else}
-          <Banner variant="warning" title={persisted === false ? "Storage isn't protected" : "Storage protection unknown"}>
+          <Banner variant="warning" title={persisted === false ? t("st.notProtected") : t("st.unknownProtection")}>
             {#if !persistence.supported}
-              This browser doesn't report whether storage is persistent.
+              {t("st.unsupported")}
             {:else if persisted === false}
-              The browser may delete workout data when the device is low on space, or after a period of not using the app.
+              {t("st.mayDelete")}
             {:else}
-              The browser didn't say whether your data is protected.
+              {t("st.didntSay")}
             {/if}
-            Keep regular backups so you never lose your history. On iPhone and iPad, installing the app to the Home Screen
-            gives the best protection; Chrome and Edge usually grant it to installed apps or after frequent use; Firefox asks
-            for permission.
+            {t("st.keepBackups")}
           </Banner>
         {/if}
         {#if persisted !== true && persistence.supported}
-          <Button onclick={request} loading={requesting}>Request persistent storage</Button>
+          <Button onclick={request} loading={requesting}>{t("st.requestPersist")}</Button>
         {/if}
       {/if}
     </div>
@@ -285,24 +283,24 @@
 
   <Card as="section" header={about} padding="none">
     <dl class="about">
-      <dt>Version</dt>
+      <dt>{t("st.version")}</dt>
       <dd>{version}</dd>
     </dl>
-    <ListRow title="Diagnostics" subtitle="Platform capabilities and a shareable report" href={resolve("/diagnostics")} />
+    <ListRow title={t("st.diagnostics")} subtitle={t("st.diagnosticsDesc")} href={resolve("/diagnostics")} />
   </Card>
 </div>
 
-{#snippet units()}Units{/snippet}
-{#snippet workout()}Workout{/snippet}
-{#snippet plates()}Plate calculator{/snippet}
-{#snippet notifications()}Notifications{/snippet}
-{#snippet appearance()}Appearance{/snippet}
-{#snippet calendar()}Calendar{/snippet}
-{#snippet backup()}Backup{/snippet}
-{#snippet install()}Install{/snippet}
-{#snippet importData()}Import{/snippet}
-{#snippet storage()}Storage{/snippet}
-{#snippet about()}About{/snippet}
+{#snippet units()}{t("st.units")}{/snippet}
+{#snippet workout()}{t("st.workout")}{/snippet}
+{#snippet plates()}{t("st.plates")}{/snippet}
+{#snippet notifications()}{t("st.notifications")}{/snippet}
+{#snippet appearance()}{t("st.appearance")}{/snippet}
+{#snippet calendar()}{t("st.calendar")}{/snippet}
+{#snippet backup()}{t("st.backup")}{/snippet}
+{#snippet install()}{t("st.install")}{/snippet}
+{#snippet importData()}{t("st.import")}{/snippet}
+{#snippet storage()}{t("st.storage")}{/snippet}
+{#snippet about()}{t("st.about")}{/snippet}
 
 <style>
   .row {
