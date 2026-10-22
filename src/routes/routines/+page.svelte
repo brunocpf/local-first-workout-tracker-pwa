@@ -268,7 +268,7 @@
       {@render group(folder.name, routines, { folder })}
     {/each}
     {#if byFolder.unfiled.length > 0}
-      {@render group(grouped.programs.length + grouped.folders.length > 0 ? t("rt.other") : t("rt.title"), byFolder.unfiled)}
+      {@render group(grouped.programs.length + grouped.folders.length > 0 ? t("rt.otherRoutines") : t("rt.title"), byFolder.unfiled)}
     {/if}
   {/if}
 {/if}

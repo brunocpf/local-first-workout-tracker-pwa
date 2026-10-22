@@ -189,7 +189,7 @@
 {/if}
 
 {#snippet logWeight()}{t("body.logWeight")}{/snippet}
-{#snippet logOther()}{t("body.other")}{/snippet}
+{#snippet logOther()}{t("body.otherKinds")}{/snippet}
 {#snippet history()}{t("body.chart")}{/snippet}
 {#snippet entries()}{t("body.entries")}{/snippet}
 

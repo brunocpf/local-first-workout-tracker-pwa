@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { intlLocale } from "#lib/i18n.svelte";
+  import type { MessageKey } from "#lib/messages";
+  import { t, tn } from "#lib/i18n.svelte";
   // CSV history import (PRD §12.2, docs/csv-format.md): file → column mapping, units, time zone → summary → exercise mapping →
   // duplicates → confirm. Nothing is written until the final confirm; the write is the Hevy import's one all-or-nothing transaction.
   import { goto } from "$app/navigation";
@@ -39,15 +42,12 @@
   import type { Exercise } from "#lib/types";
 
   type Step = "file" | "columns" | "summary" | "exercises" | "review" | "done";
-  const STEPS: { id: Exclude<Step, "done">; title: string }[] = [
-    { id: "file", title: "File" },
-    { id: "columns", title: "Columns, units and time zone" },
-    { id: "summary", title: "Summary" },
-    { id: "exercises", title: "Exercises" },
-    { id: "review", title: "Duplicates and confirm" },
-  ];
+  const STEPS: { id: Exclude<Step, "done"> }[] = [{ id: "file" }, { id: "columns" }, { id: "summary" }, { id: "exercises" }, { id: "review" }];
   const SHOWN = 10;
   const NONE = "";
+  const stepTitle = (id: Exclude<Step, "done">) => (id === "file" || id === "columns" ? t(`csv.step.${id}`) : t(`hv.step.${id}`));
+  const fieldLabel = (f: CsvField) => t(`csv.field.${f}`);
+  const fieldHint = (f: CsvField) => (CSV_FIELD_LABELS[f].hint ? t(`csv.hint.${f}` as MessageKey) : undefined);
 
   let step = $state<Step>("file");
   let fileName = $state("");
@@ -96,8 +96,8 @@
   });
   const problems = $derived(mappingIssues(mapping));
   const columnOptions = $derived([
-    { value: NONE, label: "Not in the file" },
-    ...(table?.headers ?? []).map((h, i) => ({ value: String(i), label: h === "" ? `Column ${i + 1}` : h.length > 60 ? `${h.slice(0, 59)}…` : h })),
+    { value: NONE, label: t("csv.notInFile") },
+    ...(table?.headers ?? []).map((h, i) => ({ value: String(i), label: h === "" ? t("csv.columnN", { n: i + 1 }) : h.length > 60 ? `${h.slice(0, 59)}…` : h })),
   ]);
 
   const plan = $derived(
@@ -107,8 +107,7 @@
   const newCount = $derived(drafts.length - flagged.length);
 
   const formatIn = (iso: string, zone: string) =>
-    new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone: zone }).format(new Date(iso));
-  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+    new Intl.DateTimeFormat(intlLocale(), { dateStyle: "medium", timeStyle: "short", timeZone: zone }).format(new Date(iso));
 
   async function onfile(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
@@ -121,7 +120,7 @@
     reading = true;
     try {
       const read = await readTextFile(file, MAX_CSV_BYTES);
-      if (!read.ok) return void (fileError = "File is larger than 10 MB.");
+      if (!read.ok) return void (fileError = t("hv.tooBig"));
       const result = readCsvTable(read.text);
       if (!result.ok) return void (fileError = result.error);
       table = result.table;
@@ -129,7 +128,7 @@
       columns = { ...emptyColumns(), ...Object.fromEntries(Object.entries(suggested).map(([f, i]) => [f, String(i)])) };
       units = suggestUnits(result.table.headers, suggested);
     } catch {
-      fileError = "Couldn't read that file.";
+      fileError = t("hv.readFailed");
     } finally {
       reading = false;
     }
@@ -170,7 +169,7 @@
       include = {};
       step = "summary";
     } catch {
-      analysisError = "Couldn't read your exercises or workout history. Nothing was changed.";
+      analysisError = t("hv.analysisFailed");
     } finally {
       analyzing = false;
     }
@@ -185,9 +184,9 @@
       const written = await commitHevyImport({ ...plan, mappings: {} });
       importedCount = written;
       step = "done";
-      toast(`Imported ${plural(written, "workout")}`, { action: { label: "View history", run: () => void goto(resolve("/history")) } });
+      toast(t("hv.imported", { workouts: tn("count.workouts", written) }), { action: { label: t("hv.viewHistory"), run: () => void goto(resolve("/history")) } });
     } catch {
-      commitError = "Couldn't import. Nothing was changed.";
+      commitError = t("hv.importFailed");
     } finally {
       committing = false;
     }
@@ -209,150 +208,149 @@
   const matchLabel = (m: DuplicateMatch) =>
     m.status === "duplicate"
       ? m.source === "stored"
-        ? "Already imported"
-        : "Repeated in this file"
-      : "Possible duplicate: a workout starts within 10 minutes of this one";
+        ? t("hv.alreadyImported")
+        : t("hv.repeated")
+      : t("hv.possibleDup");
 
-  const unitOptions = {
+  const unitOptions = $derived({
     weight: [
-      { value: "kg", label: "Kilograms (kg)" },
-      { value: "lb", label: "Pounds (lb)" },
+      { value: "kg", label: t("csv.kg") },
+      { value: "lb", label: t("csv.lb") },
     ],
     distance: [
-      { value: "m", label: "Metres (m)" },
-      { value: "km", label: "Kilometres (km)" },
-      { value: "mi", label: "Miles (mi)" },
+      { value: "m", label: t("csv.m") },
+      { value: "km", label: t("csv.km") },
+      { value: "mi", label: t("csv.mi") },
     ],
     duration: [
-      { value: "s", label: "Seconds" },
-      { value: "min", label: "Minutes" },
+      { value: "s", label: t("csv.s") },
+      { value: "min", label: t("csv.min") },
     ],
-  };
+  });
 </script>
 
-<PageHeader title="Import from CSV" back={{ href: resolve("/settings"), label: "Back to settings" }} />
+<PageHeader title={t("csv.title")} back={{ href: resolve("/settings"), label: t("hv.back") }} />
 
 <div class="steps">
   {#if step !== "done"}
-    <p class="progress" aria-live="polite">Step {stepIndex + 1} of {STEPS.length}: {STEPS[stepIndex].title}</p>
+    <p class="progress" aria-live="polite">{t("hv.step", { n: stepIndex + 1, total: STEPS.length, title: stepTitle(STEPS[stepIndex].id) })}</p>
   {/if}
 
   {#if step === "file"}
     <Card as="section">
       <div class="stack">
         <p class="note">
-          Choose a CSV with one row per set. This app's own history export maps automatically; for other apps you match the columns next. Nothing is saved until
-          you confirm.
+          {t("csv.intro")}
         </p>
         <input bind:this={fileInput} type="file" accept=".csv,text/csv" hidden onchange={onfile} data-testid="csv-file-input" />
-        <Button onclick={() => fileInput?.click()} loading={reading}>{fileName ? "Choose another file…" : "Choose file…"}</Button>
+        <Button onclick={() => fileInput?.click()} loading={reading}>{fileName ? t("hv.chooseAnother") : t("hv.choose")}</Button>
         {#if fileName}<p class="file" data-testid="csv-file-name">{fileName}</p>{/if}
         {#if fileError}
-          <Banner variant="danger" urgent title="This file can't be imported">{fileError}</Banner>
+          <Banner variant="danger" urgent title={t("hv.badFile")}>{fileError}</Banner>
         {/if}
         {#if table}
-          <Banner variant="success">Read {plural(table.rows.length, "row")} and {plural(table.headers.length, "column")}.</Banner>
+          <Banner variant="success">{t("csv.read", { rows: tn("count.rows", table.rows.length), cols: tn("count.columns", table.headers.length) })}</Banner>
         {/if}
-        <Button variant="primary" disabled={!table} onclick={() => (step = "columns")}>Continue</Button>
+        <Button variant="primary" disabled={!table} onclick={() => (step = "columns")}>{t("hv.continue")}</Button>
       </div>
     </Card>
   {:else if step === "columns" && table}
     <Card as="section">
       <div class="stack">
-        <p class="note">Pick the column for each field. Fields marked “Not in the file” are left empty.</p>
+        <p class="note">{t("csv.pickColumns")}</p>
         {#each CSV_FIELDS as f (f)}
-          <Select label={CSV_FIELD_LABELS[f].label} hint={CSV_FIELD_LABELS[f].hint} options={columnOptions} bind:value={columns[f]} />
+          <Select label={fieldLabel(f)} hint={fieldHint(f)} options={columnOptions} bind:value={columns[f]} />
         {/each}
 
-        <Select label="Weight unit" options={unitOptions.weight} bind:value={units.weight} hint="Stored in kg; pounds are converted." />
-        <Select label="Distance unit" options={unitOptions.distance} bind:value={units.distance} hint="Stored in metres." />
+        <Select label={t("csv.weightUnit")} options={unitOptions.weight} bind:value={units.weight} hint={t("csv.weightHint")} />
+        <Select label={t("csv.distanceUnit")} options={unitOptions.distance} bind:value={units.distance} hint={t("csv.distanceHint")} />
         <Select
-          label="Duration unit"
+          label={t("csv.durationUnit")}
           options={unitOptions.duration}
           bind:value={units.duration}
-          hint="Values like 1:05:30 are always read as clock time."
+          hint={t("csv.durationHint")}
         />
         <Select
-          label="Time zone"
-          hint="Used for times without an offset, and for rows without a time zone column. It decides which day each workout lands on."
+          label={t("past.timeZone")}
+          hint={t("csv.zoneHint")}
           options={zones}
           bind:value={timeZone}
         />
 
         {#if problems.length > 0}
-          <Banner variant="warning" title="Finish the mapping"><ul>{#each problems as m (m)}<li>{m}</li>{/each}</ul></Banner>
+          <Banner variant="warning" title={t("csv.finish")}><ul>{#each problems as m (m)}<li>{m}</li>{/each}</ul></Banner>
         {/if}
         {#if analysisError}<Banner variant="danger" urgent>{analysisError}</Banner>{/if}
         <div class="nav">
-          <Button onclick={() => (step = "file")}>Back</Button>
-          <Button variant="primary" disabled={problems.length > 0} loading={analyzing} onclick={analyze}>Continue</Button>
+          <Button onclick={() => (step = "file")}>{t("hv.back2")}</Button>
+          <Button variant="primary" disabled={problems.length > 0} loading={analyzing} onclick={analyze}>{t("hv.continue")}</Button>
         </div>
       </div>
     </Card>
   {:else if step === "summary" && normalized}
-    {@const t = normalized.totals}
+    {@const totals = normalized.totals}
     {@const first = drafts[0]}
     {@const last = drafts[drafts.length - 1]}
     {@const r = normalized.report}
     <Card as="section">
       <div class="stack">
         <dl data-testid="csv-summary">
-          <dt>Workouts</dt>
-          <dd>{t.workouts}</dd>
-          <dt>Sets</dt>
-          <dd>{t.sets}</dd>
-          <dt>Exercises</dt>
+          <dt>{t("hv.workouts")}</dt>
+          <dd>{totals.workouts}</dd>
+          <dt>{t("hv.sets")}</dt>
+          <dd>{totals.sets}</dd>
+          <dt>{t("hv.exercises")}</dt>
           <dd>{normalized.exercises.length}</dd>
           {#if first && last}
-            <dt>First</dt>
+            <dt>{t("hv.first")}</dt>
             <dd>{formatIn(first.startedAt, first.timeZone)}<span class="sub">{first.startedAt.slice(0, 16).replace("T", " ")} UTC</span></dd>
-            <dt>Last</dt>
+            <dt>{t("hv.last")}</dt>
             <dd>{formatIn(last.startedAt, last.timeZone)}<span class="sub">{last.startedAt.slice(0, 16).replace("T", " ")} UTC</span></dd>
           {/if}
-          <dt>Default time zone</dt>
+          <dt>{t("csv.defaultZone")}</dt>
           <dd>{timeZone}</dd>
         </dl>
 
-        {#if t.workouts === 0}
-          <Banner variant="warning" title="No workouts to import">The file has no workouts with usable sets. Check the column mapping.</Banner>
+        {#if totals.workouts === 0}
+          <Banner variant="warning" title={t("hv.noWorkoutsTitle")}>{t("csv.noWorkoutsBody")}</Banner>
         {/if}
 
         {#if r.rowErrorCount > 0 || r.emptySetsSkipped > 0 || r.unknownSetTypes.length > 0 || r.workoutsRejected.length > 0}
-          <Banner variant="warning" title="Not imported">
+          <Banner variant="warning" title={t("hv.notImported")}>
             <ul>
               {#each r.rowErrors.slice(0, SHOWN) as e, i (i)}<li>{e.where}: {e.message}</li>{/each}
-              {#if r.rowErrorCount > SHOWN}<li>…and {r.rowErrorCount - SHOWN} more invalid rows left out.</li>{/if}
-              {#if r.emptySetsSkipped > 0}<li>{plural(r.emptySetsSkipped, "empty set")} skipped.</li>{/if}
-              {#each r.unknownSetTypes as s (s.value)}<li>Set type “{s.value}” ({plural(s.rows, "set")}) imported as normal.</li>{/each}
+              {#if r.rowErrorCount > SHOWN}<li>{t("csv.moreRows", { n: r.rowErrorCount - SHOWN })}</li>{/if}
+              {#if r.emptySetsSkipped > 0}<li>{t("hv.emptySkipped", { count: tn("count.emptySets", r.emptySetsSkipped) })}</li>{/if}
+              {#each r.unknownSetTypes as s (s.value)}<li>{t("hv.setType", { value: s.value, sets: tn("count.sets", s.rows) })}</li>{/each}
               {#each r.workoutsRejected.slice(0, SHOWN) as w, i (i)}<li>{w.where}: {w.message}</li>{/each}
-              {#if r.workoutsRejected.length > SHOWN}<li>…and {r.workoutsRejected.length - SHOWN} more workouts left out.</li>{/if}
+              {#if r.workoutsRejected.length > SHOWN}<li>{t("hv.moreLeftOut", { n: r.workoutsRejected.length - SHOWN })}</li>{/if}
             </ul>
           </Banner>
         {/if}
-        <p class="note">Only the mapped fields are imported; supersets, exercise notes and workout notes aren't part of this format.</p>
+        <p class="note">{t("csv.onlyMapped")}</p>
         {#if r.warnings.length > 0}
           <details>
-            <summary>{plural(r.warnings.length, "warning")}</summary>
+            <summary>{tn("count.warnings", r.warnings.length)}</summary>
             <ul>
               {#each r.warnings.slice(0, 50) as w, i (i)}<li>{w.where ? `${w.where}: ` : ""}{w.message}</li>{/each}
-              {#if r.warnings.length > 50}<li>…and {r.warnings.length - 50} more.</li>{/if}
+              {#if r.warnings.length > 50}<li>{t("hv.andMore", { n: r.warnings.length - 50 })}</li>{/if}
             </ul>
           </details>
         {/if}
         <div class="nav">
-          <Button onclick={() => (step = "columns")}>Back</Button>
-          <Button variant="primary" disabled={t.workouts === 0} onclick={() => (step = "exercises")}>Continue</Button>
+          <Button onclick={() => (step = "columns")}>{t("hv.back2")}</Button>
+          <Button variant="primary" disabled={totals.workouts === 0} onclick={() => (step = "exercises")}>{t("hv.continue")}</Button>
         </div>
       </div>
     </Card>
   {:else if step === "exercises" && normalized}
     <Card as="section">
       <div class="stack">
-        <p class="note">Match each exercise name in the file to your catalog, create it as a new exercise, or skip it.</p>
+        <p class="note">{t("csv.matchNote")}</p>
         <ExerciseMappingTable exercises={normalized.exercises} {catalog} {resolutions} {sources} bind:choices />
         <div class="nav">
-          <Button onclick={() => (step = "summary")}>Back</Button>
-          <Button variant="primary" onclick={() => (step = "review")}>Continue</Button>
+          <Button onclick={() => (step = "summary")}>{t("hv.back2")}</Button>
+          <Button variant="primary" onclick={() => (step = "review")}>{t("hv.continue")}</Button>
         </div>
       </div>
     </Card>
@@ -362,8 +360,7 @@
         {#if flagged.length > 0}
           <div class="stack" data-testid="csv-duplicates">
             <p class="note">
-              {plural(flagged.length, "workout")} look{flagged.length === 1 ? "s" : ""} like ones already in your history. Already-imported workouts are skipped unless you
-              switch them on; nothing is merged or overwritten.
+              {tn("hv.flagged", flagged.length)}
             </p>
             {#each flagged as { draft, match } (draft.id)}
               <div class="dup">
@@ -378,42 +375,41 @@
         {/if}
 
         <dl>
-          <dt>New workouts</dt>
+          <dt>{t("hv.newWorkouts")}</dt>
           <dd>{newCount}</dd>
           {#if flagged.length > 0}
-            <dt>Flagged workouts included</dt>
+            <dt>{t("hv.flaggedIncluded")}</dt>
             <dd>{flagged.length - plan.counts.deselectedWorkouts}</dd>
           {/if}
-          <dt>Sets</dt>
+          <dt>{t("hv.sets")}</dt>
           <dd>{plan.counts.sets}</dd>
           {#if plan.counts.skippedSets > 0}
-            <dt>Sets skipped</dt>
+            <dt>{t("hv.setsSkipped")}</dt>
             <dd>{plan.counts.skippedSets}</dd>
           {/if}
           {#if plan.newExercises.length > 0}
-            <dt>New custom exercises</dt>
+            <dt>{t("hv.newCustom")}</dt>
             <dd>{plan.newExercises.length}</dd>
           {/if}
         </dl>
 
         {#if plan.undecided.length > 0}
-          <Banner variant="warning" title="Some exercises need a decision">
-            {plural(plan.undecided.length, "exercise")} in the workouts to import {plan.undecided.length === 1 ? "isn't" : "aren't"} mapped yet:
-            {plan.undecided.slice(0, 5).join(", ")}{plan.undecided.length > 5 ? "…" : ""}.
-            <Button size="sm" onclick={() => (step = "exercises")}>Go to exercises</Button>
+          <Banner variant="warning" title={t("hv.undecidedTitle")}>
+            {tn("hv.undecided", plan.undecided.length, { names: plan.undecided.slice(0, 5).join(", ") + (plan.undecided.length > 5 ? "…" : "") })}
+            <Button size="sm" onclick={() => (step = "exercises")}>{t("hv.goExercises")}</Button>
           </Banner>
         {:else if plan.sessions.length === 0}
-          <Banner variant="info" title="Nothing new to import">Every workout in this file is already in your history or left out.</Banner>
+          <Banner variant="info" title={t("hv.nothingNewTitle")}>{t("hv.nothingNew")}</Banner>
         {/if}
         {#if plan.counts.emptiedWorkouts > 0}
-          <Banner variant="warning">{plural(plan.counts.emptiedWorkouts, "workout")} left out because all of {plan.counts.emptiedWorkouts === 1 ? "its" : "their"} exercises are skipped.</Banner>
+          <Banner variant="warning">{tn("hv.emptied", plan.counts.emptiedWorkouts)}</Banner>
         {/if}
         {#if commitError}<Banner variant="danger" urgent>{commitError}</Banner>{/if}
 
         <div class="nav">
-          <Button onclick={() => (step = "exercises")}>Back</Button>
+          <Button onclick={() => (step = "exercises")}>{t("hv.back2")}</Button>
           <Button variant="primary" loading={committing} disabled={plan.undecided.length > 0 || plan.sessions.length === 0} onclick={confirm}>
-            Import {plural(plan.counts.workouts, "workout")}
+            {t("hv.import", { workouts: tn("count.workouts", plan.counts.workouts) })}
           </Button>
         </div>
       </div>
@@ -421,10 +417,10 @@
   {:else if step === "done"}
     <Card as="section">
       <div class="stack">
-        <Banner variant="success" title="Import complete">Imported {plural(importedCount, "workout")}. They now appear in History and in your previous values.</Banner>
+        <Banner variant="success" title={t("hv.doneTitle")}>{t("hv.done", { workouts: tn("count.workouts", importedCount) })}</Banner>
         <div class="nav">
-          <Button onclick={reset}>Import another file</Button>
-          <Button variant="primary" href={resolve("/history")}>View history</Button>
+          <Button onclick={reset}>{t("hv.another")}</Button>
+          <Button variant="primary" href={resolve("/history")}>{t("hv.viewHistory")}</Button>
         </div>
       </div>
     </Card>

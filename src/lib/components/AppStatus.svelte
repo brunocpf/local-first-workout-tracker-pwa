@@ -75,7 +75,7 @@
         {#if isQuotaError(active.error)}
           {t("status.notSaved.quota")} <a href={settingsHref}>{t("status.exportBackup")}</a>.
         {:else}
-          {t("status.notSaved.other")} <a href={settingsHref}>{t("status.exportBackup")}</a>.
+          {t("status.notSaved.generic")} <a href={settingsHref}>{t("status.exportBackup")}</a>.
         {/if}
       </Banner>
     </div>

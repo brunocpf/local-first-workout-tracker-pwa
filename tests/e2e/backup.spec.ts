@@ -166,7 +166,7 @@ test("export → clear storage → restore brings everything back", async ({
   await page.goto("/settings");
   await page.getByTestId("restore-input").setInputFiles(path);
   const dialog = page.getByRole("dialog", { name: "Replace all data?" });
-  await expect(dialog).toContainText("1 workouts");
+  await expect(dialog).toContainText("1 workout,");
   await dialog.getByRole("button", { name: "Replace all data" }).click();
   await expect(page.getByText("Backup restored")).toBeVisible();
 

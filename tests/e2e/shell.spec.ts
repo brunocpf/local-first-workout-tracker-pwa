@@ -145,3 +145,13 @@ test.describe("pt-BR browser", () => {
     await expect(primary.getByRole("link", { name: "Histórico" })).toBeVisible();
   });
 });
+
+test("the Language setting overrides the browser language and survives a reload", async ({ page }) => {
+  await page.goto("/settings");
+  await page.getByRole("radio", { name: "Português (Brasil)" }).check({ force: true });
+  await expect(page.locator("html")).toHaveAttribute("lang", "pt-BR");
+  await expect(page.getByRole("heading", { name: "Ajustes" })).toBeVisible();
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("lang", "pt-BR");
+  await expect(page.getByRole("navigation", { name: "Principal" })).toBeVisible();
+});
